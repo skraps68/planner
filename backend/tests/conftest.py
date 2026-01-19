@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.main import app
-from app.db.base import Base
+from app.models.base import Base
 from app.db.session import get_db
 
 # Test database URL (use SQLite for testing)

@@ -10,8 +10,11 @@ from sqlalchemy import pool
 from alembic import context
 
 # Import your models here
-from app.db.base import Base
+from app.models.base import Base
 from app.core.config import settings
+
+# Import all models to ensure they're registered with SQLAlchemy
+import app.models  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

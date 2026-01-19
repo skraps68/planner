@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [-] 1. Set up project structure and core infrastructure
+- [x] 1. Set up project structure and core infrastructure
   - Create FastAPI project structure with proper directory organization
   - Set up SQLAlchemy with PostgreSQL connection and configuration
   - Configure Alembic for database migrations
@@ -10,46 +10,46 @@
   - Add environment configuration for local vs production deployment
   - _Requirements: All requirements need foundational infrastructure_
 
-- [ ] 2. Implement core data models and database schema
-  - [ ] 2.1 Create base model classes and database utilities
+- [x] 2. Implement core data models and database schema
+  - [x] 2.1 Create base model classes and database utilities
     - Implement BaseModel with UUID primary keys and timestamps
     - Create database session management and connection utilities
     - Set up Alembic migration configuration
     - _Requirements: 1.1, 2.1, 5.1, 5.3, 6.1_
 
-  - [ ] 2.2 Implement Program model and repository
+  - [x] 2.2 Implement Program model and repository
     - Create Program SQLAlchemy model with all required fields
     - Implement ProgramRepository with CRUD operations
     - Add validation for date constraints (start_date < end_date)
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ] 2.3 Implement Project and ProjectPhase models
+  - [x] 2.3 Implement Project and ProjectPhase models
     - Create Project SQLAlchemy model with program relationship
     - Create ProjectPhase model for planning/execution phases
     - Implement budget validation (capital + expense = total)
     - Add ProjectRepository with phase management
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5_
 
-  - [ ] 2.4 Implement Resource, Worker, and WorkerType models
+  - [x] 2.4 Implement Resource, Worker, and WorkerType models
     - Create Resource model for both labor and non-labor resources
     - Create Worker model with external_id and worker_type relationship
     - Create WorkerType model with flexible configuration
     - Implement ResourceRepository and WorkerRepository
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-  - [ ] 2.5 Implement Rate model with temporal validity
+  - [x] 2.5 Implement Rate model with temporal validity
     - Create Rate model with start_date/end_date for historical rates
     - Implement rate update logic that closes previous rates
     - Create RateRepository with temporal query methods
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-  - [ ] 2.6 Implement ResourceAssignment and Actual models
+  - [x] 2.6 Implement ResourceAssignment and Actual models
     - Create ResourceAssignment model with allocation and accounting percentages
     - Create updated Actual model with project_id and worker information
     - Add validation constraints for percentage ranges (0-100%)
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 8.3_
 
-  - [ ] 2.7 Implement User, UserRole, ScopeAssignment and AuditLog models
+  - [x] 2.7 Implement User, UserRole, ScopeAssignment and AuditLog models
     - Create User model with authentication fields (removed JSON roles)
     - Create UserRole model for role assignments with activation status
     - Create ScopeAssignment model for program/project-level scoping
