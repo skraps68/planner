@@ -86,26 +86,26 @@
     - Add scope-based assignment filtering and access control
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 11.5_
 
-- [ ] 4. Implement actuals import and validation system
-  - [ ] 4.1 Create ActualsImportService
+- [x] 4. Implement actuals import and validation system
+  - [x] 4.1 Create ActualsImportService
     - Implement CSV parsing for actuals data format
     - Add data validation (project existence, worker validation, date format)
     - Create batch processing with transaction management
     - _Requirements: 8.3_
 
-  - [ ] 4.2 Create AllocationValidatorService
+  - [x] 4.2 Create AllocationValidatorService
     - Implement daily allocation limit validation (≤100% per worker per day)
     - Add cross-project allocation checking
     - Create conflict detection for existing vs new actuals
     - _Requirements: 3.2, 3.3_
 
-  - [ ] 4.3 Create ActualsService with cost calculation
+  - [x] 4.3 Create ActualsService with cost calculation
     - Implement actual record creation with rate lookup
     - Add capital/expense ratio application from assignments
     - Create cost calculation based on worker rates and percentages
     - _Requirements: 8.1, 8.3, 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 4.4 Create VarianceAnalysisService
+  - [x] 4.4 Create VarianceAnalysisService
     - Implement actual vs forecast comparison logic
     - Add variance calculation and exception identification
     - Create variance reporting with configurable thresholds

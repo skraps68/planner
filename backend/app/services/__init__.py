@@ -14,6 +14,10 @@ from app.services.resource import (
     RateService,
 )
 from app.services.assignment import assignment_service, AssignmentService
+from app.services.actuals_import import actuals_import_service, ActualsImportService
+from app.services.allocation_validator import allocation_validator_service, AllocationValidatorService
+from app.services.actuals import actuals_service, ActualsService
+from app.services.variance_analysis import variance_analysis_service, VarianceAnalysisService
 
 __all__ = [
     "program_service",
@@ -32,4 +36,12 @@ __all__ = [
     "RateService",
     "assignment_service",
     "AssignmentService",
+    "actuals_import_service",
+    "ActualsImportService",
+    "allocation_validator_service",
+    "AllocationValidatorService",
+    "actuals_service",
+    "ActualsService",
+    "variance_analysis_service",
+    "VarianceAnalysisService",
 ]
