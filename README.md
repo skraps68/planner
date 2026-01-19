@@ -43,24 +43,36 @@ A comprehensive enterprise application for managing hierarchical programs and pr
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/skraps68/planner.git
    cd planner
    ```
 
 2. **Start the development environment**
    ```bash
-   docker-compose up -d
+   make start
+   # or
+   ./scripts/start-dev.sh
    ```
 
-3. **Run database migrations**
+3. **Run database migrations** (when models are created)
    ```bash
-   docker-compose exec app alembic upgrade head
+   make migrate
    ```
 
 4. **Access the application**
    - API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
    - Frontend: http://localhost:3000 (when implemented)
+
+5. **Run tests**
+   ```bash
+   make test
+   ```
+
+6. **Stop the environment**
+   ```bash
+   make stop
+   ```
 
 ### Production Deployment
 
@@ -81,11 +93,25 @@ planner/
 │   ├── requirements.md           # Business requirements
 │   ├── design.md                # Technical design
 │   └── tasks.md                 # Implementation plan
-├── backend/                     # FastAPI application (to be created)
+├── backend/                     # FastAPI application
+│   ├── app/                     # Application code
+│   │   ├── api/                 # API endpoints
+│   │   ├── core/                # Core configuration
+│   │   ├── db/                  # Database configuration
+│   │   ├── models/              # SQLAlchemy models
+│   │   ├── services/            # Business logic
+│   │   ├── repositories/        # Data access layer
+│   │   └── main.py             # FastAPI app entry point
+│   ├── tests/                   # Test suite
+│   ├── alembic/                 # Database migrations
+│   ├── requirements.txt         # Python dependencies
+│   └── pytest.ini             # Test configuration
+├── scripts/                     # Development scripts
 ├── frontend/                    # React application (to be created)
 ├── infrastructure/              # AWS deployment configs (to be created)
-├── docker-compose.yml           # Local development setup (to be created)
-├── Dockerfile                   # Container configuration (to be created)
+├── docker-compose.yml           # Local development setup
+├── Dockerfile                   # Container configuration
+├── Makefile                     # Development commands
 └── README.md                   # This file
 ```
 

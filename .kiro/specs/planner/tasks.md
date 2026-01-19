@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Set up project structure and core infrastructure
+- [-] 1. Set up project structure and core infrastructure
   - Create FastAPI project structure with proper directory organization
   - Set up SQLAlchemy with PostgreSQL connection and configuration
   - Configure Alembic for database migrations
