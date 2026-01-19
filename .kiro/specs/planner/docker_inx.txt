@@ -1,0 +1,8 @@
+# Start local environment
+docker-compose up -d
+
+# Run migrations
+docker-compose exec app alembic upgrade head
+
+# Access application
+http://localhost:8000
