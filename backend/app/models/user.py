@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from sqlalchemy import Column, String, Boolean, ForeignKey, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.program import Program
@@ -59,7 +58,7 @@ class UserRole(BaseModel):
     __tablename__ = "user_roles"
     
     # Foreign keys
-    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     
     # Required fields
     role_type = Column(SQLEnum(RoleType), nullable=False, index=True)
@@ -79,9 +78,9 @@ class ScopeAssignment(BaseModel):
     __tablename__ = "scope_assignments"
     
     # Foreign keys
-    user_role_id = Column(PGUUID(as_uuid=True), ForeignKey("user_roles.id"), nullable=False, index=True)
-    program_id = Column(PGUUID(as_uuid=True), ForeignKey("programs.id"), nullable=True, index=True)
-    project_id = Column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=True, index=True)
+    user_role_id = Column(GUID(), ForeignKey("user_roles.id"), nullable=False, index=True)
+    program_id = Column(GUID(), ForeignKey("programs.id"), nullable=True, index=True)
+    project_id = Column(GUID(), ForeignKey("projects.id"), nullable=True, index=True)
     
     # Required fields
     scope_type = Column(SQLEnum(ScopeType), nullable=False, index=True)

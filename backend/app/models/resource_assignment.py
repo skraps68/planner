@@ -6,10 +6,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, Date, Numeric, ForeignKey, CheckConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.resource import Resource
@@ -23,9 +22,9 @@ class ResourceAssignment(BaseModel):
     __tablename__ = "resource_assignments"
     
     # Foreign keys
-    resource_id = Column(UUID(as_uuid=True), ForeignKey("resources.id"), nullable=False, index=True)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
-    project_phase_id = Column(UUID(as_uuid=True), ForeignKey("project_phases.id"), nullable=False, index=True)
+    resource_id = Column(GUID(), ForeignKey("resources.id"), nullable=False, index=True)
+    project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
+    project_phase_id = Column(GUID(), ForeignKey("project_phases.id"), nullable=False, index=True)
     
     # Required fields
     assignment_date = Column(Date, nullable=False, index=True)

@@ -10,10 +10,9 @@ from sqlalchemy import (
     Column, Date, String, Numeric, ForeignKey, Enum as SQLEnum,
     CheckConstraint
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.program import Program
@@ -33,7 +32,7 @@ class Project(BaseModel):
     __tablename__ = "projects"
     
     # Foreign keys
-    program_id = Column(UUID(as_uuid=True), ForeignKey("programs.id"), nullable=False, index=True)
+    program_id = Column(GUID(), ForeignKey("programs.id"), nullable=False, index=True)
     
     # Required fields
     name = Column(String(255), nullable=False, index=True)
@@ -65,7 +64,7 @@ class ProjectPhase(BaseModel):
     __tablename__ = "project_phases"
     
     # Foreign keys
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
     
     # Required fields
     phase_type = Column(SQLEnum(PhaseType), nullable=False)

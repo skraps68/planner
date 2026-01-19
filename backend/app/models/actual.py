@@ -6,10 +6,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, Date, String, Numeric, ForeignKey, CheckConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.project import Project
@@ -22,8 +21,8 @@ class Actual(BaseModel):
     __tablename__ = "actuals"
     
     # Foreign keys
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
-    resource_assignment_id = Column(UUID(as_uuid=True), ForeignKey("resource_assignments.id"), nullable=True, index=True)
+    project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
+    resource_assignment_id = Column(GUID(), ForeignKey("resource_assignments.id"), nullable=True, index=True)
     
     # Required fields
     external_worker_id = Column(String(100), nullable=False, index=True)

@@ -2,11 +2,12 @@
 Base model classes for the application.
 """
 import uuid
+import json
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Column, DateTime, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
 from sqlalchemy.types import TypeDecorator, CHAR
 
@@ -43,6 +44,37 @@ class GUID(TypeDecorator):
             if not isinstance(value, uuid.UUID):
                 value = uuid.UUID(value)
             return value
+
+
+class JSON(TypeDecorator):
+    """Platform-independent JSON type.
+    
+    Uses PostgreSQL's JSONB type, otherwise uses TEXT, storing as JSON strings.
+    """
+    impl = Text
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(JSONB())
+        else:
+            return dialect.type_descriptor(Text())
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == 'postgresql':
+            return value
+        else:
+            return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == 'postgresql':
+            return value
+        else:
+            return json.loads(value)
 
 
 @as_declarative()

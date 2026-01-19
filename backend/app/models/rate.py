@@ -6,10 +6,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, Date, Numeric, ForeignKey, CheckConstraint
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.resource import WorkerType
@@ -21,7 +20,7 @@ class Rate(BaseModel):
     __tablename__ = "rates"
     
     # Foreign keys
-    worker_type_id = Column(UUID(as_uuid=True), ForeignKey("worker_types.id"), nullable=False, index=True)
+    worker_type_id = Column(GUID(), ForeignKey("worker_types.id"), nullable=False, index=True)
     
     # Required fields
     rate_amount = Column(Numeric(15, 2), nullable=False)

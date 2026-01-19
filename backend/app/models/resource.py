@@ -5,10 +5,9 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, String, ForeignKey, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.resource_assignment import ResourceAssignment
@@ -60,7 +59,7 @@ class Worker(BaseModel):
     __tablename__ = "workers"
     
     # Foreign keys
-    worker_type_id = Column(UUID(as_uuid=True), ForeignKey("worker_types.id"), nullable=False, index=True)
+    worker_type_id = Column(GUID(), ForeignKey("worker_types.id"), nullable=False, index=True)
     
     # Required fields
     external_id = Column(String(100), nullable=False, unique=True, index=True)
