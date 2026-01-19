@@ -58,28 +58,28 @@
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 10.1, 10.2, 10.3, 10.4, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
 - [ ] 3. Implement core business services with scope-aware filtering
-  - [ ] 3.1 Create ProgramService with scope-aware business logic
+  - [x] 3.1 Create ProgramService with scope-aware business logic
     - Implement program CRUD operations with validation
     - Add program-project relationship management
     - Create program listing and filtering capabilities with scope filtering
     - Integrate with ScopeValidatorService for access control
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 11.5_
 
-  - [ ] 3.2 Create ProjectService and PhaseService with scope filtering
+  - [x] 3.2 Create ProjectService and PhaseService with scope filtering
     - Implement project CRUD with program association validation
     - Create phase management (planning/execution) with budget tracking
     - Add project lifecycle management and validation
     - Add scope-based project filtering and access control
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5, 11.5_
 
-  - [ ] 3.3 Create ResourceService and WorkerService with scope awareness
+  - [x] 3.3 Create ResourceService and WorkerService with scope awareness
     - Implement resource management for labor and non-labor types
     - Create worker management with type associations
     - Add worker type configuration and rate management
     - Add scope-based filtering for resource access
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 11.5_
 
-  - [ ] 3.4 Create AssignmentService with allocation validation and scope filtering
+  - [x] 3.4 Create AssignmentService with allocation validation and scope filtering
     - Implement resource assignment creation with conflict detection
     - Add allocation percentage validation (≤100% per day per resource)
     - Create assignment import functionality with validation

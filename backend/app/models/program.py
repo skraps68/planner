@@ -26,6 +26,9 @@ class Program(BaseModel):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     
+    # Optional fields
+    description = Column(String(1000), nullable=True)
+    
     # Relationships
     projects = relationship("Project", back_populates="program", cascade="all, delete-orphan")
     

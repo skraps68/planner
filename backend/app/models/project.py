@@ -43,6 +43,9 @@ class Project(BaseModel):
     end_date = Column(Date, nullable=False)
     cost_center_code = Column(String(50), nullable=False, unique=True, index=True)
     
+    # Optional fields
+    description = Column(String(1000), nullable=True)
+    
     # Relationships
     program = relationship("Program", back_populates="projects")
     phases = relationship("ProjectPhase", back_populates="project", cascade="all, delete-orphan")
