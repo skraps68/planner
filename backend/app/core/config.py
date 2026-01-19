@@ -4,7 +4,8 @@ Application configuration settings.
 import secrets
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import AnyHttpUrl, BaseSettings, PostgresDsn, validator
+from pydantic import AnyHttpUrl, PostgresDsn, validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -42,14 +43,13 @@ class Settings(BaseSettings):
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
-        return PostgresDsn.build(
-            scheme="postgresql",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            port=values.get("POSTGRES_PORT"),
-            path=f"/{values.get('POSTGRES_DB') or ''}",
-        )
+        # Build PostgreSQL connection string manually for Pydantic v2
+        user = values.get("POSTGRES_USER")
+        password = values.get("POSTGRES_PASSWORD")
+        host = values.get("POSTGRES_SERVER")
+        port = values.get("POSTGRES_PORT")
+        db = values.get("POSTGRES_DB")
+        return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
     # Redis
     REDIS_HOST: str = "localhost"
