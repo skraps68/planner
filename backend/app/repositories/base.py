@@ -57,3 +57,7 @@ class BaseRepository(Generic[ModelType]):
     def count(self, db: Session) -> int:
         """Count total records."""
         return DatabaseUtils.count(db, self.model)
+    
+    def get_all(self, db: Session) -> List[ModelType]:
+        """Get all records."""
+        return db.query(self.model).all()

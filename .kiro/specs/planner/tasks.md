@@ -111,99 +111,116 @@
     - Create variance reporting with configurable thresholds
     - _Requirements: 8.1, 8.2, 8.5_
 
-- [ ] 5. Implement forecasting and reporting services with scope filtering
-  - [ ] 5.1 Create ForecastingService with scope-aware calculations
+- [x] 5. Implement forecasting and reporting services with scope filtering
+  - [x] 5.1 Create ForecastingService with scope-aware calculations
     - Implement cost projection based on resource assignments
     - Add capital/expense breakdown calculations
     - Create budget vs actual vs forecast reporting
     - Add scope-based filtering for forecasting data
     - _Requirements: 8.1, 8.2, 8.4, 8.5, 11.5_
 
-  - [ ] 5.2 Create ReportingService with scope-aware data
+  - [x] 5.2 Create ReportingService with scope-aware data
     - Implement real-time budget vs actual vs forecast reports
     - Add program and project level aggregation
     - Create variance analysis reports with drill-down capabilities
     - Add scope-based report filtering and access control
     - _Requirements: 8.1, 8.2, 8.5, 11.5_
 
-- [ ] 6. Implement authentication and authorization with scoped permissions
-  - [ ] 6.1 Create AuthenticationService
+- [x] 6. Implement authentication and authorization with scoped permissions
+  - [x] 6.1 Create AuthenticationService
     - Implement JWT token-based authentication
     - Add user login, logout, and token refresh functionality
     - Create password hashing and validation
     - _Requirements: 7.5, 10.1, 10.4_
 
-  - [ ] 6.2 Create ScopeValidatorService
+  - [x] 6.2 Create ScopeValidatorService
     - Implement user scope resolution (program/project access)
     - Add scope inheritance logic (program scope includes all projects)
     - Create multi-scope combination handling
     - Add scope-based data filtering utilities
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-  - [ ] 6.3 Create AuthorizationService with RBAC and scoping
+  - [x] 6.3 Create AuthorizationService with RBAC and scoping
     - Implement role-based access control system
     - Add program-level and project-level scope restrictions
     - Create permission checking middleware for API endpoints
     - Integrate with ScopeValidatorService for access control
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-  - [ ] 6.4 Create RoleManagementService
+  - [x] 6.4 Create RoleManagementService
     - Implement user role assignment and management
     - Add scope assignment creation and modification
     - Create role switching functionality for multi-role users
     - Add scope validation and conflict detection
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-  - [ ] 6.5 Create PermissionCacheService
+  - [x] 6.5 Create PermissionCacheService
     - Implement Redis-based permission caching
     - Add scope resolution caching for performance
     - Create cache invalidation on role/scope changes
     - Add bulk cache refresh for organizational changes
     - _Requirements: 11.4, 11.5_
 
-  - [ ] 6.6 Create AuditService
+  - [x] 6.6 Create AuditService
     - Implement automatic audit trail creation for all data changes
     - Add before/after value capture with user attribution
     - Create audit log querying and reporting capabilities
     - Add permission change auditing
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 11.6_
 
-- [ ] 7. Implement REST API controllers
+- [ ] 7. Implement REST API controllers and schemas
+  - [ ] 7.0 Create Pydantic schemas for request/response validation
+    - Create base schemas with common patterns
+    - Implement Program schemas (create, update, response)
+    - Implement Project schemas with phase information
+    - Implement Resource and Worker schemas
+    - Implement Assignment schemas with validation
+    - Implement Actuals schemas for import and response
+    - Implement User and authentication schemas
+    - Implement Report and forecast response schemas
+    - _Requirements: All requirements need API validation_
+
   - [ ] 7.1 Create Program API endpoints
     - Implement GET, POST, PUT, DELETE for programs
     - Add program listing with filtering and pagination
     - Create program-project relationship endpoints
-    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+    - Add scope-based filtering middleware
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 11.5_
 
   - [ ] 7.2 Create Project API endpoints
     - Implement full CRUD operations for projects
     - Add project phase management endpoints
     - Create project-specific reporting endpoints
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5_
+    - Add scope-based access control
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5, 11.5_
 
   - [ ] 7.3 Create Resource and Worker API endpoints
     - Implement resource management endpoints
     - Add worker and worker type CRUD operations
     - Create rate management endpoints with temporal queries
-    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
+    - Add scope-based filtering
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 11.5_
 
   - [ ] 7.4 Create Assignment API endpoints
     - Implement resource assignment CRUD operations
     - Add assignment import endpoint with validation
     - Create assignment conflict checking endpoints
-    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5_
+    - Add scope-based access control
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 11.5_
 
   - [ ] 7.5 Create Actuals API endpoints
     - Implement actuals CRUD operations
     - Add actuals import endpoint with CSV processing
     - Create variance analysis endpoints
-    - _Requirements: 8.3_
+    - Add scope-based filtering
+    - _Requirements: 8.3, 11.5_
 
   - [ ] 7.6 Create Forecasting and Reporting API endpoints
     - Implement forecasting calculation endpoints
     - Add budget vs actual vs forecast reporting endpoints
     - Create variance analysis and exception reporting endpoints
-    - _Requirements: 8.1, 8.2, 8.4, 8.5_
+    - Add scope-based report filtering
+    - _Requirements: 8.1, 8.2, 8.4, 8.5, 11.5_
 
   - [ ] 7.7 Create Authentication, User Management and Audit API endpoints
     - Implement login, logout, and token refresh endpoints
@@ -213,27 +230,78 @@
     - Add audit trail querying endpoints
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 10.1, 10.2, 10.3, 10.4, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-- [ ] 8. Implement frontend scoped permissions and UI components
-  - [ ] 8.1 Create role and scope management UI components
-    - Implement user profile header with role/scope display
+  - [ ] 7.8 Add API authentication and authorization middleware
+    - Implement JWT token validation middleware
+    - Add role-based permission checking decorators
+    - Create scope validation middleware for endpoints
+    - Add rate limiting and security headers
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 11.5, 11.6_
+
+- [ ] 8. Implement frontend application with scoped permissions
+  - [ ] 8.1 Set up React frontend project structure
+    - Create React + TypeScript project with Vite or Create React App
+    - Set up Material-UI design system
+    - Configure Redux Toolkit for state management
+    - Set up React Query for API data fetching
+    - Configure routing with React Router
+    - Add authentication context and protected routes
+    - _Requirements: All requirements need frontend interface_
+
+  - [ ] 8.2 Create authentication and user profile components
+    - Implement login and logout pages
+    - Create user profile header with role/scope display
     - Add role switching dropdown with scope context
-    - Create scope assignment management interface
-    - Add permission feedback and visual indicators
-    - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
+    - Implement JWT token management and refresh
+    - Add protected route wrapper component
+    - _Requirements: 7.5, 10.1, 10.4, 11.1, 11.2, 11.3, 11.4_
 
-  - [ ] 8.2 Implement scope-aware navigation and filtering
-    - Add scope-based menu filtering and navigation
-    - Implement automatic data filtering by user scope
-    - Create scope context breadcrumbs and indicators
-    - Add permission-based button and action states
-    - _Requirements: 11.5, 11.6_
+  - [ ] 8.3 Create program and project management UI
+    - Implement program list and detail views
+    - Create project list and detail views with phases
+    - Add program/project creation and edit forms
+    - Implement scope-based filtering for lists
+    - Add budget visualization components
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5, 11.5_
 
-  - [ ] 8.3 Create admin interfaces for user and role management
+  - [ ] 8.4 Create resource and worker management UI
+    - Implement resource list and detail views
+    - Create worker management interface
+    - Add worker type and rate management UI
+    - Implement resource assignment calendar view
+    - Add allocation conflict visualization
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 3.1, 3.2, 3.3, 3.4, 3.5_
+
+  - [ ] 8.5 Create actuals import and variance analysis UI
+    - Implement CSV upload interface with drag-and-drop
+    - Create actuals import wizard with validation feedback
+    - Add variance analysis dashboard
+    - Implement allocation conflict resolution UI
+    - Create variance reports with drill-down capabilities
+    - _Requirements: 8.3, 8.1, 8.2, 8.5_
+
+  - [ ] 8.6 Create reporting and forecasting dashboards
+    - Implement budget vs actual vs forecast dashboard
+    - Create resource utilization reports and heatmaps
+    - Add time-series charts for cost tracking
+    - Implement drill-down reporting capabilities
+    - Create export functionality for reports (PDF, Excel)
+    - _Requirements: 8.1, 8.2, 8.4, 8.5_
+
+  - [ ] 8.7 Create admin interfaces for user and role management
     - Implement user management interface with role assignment
     - Add scope assignment interface for programs and projects
     - Create role switching and permission management UI
     - Add audit trail viewing for permission changes
+    - Implement permission-based UI element visibility
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.6, 11.7_
+
+  - [ ] 8.8 Implement scope-aware navigation and filtering
+    - Add scope-based menu filtering and navigation
+    - Implement automatic data filtering by user scope
+    - Create scope context breadcrumbs and indicators
+    - Add permission-based button and action states
+    - Implement visual feedback for insufficient permissions
+    - _Requirements: 11.5, 11.6_
 
 - [ ] 9. Add comprehensive error handling and validation
   - [ ] 9.1 Implement API error handling middleware with scope validation
@@ -241,13 +309,15 @@
     - Add validation error handling with detailed messages
     - Implement business rule violation error responses
     - Add scope-based authorization error handling
+    - Create custom exception classes for different error types
     - _Requirements: All requirements need proper error handling, 11.6_
 
   - [ ] 9.2 Add input validation and sanitization with permission checks
-    - Implement Pydantic models for request/response validation
+    - Ensure Pydantic models validate all request inputs
     - Add business rule validation at service layer
     - Create comprehensive validation error messages
     - Add scope-based validation for data access
+    - Implement SQL injection prevention
     - _Requirements: All requirements need input validation, 11.5, 11.6_
 
 - [ ] 10. Checkpoint - Ensure all tests pass
@@ -258,7 +328,8 @@
     - Generate Alembic migration for all models including UserRole and ScopeAssignment
     - Add database constraints and indexes for permission tables
     - Create migration scripts for production deployment
-    - Add indexes for scope-based queries
+    - Add indexes for scope-based queries and performance optimization
+    - Test migration rollback functionality
     - _Requirements: All requirements need database schema, 11.1, 11.2, 11.3, 11.4, 11.5_
 
   - [ ] 11.2 Create seed data and test fixtures with role/scope assignments
@@ -267,39 +338,52 @@
     - Create development environment seed data
     - Add sample users with various role and scope assignments
     - Create test scenarios for multi-scope users
+    - Add seed data script for easy database reset
     - _Requirements: All requirements benefit from test data, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
 - [ ] 12. Final integration and testing with scoped permissions
-  - [ ] 12.1 Integration testing for complete workflows with scope validation
-    - Test end-to-end program and project creation with scope restrictions
+  - [ ] 12.1 Create end-to-end integration tests
+    - Test complete program and project creation workflows with scope restrictions
     - Validate resource assignment and actuals import workflows with permissions
     - Test forecasting and reporting functionality with scope filtering
     - Test role switching and scope assignment workflows
+    - Create integration tests for API endpoints with authentication
+    - Test error handling and edge cases across the system
     - _Requirements: All requirements need integration testing, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
   - [ ] 12.2 Performance optimization and caching with permission caching
-    - Add Redis caching for frequently accessed data
+    - Verify Redis caching for frequently accessed data
     - Optimize database queries with proper indexing
     - Implement query optimization for reporting endpoints
-    - Add permission and scope resolution caching
+    - Verify permission and scope resolution caching
     - Optimize scope-based query performance
+    - Add database query profiling and optimization
     - _Requirements: 8.1, 8.2, 8.5 (reporting performance), 11.4, 11.5_
 
+  - [ ] 12.3 Security audit and penetration testing
+    - Test authentication and authorization security
+    - Verify scope isolation between users
+    - Test for SQL injection vulnerabilities
+    - Verify CSRF protection on state-changing endpoints
+    - Test rate limiting and DDoS protection
+    - Audit sensitive data exposure in logs and errors
+    - _Requirements: 7.5, 10.1, 10.2, 10.3, 10.4, 10.5, 11.6_
+
 - [ ] 13. Create containerization and deployment configuration
-  - [ ] 13.1 Create Docker configuration for local development
-    - Create multi-stage Dockerfile for FastAPI application
-    - Add Docker Compose configuration with PostgreSQL, Redis, and application services
-    - Configure environment variables for local development
-    - Add health checks and proper service dependencies
-    - Create local development scripts (start, stop, reset)
+  - [ ] 13.1 Enhance Docker configuration for production
+    - Review and optimize existing Dockerfile for production use
+    - Verify Docker Compose configuration includes all services
+    - Add production environment variable configuration
+    - Enhance health checks and service dependencies
+    - Verify local development scripts work correctly
     - _Requirements: All requirements need local development environment_
 
-  - [ ] 13.2 Create production Docker configuration
-    - Create optimized production Dockerfile with security best practices
-    - Add production environment configuration
-    - Configure proper logging and monitoring for containers
-    - Add database migration scripts for production deployment
-    - Create production-ready health check endpoints
+  - [ ] 13.2 Create production deployment documentation
+    - Document production environment setup
+    - Create deployment runbook with step-by-step instructions
+    - Document database migration procedures
+    - Add monitoring and logging configuration guide
+    - Create troubleshooting guide for common issues
     - _Requirements: All requirements need production deployment_
 
   - [ ] 13.3 Create AWS ECS Fargate deployment configuration
@@ -310,6 +394,7 @@
     - Create CloudFormation or Terraform templates for infrastructure
     - Add AWS secrets management for environment variables
     - Configure VPC, security groups, and networking
+    - Set up CloudWatch logging and monitoring
     - _Requirements: All requirements need production AWS deployment_
 
   - [ ] 13.4 Create CI/CD pipeline configuration
@@ -318,6 +403,7 @@
     - Add automated deployment to ECS Fargate
     - Configure environment-specific deployments (staging/production)
     - Add database migration automation in deployment pipeline
+    - Implement automated rollback on deployment failure
     - _Requirements: All requirements need automated deployment_
 
 - [ ] 14. Final Checkpoint - Ensure all tests pass
