@@ -3,16 +3,16 @@ Main API router for v1 endpoints.
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import programs
+from app.api.v1.endpoints import programs, projects
 
 api_router = APIRouter()
 
 # Include routers
 api_router.include_router(programs.router, prefix="/programs", tags=["programs"])
+api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 
 # Placeholder for future routers
 # api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
-# api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 # api_router.include_router(resources.router, prefix="/resources", tags=["resources"])
 # api_router.include_router(workers.router, prefix="/workers", tags=["workers"])
 # api_router.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
@@ -32,6 +32,7 @@ async def api_info():
             "openapi": "/api/v1/openapi.json"
         },
         "available_routes": {
-            "programs": "/api/v1/programs"
+            "programs": "/api/v1/programs",
+            "projects": "/api/v1/projects"
         }
     }
