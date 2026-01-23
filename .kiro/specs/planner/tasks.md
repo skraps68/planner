@@ -194,28 +194,28 @@
     - Add scope-based access control
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5, 11.5_
 
-  - [ ] 7.3 Create Resource and Worker API endpoints
+  - [x] 7.3 Create Resource and Worker API endpoints
     - Implement resource management endpoints
     - Add worker and worker type CRUD operations
     - Create rate management endpoints with temporal queries
     - Add scope-based filtering
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 11.5_
 
-  - [ ] 7.4 Create Assignment API endpoints
+  - [x] 7.4 Create Assignment API endpoints
     - Implement resource assignment CRUD operations
     - Add assignment import endpoint with validation
     - Create assignment conflict checking endpoints
     - Add scope-based access control
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 11.5_
 
-  - [ ] 7.5 Create Actuals API endpoints
+  - [x] 7.5 Create Actuals API endpoints
     - Implement actuals CRUD operations
     - Add actuals import endpoint with CSV processing
     - Create variance analysis endpoints
     - Add scope-based filtering
     - _Requirements: 8.3, 11.5_
 
-  - [ ] 7.6 Create Forecasting and Reporting API endpoints
+  - [x] 7.6 Create Forecasting and Reporting API endpoints
     - Implement forecasting calculation endpoints
     - Add budget vs actual vs forecast reporting endpoints
     - Create variance analysis and exception reporting endpoints

@@ -35,9 +35,14 @@ class ActualBase(BaseSchema):
         return v
 
 
-class ActualCreate(ActualBase):
+class ActualCreate(BaseSchema):
     """Schema for creating a new actual."""
-    pass
+    
+    project_id: UUID = Field(description="Project ID")
+    external_worker_id: str = Field(min_length=1, max_length=100, description="External worker ID")
+    worker_name: str = Field(min_length=1, max_length=255, description="Worker name")
+    actual_date: date = Field(description="Actual work date")
+    allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage (0-100)")
 
 
 class ActualUpdate(BaseSchema):
