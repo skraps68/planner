@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures.
 """
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -8,14 +9,27 @@ from sqlalchemy.orm import sessionmaker
 
 from app.main import app
 from app.models.base import Base
-from app.api import deps  # Import deps instead of db.session
+from app.api import deps
 
-# Test database URL (use SQLite for testing)
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# Import centralized test database configuration
+from tests.db_config import TEST_DB_TYPE
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# Integration tests use file-based SQLite or PostgreSQL
+# This allows the database to persist across API requests
+if TEST_DB_TYPE == "postgresql":
+    SQLALCHEMY_DATABASE_URL = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql://postgres:postgres@localhost:5432/planner_test"
+    )
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+else:
+    # Use file-based SQLite for integration tests (not in-memory)
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
