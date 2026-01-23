@@ -169,7 +169,7 @@
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 11.6_
 
 - [ ] 7. Implement REST API controllers and schemas
-  - [ ] 7.0 Create Pydantic schemas for request/response validation
+  - [x] 7.0 Create Pydantic schemas for request/response validation
     - Create base schemas with common patterns
     - Implement Program schemas (create, update, response)
     - Implement Project schemas with phase information
