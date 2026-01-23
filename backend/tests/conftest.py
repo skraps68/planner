@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.main import app
 from app.models.base import Base
-from app.db.session import get_db
+from app.api import deps  # Import deps instead of db.session
 
 # Test database URL (use SQLite for testing)
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -39,7 +39,7 @@ def db():
 @pytest.fixture
 def client(db):
     """Create test client."""
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[deps.get_db] = override_get_db  # Override deps.get_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

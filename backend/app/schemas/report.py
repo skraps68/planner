@@ -92,7 +92,7 @@ class BudgetVsActualReport(BaseSchema):
 class TimeSeriesDataPoint(BaseSchema):
     """Schema for time series data point."""
     
-    date: date = Field(description="Data point date")
+    data_date: date = Field(description="Data point date")
     budget: Decimal = Field(description="Budget amount")
     actual: Decimal = Field(description="Actual amount")
     forecast: Decimal = Field(description="Forecast amount")

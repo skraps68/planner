@@ -3,14 +3,15 @@ Main API router for v1 endpoints.
 """
 from fastapi import APIRouter
 
-# Import routers here as they are created
-# from app.api.v1.endpoints import auth, programs, projects, resources, workers, assignments, actuals, forecasting, audit
+from app.api.v1.endpoints import programs
 
 api_router = APIRouter()
 
-# Include routers here as they are created
+# Include routers
+api_router.include_router(programs.router, prefix="/programs", tags=["programs"])
+
+# Placeholder for future routers
 # api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
-# api_router.include_router(programs.router, prefix="/programs", tags=["programs"])
 # api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 # api_router.include_router(resources.router, prefix="/resources", tags=["resources"])
 # api_router.include_router(workers.router, prefix="/workers", tags=["workers"])
@@ -24,9 +25,13 @@ async def api_info():
     """API information endpoint."""
     return {
         "message": "Program and Project Management System API v1",
+        "version": "1.0.0",
         "endpoints": {
             "docs": "/docs",
             "redoc": "/redoc",
             "openapi": "/api/v1/openapi.json"
+        },
+        "available_routes": {
+            "programs": "/api/v1/programs"
         }
     }
