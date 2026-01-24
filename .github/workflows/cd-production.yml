@@ -1,0 +1,205 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: planner-app
+  ECS_CLUSTER: planner-production
+  ECS_SERVICE: planner-app-service
+  ECS_TASK_DEFINITION: planner-app-task
+  CONTAINER_NAME: planner-app
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://planner.example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=${{ github.sha }}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.version.outputs.version }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --target production \
+            --build-arg ENVIRONMENT=production \
+            .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:production-latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:production-latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+      
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --query taskDefinition > task-definition.json
+      
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+      
+      - name: Create database backup before migration
+        run: |
+          echo "Creating database backup..."
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          aws rds create-db-snapshot \
+            --db-instance-identifier planner-production-db \
+            --db-snapshot-identifier planner-production-backup-$TIMESTAMP
+          
+          echo "Waiting for backup to complete..."
+          aws rds wait db-snapshot-completed \
+            --db-snapshot-identifier planner-production-backup-$TIMESTAMP
+          
+          echo "Backup completed: planner-production-backup-$TIMESTAMP"
+      
+      - name: Run database migrations
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.version.outputs.version }}
+        run: |
+          # Run migrations in a one-off ECS task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.PRODUCTION_SUBNET_IDS }}],securityGroups=[${{ secrets.PRODUCTION_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
+            --overrides '{
+              "containerOverrides": [{
+                "name": "${{ env.CONTAINER_NAME }}",
+                "command": ["alembic", "upgrade", "head"]
+              }]
+            }' \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          echo "Migration task ARN: $TASK_ARN"
+          
+          # Wait for migration task to complete
+          aws ecs wait tasks-stopped \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --tasks $TASK_ARN
+          
+          # Check if migration was successful
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --tasks $TASK_ARN \
+            --query 'tasks[0].containers[0].exitCode' \
+            --output text)
+          
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration failed with exit code $EXIT_CODE"
+            exit 1
+          fi
+          
+          echo "Migration completed successfully"
+      
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+      
+      - name: Verify deployment
+        run: |
+          # Wait for service to be healthy
+          sleep 60
+          
+          # Check health endpoint
+          curl -f https://planner.example.com/health || exit 1
+          
+          # Run smoke tests
+          curl -f https://planner.example.com/api/v1/health || exit 1
+          
+          echo "Deployment successful! Service is healthy."
+      
+      - name: Create GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            Production deployment of version ${{ steps.version.outputs.version }}
+            
+            Deployed to: https://planner.example.com
+            Image: ${{ steps.build-image.outputs.image }}
+          draft: false
+          prerelease: false
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Production deployment successful"
+            echo "Version: ${{ steps.version.outputs.version }}"
+            echo "Image: ${{ steps.build-image.outputs.image }}"
+          else
+            echo "❌ Production deployment failed"
+          fi
+      
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "⚠️ Rolling back to previous task definition..."
+          PREVIOUS_TASK_DEF=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }} \
+            --query 'services[0].deployments[1].taskDefinition' \
+            --output text)
+          
+          if [ ! -z "$PREVIOUS_TASK_DEF" ]; then
+            aws ecs update-service \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --service ${{ env.ECS_SERVICE }} \
+              --task-definition $PREVIOUS_TASK_DEF \
+              --force-new-deployment
+            echo "Rollback initiated to $PREVIOUS_TASK_DEF"
+            
+            # Notify about rollback
+            echo "🔄 Automatic rollback completed"
+          else
+            echo "⚠️ No previous task definition found for rollback"
+          fi

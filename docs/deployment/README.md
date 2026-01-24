@@ -72,6 +72,21 @@ Guide for monitoring, logging, and observability.
 
 **Use this when:** Setting up monitoring or investigating system behavior.
 
+### 6. [CI/CD Pipeline Guide](./CICD_GUIDE.md)
+Comprehensive guide for Continuous Integration and Continuous Deployment.
+
+**Contents:**
+- CI pipeline overview
+- CD staging pipeline
+- CD production pipeline
+- Manual deployment workflow
+- GitHub Actions configuration
+- ECS deployment helper script
+- Rollback procedures
+- Monitoring deployments
+
+**Use this when:** Setting up automated deployments or troubleshooting CI/CD issues.
+
 ## Quick Start
 
 ### For New Deployments
