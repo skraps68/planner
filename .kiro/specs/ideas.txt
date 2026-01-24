@@ -1,0 +1,7 @@
+- need to manage differences between labor and non-labor resources. how will non-labor resource costs be forecast and tracked? could associate an overall cost and then just amortize over the length of the assignment. this would mean deviating from the rate concept that labor uses.
+
+- how do we account for BAU? is it just another project (nothing special) that you assign labor and non-labor resources to? does that mean that all non-labor (contracts, licenses, SOWs, etc. also need to be captured?). what additional data models would we need to capture all of that cleanly.
+
+- if we want to capture BAU as a project, then will we assignment all resources to BAU? do we need to support the concept of a "plug" to make it easier and less labor intensive? 
+
+- what about the concept of auto-adjusting BAU based on a resource's other assignments? e.g. if a resource is assigned <100%, then automaticlaly offer up a BAU assignment for the remainder, and ask the user to confirm?

@@ -323,8 +323,8 @@
 - [x] 10. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Create database migrations and seed data with scoped permissions
-  - [ ] 11.1 Create initial database migration with scoped permissions schema
+- [x] 11. Create database migrations and seed data with scoped permissions
+  - [x] 11.1 Create initial database migration with scoped permissions schema
     - Generate Alembic migration for all models including UserRole and ScopeAssignment
     - Add database constraints and indexes for permission tables
     - Create migration scripts for production deployment
@@ -332,7 +332,7 @@
     - Test migration rollback functionality
     - _Requirements: All requirements need database schema, 11.1, 11.2, 11.3, 11.4, 11.5_
 
-  - [ ] 11.2 Create seed data and test fixtures with role/scope assignments
+  - [x] 11.2 Create seed data and test fixtures with role/scope assignments
     - Implement sample programs, projects, and workers
     - Add test data for resource assignments and rates
     - Create development environment seed data
