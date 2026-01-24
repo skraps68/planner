@@ -17,7 +17,13 @@ from app.models.rate import Rate
 from app.models.actual import Actual
 from app.services.actuals_import import actuals_import_service, ActualsImportError, ActualsImportValidationError
 from app.services.allocation_validator import allocation_validator_service
-from app.services.actuals import actuals_service, ActualsServiceError
+from app.services.actuals import actuals_service
+from app.core.exceptions import (
+    ProjectNotFoundError,
+    WorkerNotFoundError,
+    AllocationConflictError,
+    BusinessRuleViolationError,
+)
 
 
 # Test database setup
@@ -363,7 +369,7 @@ class TestActualsService:
         """Test creating actual with invalid project."""
         from uuid import uuid4
         
-        with pytest.raises(ActualsServiceError, match="does not exist"):
+        with pytest.raises(ProjectNotFoundError):
             actuals_service.create_actual(
                 db=db,
                 project_id=uuid4(),
@@ -375,7 +381,7 @@ class TestActualsService:
     
     def test_create_actual_invalid_worker(self, db, sample_project, sample_rate):
         """Test creating actual with invalid worker."""
-        with pytest.raises(ActualsServiceError, match="does not exist"):
+        with pytest.raises(WorkerNotFoundError):
             actuals_service.create_actual(
                 db=db,
                 project_id=sample_project.id,
@@ -398,7 +404,7 @@ class TestActualsService:
         )
         
         # Try to add another that exceeds limit
-        with pytest.raises(ActualsServiceError, match="Allocation limit exceeded"):
+        with pytest.raises(AllocationConflictError):
             actuals_service.create_actual(
                 db=db,
                 project_id=sample_project.id,

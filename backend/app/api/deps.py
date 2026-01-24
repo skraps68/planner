@@ -11,6 +11,13 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.services.authorization import Permission
+from app.core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    ScopeAccessDeniedError,
+    InvalidUUIDError,
+)
+from app.core.validators import input_validator
 
 # Security scheme for JWT tokens
 security = HTTPBearer()
@@ -45,15 +52,9 @@ async def get_current_user(
         Current authenticated user
         
     Raises:
-        HTTPException: If authentication fails
+        AuthenticationError: If authentication fails
     """
     from app.services.authentication import authentication_service
-    
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     
     try:
         # Decode token
@@ -61,12 +62,14 @@ async def get_current_user(
         user = authentication_service.get_user_from_token(db, token)
         
         if user is None:
-            raise credentials_exception
+            raise AuthenticationError("Could not validate credentials")
         
         return user
         
+    except AuthenticationError:
+        raise
     except Exception:
-        raise credentials_exception
+        raise AuthenticationError("Could not validate credentials")
 
 
 async def get_current_active_user(
@@ -82,13 +85,10 @@ async def get_current_active_user(
         Current active user
         
     Raises:
-        HTTPException: If user is not active
+        AuthorizationError: If user is not active
     """
     if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
-        )
+        raise AuthorizationError("User account is inactive")
     return current_user
 
 
@@ -107,15 +107,12 @@ def check_admin_permission(
         Current user if admin
         
     Raises:
-        HTTPException: If user is not admin
+        AuthorizationError: If user is not admin
     """
     from app.services.authorization import authorization_service
     
     if not authorization_service.is_admin(db, current_user.id):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin permission required"
-        )
+        raise AuthorizationError("Admin permission required")
     
     return current_user
 
@@ -146,9 +143,9 @@ def check_permission(*permissions: Permission):
         if not authorization_service.has_any_permission(
             db, current_user.id, list(permissions)
         ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Required permissions: {', '.join(p.value for p in permissions)}"
+            raise AuthorizationError(
+                f"Required permissions: {', '.join(p.value for p in permissions)}",
+                required_permissions=[p.value for p in permissions]
             )
         
         return current_user
@@ -185,9 +182,9 @@ def check_all_permissions(*permissions: Permission):
         if not authorization_service.has_all_permissions(
             db, current_user.id, list(permissions)
         ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Required permissions: {', '.join(p.value for p in permissions)}"
+            raise AuthorizationError(
+                f"Required permissions: {', '.join(p.value for p in permissions)}",
+                required_permissions=[p.value for p in permissions]
             )
         
         return current_user
@@ -212,24 +209,17 @@ def check_program_access(
         Current user if has access
         
     Raises:
-        HTTPException: If user doesn't have access
+        InvalidUUIDError: If program ID format is invalid
+        ScopeAccessDeniedError: If user doesn't have access
     """
-    from uuid import UUID
     from app.services.scope_validator import scope_validator_service
     
-    try:
-        program_uuid = UUID(program_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid program ID format"
-        )
+    # Validate UUID format
+    program_uuid = input_validator.validate_uuid(program_id, "program_id")
     
+    # Check scope access
     if not scope_validator_service.can_access_program(db, current_user.id, program_uuid):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this program"
-        )
+        raise ScopeAccessDeniedError("Program", program_uuid)
     
     return current_user
 
@@ -251,24 +241,17 @@ def check_project_access(
         Current user if has access
         
     Raises:
-        HTTPException: If user doesn't have access
+        InvalidUUIDError: If project ID format is invalid
+        ScopeAccessDeniedError: If user doesn't have access
     """
-    from uuid import UUID
     from app.services.scope_validator import scope_validator_service
     
-    try:
-        project_uuid = UUID(project_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid project ID format"
-        )
+    # Validate UUID format
+    project_uuid = input_validator.validate_uuid(project_id, "project_id")
     
+    # Check scope access
     if not scope_validator_service.can_access_project(db, current_user.id, project_uuid):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this project"
-        )
+        raise ScopeAccessDeniedError("Project", project_uuid)
     
     return current_user
 

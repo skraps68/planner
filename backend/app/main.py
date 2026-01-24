@@ -11,6 +11,7 @@ from app.api.middleware import (
     AuditLoggingMiddleware
 )
 from app.core.config import settings
+from app.core.error_handlers import register_error_handlers
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,6 +19,9 @@ app = FastAPI(
     description="Program and Project Management System API",
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
+
+# Register global error handlers
+register_error_handlers(app)
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)

@@ -21,9 +21,13 @@ from app.schemas.actual import (
     AllocationConflict
 )
 from app.schemas.base import SuccessResponse, PaginationParams
-from app.services.actuals import actuals_service, ActualsServiceError
+from app.services.actuals import actuals_service
 from app.services.actuals_import import actuals_import_service, ActualsImportValidationError
 from app.services.variance_analysis import variance_analysis_service
+from app.core.exceptions import (
+    BusinessRuleViolationError,
+    ImportError as ImportException,
+)
 
 router = APIRouter()
 
@@ -79,16 +83,12 @@ async def create_actual(
         
         return response
         
-    except ActualsServiceError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    except (BusinessRuleViolationError, ImportException) as e:
+        # These exceptions are already handled by global error handlers
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create actual: {str(e)}"
-        )
+        # Unexpected errors are handled by global error handler
+        raise
 
 
 @router.get(
@@ -261,16 +261,12 @@ async def update_actual(
         
         return response
         
-    except ActualsServiceError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    except (BusinessRuleViolationError, ImportException) as e:
+        # These exceptions are already handled by global error handlers
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update actual: {str(e)}"
-        )
+        # Unexpected errors are handled by global error handler
+        raise
 
 
 @router.delete(
@@ -447,16 +443,12 @@ async def import_actuals(
             results=results,
             validation_only=validate_only
         )
-    except ActualsServiceError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    except (BusinessRuleViolationError, ImportException, ActualsImportValidationError) as e:
+        # These exceptions are already handled by global error handlers
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to import actuals: {str(e)}"
-        )
+        # Unexpected errors are handled by global error handler
+        raise
 
 
 @router.get(

@@ -13,6 +13,13 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.services.authorization import Permission, authorization_service
+from app.core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    ScopeAccessDeniedError,
+    InvalidUUIDError,
+)
+from app.core.validators import input_validator
 
 
 # Rate limiting storage (in-memory, should use Redis in production)
@@ -209,10 +216,7 @@ def require_permissions(*permissions: Permission):
             current_user = kwargs.get("current_user")
             
             if not db or not current_user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
-                )
+                raise AuthenticationError("Authentication required")
             
             # Check if user has any of the required permissions
             user_permissions = authorization_service.get_user_permissions(
@@ -222,9 +226,9 @@ def require_permissions(*permissions: Permission):
             has_permission = any(perm in user_permissions for perm in permissions)
             
             if not has_permission:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Required permissions: {', '.join(p.value for p in permissions)}"
+                raise AuthorizationError(
+                    f"Required permissions: {', '.join(p.value for p in permissions)}",
+                    required_permissions=[p.value for p in permissions]
                 )
             
             return await func(*args, **kwargs)
@@ -254,17 +258,11 @@ def require_admin():
             current_user = kwargs.get("current_user")
             
             if not db or not current_user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
-                )
+                raise AuthenticationError("Authentication required")
             
             # Check if user is admin
             if not authorization_service.is_admin(db, current_user.id):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin permission required"
-                )
+                raise AuthorizationError("Admin permission required")
             
             return await func(*args, **kwargs)
         
@@ -297,37 +295,21 @@ def require_program_access(program_id_param: str = "program_id"):
             program_id = kwargs.get(program_id_param)
             
             if not db or not current_user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
-                )
+                raise AuthenticationError("Authentication required")
             
             if not program_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Missing required parameter: {program_id_param}"
-                )
+                raise InvalidUUIDError(program_id_param, "missing")
             
-            # Convert to UUID if string
-            if isinstance(program_id, str):
-                try:
-                    program_id = UUID(program_id)
-                except ValueError:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Invalid program ID format"
-                    )
+            # Validate UUID format
+            program_uuid = input_validator.validate_uuid(program_id, program_id_param)
             
             # Check scope access
             from app.services.scope_validator import scope_validator_service
             
             if not scope_validator_service.can_access_program(
-                db, current_user.id, program_id
+                db, current_user.id, program_uuid
             ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied to this program"
-                )
+                raise ScopeAccessDeniedError("Program", program_uuid)
             
             return await func(*args, **kwargs)
         
@@ -360,37 +342,21 @@ def require_project_access(project_id_param: str = "project_id"):
             project_id = kwargs.get(project_id_param)
             
             if not db or not current_user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
-                )
+                raise AuthenticationError("Authentication required")
             
             if not project_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Missing required parameter: {project_id_param}"
-                )
+                raise InvalidUUIDError(project_id_param, "missing")
             
-            # Convert to UUID if string
-            if isinstance(project_id, str):
-                try:
-                    project_id = UUID(project_id)
-                except ValueError:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Invalid project ID format"
-                    )
+            # Validate UUID format
+            project_uuid = input_validator.validate_uuid(project_id, project_id_param)
             
             # Check scope access
             from app.services.scope_validator import scope_validator_service
             
             if not scope_validator_service.can_access_project(
-                db, current_user.id, project_id
+                db, current_user.id, project_uuid
             ):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied to this project"
-                )
+                raise ScopeAccessDeniedError("Project", project_uuid)
             
             return await func(*args, **kwargs)
         
@@ -422,10 +388,7 @@ def require_scope_filtered_list(entity_type: str):
             current_user = kwargs.get("current_user")
             
             if not db or not current_user:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
-                )
+                raise AuthenticationError("Authentication required")
             
             # Get accessible entity IDs based on type
             from app.services.scope_validator import scope_validator_service

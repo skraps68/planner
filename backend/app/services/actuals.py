@@ -16,11 +16,15 @@ from app.repositories.resource_assignment import resource_assignment_repository
 from app.repositories.project import project_repository
 from app.services.allocation_validator import allocation_validator_service, AllocationConflict
 from app.services.actuals_import import ActualsImportRecord
-
-
-class ActualsServiceError(Exception):
-    """Custom exception for actuals service errors."""
-    pass
+from app.core.exceptions import (
+    ProjectNotFoundError,
+    WorkerNotFoundError,
+    RateNotFoundError,
+    AllocationConflictError,
+    BusinessRuleViolationError,
+    ResourceNotFoundError,
+    ImportError as ImportException
+)
 
 
 class ActualsService:
@@ -60,19 +64,23 @@ class ActualsService:
         # Validate project exists
         project = project_repository.get(db, project_id)
         if not project:
-            raise ActualsServiceError(f"Project with ID {project_id} does not exist")
+            raise ProjectNotFoundError(project_id)
         
         # Validate worker exists
         worker = worker_repository.get_by_external_id(db, external_worker_id)
         if not worker:
-            raise ActualsServiceError(
-                f"Worker with external_id '{external_worker_id}' does not exist"
-            )
+            raise WorkerNotFoundError(external_id=external_worker_id)
         
         # Validate worker name matches
         if worker.name != worker_name:
-            raise ActualsServiceError(
-                f"Worker name mismatch: expected '{worker.name}', got '{worker_name}'"
+            raise BusinessRuleViolationError(
+                f"Worker name mismatch: expected '{worker.name}', got '{worker_name}'",
+                rule_code="WORKER_NAME_MISMATCH",
+                details={
+                    "external_worker_id": external_worker_id,
+                    "expected_name": worker.name,
+                    "provided_name": worker_name
+                }
             )
         
         # Validate allocation limit
@@ -89,9 +97,11 @@ class ActualsService:
                     external_worker_id=external_worker_id,
                     actual_date=actual_date
                 )
-                raise ActualsServiceError(
-                    f"Allocation limit exceeded: worker '{worker_name}' already has "
-                    f"{existing}% allocated on {actual_date}, cannot add {allocation_percentage}%"
+                raise AllocationConflictError(
+                    resource_id=worker.id,
+                    date=str(actual_date),
+                    total_allocation=float(existing + allocation_percentage),
+                    message=f"Worker '{worker_name}' already has {existing}% allocated on {actual_date}, cannot add {allocation_percentage}%"
                 )
         
         # Calculate cost
@@ -147,9 +157,7 @@ class ActualsService:
         )
         
         if not rate:
-            raise ActualsServiceError(
-                f"No active rate found for worker type on {actual_date}"
-            )
+            raise RateNotFoundError(worker.worker_type_id, str(actual_date))
         
         # Calculate base cost (daily rate * allocation percentage)
         daily_rate = rate.rate_amount
@@ -220,8 +228,12 @@ class ActualsService:
         # Validate all records are valid
         invalid_records = [r for r in records if not r.is_valid()]
         if invalid_records:
-            raise ActualsServiceError(
-                f"Cannot import: {len(invalid_records)} records have validation errors"
+            raise ImportException(
+                f"Cannot import: {len(invalid_records)} records have validation errors",
+                row_errors=[{
+                    "row": r.row_number,
+                    "errors": r.errors
+                } for r in invalid_records]
             )
         
         # Check for allocation conflicts if validation is enabled
@@ -243,9 +255,9 @@ class ActualsService:
             
             if conflicts:
                 conflict_details = [c.to_dict() for c in conflicts]
-                raise ActualsServiceError(
-                    f"Allocation conflicts detected: {len(conflicts)} worker-date "
-                    f"combinations would exceed 100% allocation. Details: {conflict_details}"
+                raise ImportException(
+                    f"Allocation conflicts detected: {len(conflicts)} worker-date combinations would exceed 100% allocation",
+                    details={"conflicts": conflict_details}
                 )
         
         # Import actuals in a transaction
@@ -274,8 +286,9 @@ class ActualsService:
             if errors:
                 # Rollback transaction
                 db.rollback()
-                raise ActualsServiceError(
-                    f"Import failed with {len(errors)} errors: {errors}"
+                raise ImportException(
+                    f"Import failed with {len(errors)} errors",
+                    row_errors=errors
                 )
             
             # Commit transaction
@@ -287,9 +300,12 @@ class ActualsService:
                 "actuals": created_actuals
             }
             
+        except ImportException:
+            # Re-raise import exceptions
+            raise
         except Exception as e:
             db.rollback()
-            raise ActualsServiceError(f"Import failed: {str(e)}")
+            raise ImportException(f"Import failed: {str(e)}")
     
     def get_actuals_by_project(
         self,
@@ -352,7 +368,7 @@ class ActualsService:
         """
         actual = actual_repository.get(db, actual_id)
         if not actual:
-            raise ActualsServiceError(f"Actual with ID {actual_id} does not exist")
+            raise ResourceNotFoundError("Actual", resource_id=actual_id)
         
         if allocation_percentage is not None:
             # Validate allocation limit (excluding current actual)
@@ -365,16 +381,17 @@ class ActualsService:
                     exclude_actual_id=actual_id
                 )
                 if not is_valid:
-                    raise ActualsServiceError(
-                        f"Allocation limit exceeded for worker on {actual.actual_date}"
+                    raise AllocationConflictError(
+                        resource_id=UUID(actual.external_worker_id) if actual.external_worker_id else actual_id,
+                        date=str(actual.actual_date),
+                        total_allocation=100.0,
+                        message=f"Allocation limit exceeded for worker on {actual.actual_date}"
                     )
             
             # Recalculate cost
             worker = worker_repository.get_by_external_id(db, actual.external_worker_id)
             if not worker:
-                raise ActualsServiceError(
-                    f"Worker with external_id '{actual.external_worker_id}' not found"
-                )
+                raise WorkerNotFoundError(external_id=actual.external_worker_id)
             
             cost_data = self._calculate_cost(
                 db=db,
