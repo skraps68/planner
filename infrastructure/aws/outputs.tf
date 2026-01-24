@@ -30,19 +30,40 @@ output "alb_arn" {
   value       = aws_lb.main.arn
 }
 
-output "ecs_cluster_id" {
-  description = "ID of the ECS cluster"
-  value       = aws_ecs_cluster.main.id
+output "eks_cluster_id" {
+  description = "ID of the EKS cluster"
+  value       = aws_eks_cluster.main.id
 }
 
-output "ecs_cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = aws_ecs_cluster.main.name
+output "eks_cluster_name" {
+  description = "Name of the EKS cluster"
+  value       = aws_eks_cluster.main.name
 }
 
-output "ecs_service_name" {
-  description = "Name of the ECS service"
-  value       = aws_ecs_service.app.name
+output "eks_cluster_endpoint" {
+  description = "Endpoint of the EKS cluster"
+  value       = aws_eks_cluster.main.endpoint
+}
+
+output "eks_cluster_certificate_authority" {
+  description = "Certificate authority data for the EKS cluster"
+  value       = aws_eks_cluster.main.certificate_authority[0].data
+  sensitive   = true
+}
+
+output "eks_cluster_oidc_issuer_url" {
+  description = "OIDC issuer URL for the EKS cluster"
+  value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+output "eks_fargate_profile_app" {
+  description = "Name of the application Fargate profile"
+  value       = aws_eks_fargate_profile.app.fargate_profile_name
+}
+
+output "eks_fargate_profile_kube_system" {
+  description = "Name of the kube-system Fargate profile"
+  value       = aws_eks_fargate_profile.kube_system.fargate_profile_name
 }
 
 output "rds_endpoint" {
@@ -86,9 +107,14 @@ output "s3_alb_logs_bucket" {
   value       = aws_s3_bucket.alb_logs.id
 }
 
-output "cloudwatch_log_group" {
-  description = "Name of the CloudWatch log group"
-  value       = aws_cloudwatch_log_group.app.name
+output "cloudwatch_log_group_eks" {
+  description = "Name of the CloudWatch log group for EKS"
+  value       = aws_cloudwatch_log_group.eks.name
+}
+
+output "cloudwatch_log_group_app_pods" {
+  description = "Name of the CloudWatch log group for application pods"
+  value       = aws_cloudwatch_log_group.app_pods.name
 }
 
 output "sns_alerts_topic_arn" {

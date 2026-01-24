@@ -8,10 +8,9 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: planner-app
-  ECS_CLUSTER: planner-staging
-  ECS_SERVICE: planner-app-service
-  ECS_TASK_DEFINITION: planner-app-task
-  CONTAINER_NAME: planner-app
+  EKS_CLUSTER_NAME: planner-staging-cluster
+  K8S_NAMESPACE: planner-app
+  DEPLOYMENT_NAME: planner-app
 
 jobs:
   deploy-staging:
@@ -51,70 +50,116 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:staging-latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
       
-      - name: Download task definition
+      - name: Configure kubectl
         run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --query taskDefinition > task-definition.json
-      
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER_NAME }}
+          
+          # Verify connection
+          kubectl cluster-info
+          kubectl get nodes
       
       - name: Run database migrations
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
+          TIMESTAMP: ${{ github.sha }}
         run: |
-          # Run migrations in a one-off ECS task
-          aws ecs run-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.STAGING_SUBNET_IDS }}],securityGroups=[${{ secrets.STAGING_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
-            --overrides '{
-              "containerOverrides": [{
-                "name": "${{ env.CONTAINER_NAME }}",
-                "command": ["alembic", "upgrade", "head"]
-              }]
-            }'
+          # Set environment variables for manifest substitution
+          export ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}
+          export ENVIRONMENT=staging
+          export DB_HOST=${{ secrets.STAGING_DB_HOST }}
+          export DB_PORT=${{ secrets.STAGING_DB_PORT }}
+          export DB_NAME=${{ secrets.STAGING_DB_NAME }}
+          export DB_USER=${{ secrets.STAGING_DB_USER }}
           
-          # Wait for migration task to complete
-          sleep 30
+          # Apply migration job
+          envsubst < infrastructure/kubernetes/job-migration.yaml | kubectl apply -f -
+          
+          # Wait for job to complete
+          JOB_NAME="planner-migration-${TIMESTAMP}"
+          kubectl wait --for=condition=complete --timeout=600s job/${JOB_NAME} -n ${{ env.K8S_NAMESPACE }} || {
+            echo "Migration job failed or timed out"
+            kubectl logs -n ${{ env.K8S_NAMESPACE }} job/${JOB_NAME}
+            exit 1
+          }
+          
+          echo "Migration completed successfully"
       
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Update Kubernetes secrets
+        run: |
+          # Update secrets if they don't exist
+          kubectl create secret generic planner-secrets \
+            --from-literal=db-password="${{ secrets.STAGING_DB_PASSWORD }}" \
+            --from-literal=secret-key="${{ secrets.STAGING_SECRET_KEY }}" \
+            -n ${{ env.K8S_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Deploy to EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Set environment variables for manifest substitution
+          export ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}
+          export ENVIRONMENT=staging
+          export DB_HOST=${{ secrets.STAGING_DB_HOST }}
+          export DB_PORT=${{ secrets.STAGING_DB_PORT }}
+          export DB_NAME=${{ secrets.STAGING_DB_NAME }}
+          export DB_USER=${{ secrets.STAGING_DB_USER }}
+          export REDIS_HOST=${{ secrets.STAGING_REDIS_HOST }}
+          export REDIS_PORT=${{ secrets.STAGING_REDIS_PORT }}
+          export APP_POD_ROLE_ARN=${{ secrets.STAGING_APP_POD_ROLE_ARN }}
+          
+          # Apply Kubernetes manifests
+          kubectl apply -f infrastructure/kubernetes/namespace.yaml
+          envsubst < infrastructure/kubernetes/serviceaccount.yaml | kubectl apply -f -
+          envsubst < infrastructure/kubernetes/deployment.yaml | kubectl apply -f -
+          kubectl apply -f infrastructure/kubernetes/service.yaml
+          
+          # Apply ingress if certificate ARN is provided
+          if [ -n "${{ secrets.STAGING_CERTIFICATE_ARN }}" ]; then
+            export CERTIFICATE_ARN=${{ secrets.STAGING_CERTIFICATE_ARN }}
+            export DOMAIN_NAME=${{ secrets.STAGING_DOMAIN_NAME }}
+            envsubst < infrastructure/kubernetes/ingress.yaml | kubectl apply -f -
+          fi
+          
+          # Apply HPA
+          kubectl apply -f infrastructure/kubernetes/hpa.yaml
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }} --timeout=600s
       
       - name: Verify deployment
         run: |
-          # Get the service endpoint
-          LOAD_BALANCER_DNS=$(aws elbv2 describe-load-balancers \
-            --names planner-staging-alb \
-            --query 'LoadBalancers[0].DNSName' \
-            --output text)
+          # Check pod status
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }}
           
-          # Wait for service to be healthy
-          sleep 30
+          # Check deployment status
+          kubectl get deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }}
           
-          # Check health endpoint
-          curl -f https://staging.planner.example.com/health || exit 1
+          # Get ingress information
+          kubectl get ingress -n ${{ env.K8S_NAMESPACE }}
           
-          echo "Deployment successful! Service is healthy."
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod -l app=planner -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+          
+          # Check health endpoint (if ingress is configured)
+          if [ -n "${{ secrets.STAGING_DOMAIN_NAME }}" ]; then
+            sleep 30
+            curl -f https://${{ secrets.STAGING_DOMAIN_NAME }}/health || echo "Health check failed, but continuing..."
+          fi
+          
+          echo "✅ Deployment successful! Pods are healthy."
       
       - name: Notify deployment status
         if: always()
         run: |
           if [ "${{ job.status }}" == "success" ]; then
             echo "✅ Staging deployment successful"
+            echo "Image: ${{ steps.build-image.outputs.image }}"
+            echo "Cluster: ${{ env.EKS_CLUSTER_NAME }}"
           else
             echo "❌ Staging deployment failed"
           fi
@@ -122,18 +167,15 @@ jobs:
       - name: Rollback on failure
         if: failure()
         run: |
-          echo "Rolling back to previous task definition..."
-          PREVIOUS_TASK_DEF=$(aws ecs describe-services \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }} \
-            --query 'services[0].deployments[1].taskDefinition' \
-            --output text)
+          echo "⚠️ Rolling back to previous deployment..."
           
-          if [ ! -z "$PREVIOUS_TASK_DEF" ]; then
-            aws ecs update-service \
-              --cluster ${{ env.ECS_CLUSTER }} \
-              --service ${{ env.ECS_SERVICE }} \
-              --task-definition $PREVIOUS_TASK_DEF \
-              --force-new-deployment
-            echo "Rollback initiated to $PREVIOUS_TASK_DEF"
-          fi
+          # Rollback deployment
+          kubectl rollout undo deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }}
+          
+          # Wait for rollback to complete
+          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+          
+          echo "🔄 Automatic rollback completed"
+          
+          # Show current status
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }}

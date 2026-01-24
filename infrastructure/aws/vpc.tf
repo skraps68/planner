@@ -196,9 +196,9 @@ resource "aws_security_group" "alb" {
   )
 }
 
-resource "aws_security_group" "ecs_tasks" {
-  name        = "${local.name_prefix}-ecs-tasks-sg"
-  description = "Security group for ECS tasks"
+resource "aws_security_group" "eks_pods" {
+  name        = "${local.name_prefix}-eks-pods-sg"
+  description = "Security group for EKS pods"
   vpc_id      = aws_vpc.main.id
   
   ingress {
@@ -207,6 +207,14 @@ resource "aws_security_group" "ecs_tasks" {
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
     description     = "Allow traffic from ALB"
+  }
+  
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+    description = "Allow pod-to-pod communication"
   }
   
   egress {
@@ -220,7 +228,7 @@ resource "aws_security_group" "ecs_tasks" {
   tags = merge(
     local.common_tags,
     {
-      Name = "${local.name_prefix}-ecs-tasks-sg"
+      Name = "${local.name_prefix}-eks-pods-sg"
     }
   )
 }
@@ -234,8 +242,8 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks.id]
-    description     = "Allow PostgreSQL from ECS tasks"
+    security_groups = [aws_security_group.eks_pods.id]
+    description     = "Allow PostgreSQL from EKS pods"
   }
   
   egress {
@@ -243,7 +251,7 @@ resource "aws_security_group" "rds" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound"
+    description     = "Allow all outbound"
   }
   
   tags = merge(
@@ -263,8 +271,8 @@ resource "aws_security_group" "redis" {
     from_port       = 6379
     to_port         = 6379
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks.id]
-    description     = "Allow Redis from ECS tasks"
+    security_groups = [aws_security_group.eks_pods.id]
+    description     = "Allow Redis from EKS pods"
   }
   
   egress {

@@ -14,7 +14,7 @@ Configure these secrets in your GitHub repository:
 - **Required for**: All CD workflows
 - **Permissions needed**:
   - ECR: Push/pull images
-  - ECS: Update services, run tasks, describe services
+  - EKS: Update kubeconfig, describe cluster
   - RDS: Create snapshots (production only)
   - CloudWatch: Read logs
 - **How to obtain**:
@@ -31,55 +31,125 @@ Configure these secrets in your GitHub repository:
 
 ### Staging Environment
 
-#### `STAGING_SUBNET_IDS`
-- **Description**: Comma-separated list of subnet IDs for staging ECS tasks
-- **Required for**: Staging deployments, migration tasks
-- **Format**: `subnet-abc123,subnet-def456`
-- **How to obtain**:
-  ```bash
-  aws ec2 describe-subnets \
-    --filters "Name=tag:Environment,Values=staging" \
-    --query 'Subnets[*].SubnetId' \
-    --output text | tr '\t' ','
-  ```
+#### `STAGING_DB_HOST`
+- **Description**: RDS database hostname for staging
+- **Required for**: Staging deployments
+- **Format**: `planner-staging-db.xxxxx.us-east-1.rds.amazonaws.com`
+- **How to obtain**: From Terraform outputs or RDS console
 
-#### `STAGING_SECURITY_GROUP`
-- **Description**: Security group ID for staging ECS tasks
-- **Required for**: Staging deployments, migration tasks
-- **Format**: `sg-abc123def`
-- **How to obtain**:
-  ```bash
-  aws ec2 describe-security-groups \
-    --filters "Name=tag:Name,Values=planner-staging-ecs-sg" \
-    --query 'SecurityGroups[0].GroupId' \
-    --output text
-  ```
+#### `STAGING_DB_PORT`
+- **Description**: RDS database port for staging
+- **Required for**: Staging deployments
+- **Format**: `5432`
+- **Default**: `5432` for PostgreSQL
+
+#### `STAGING_DB_NAME`
+- **Description**: Database name for staging
+- **Required for**: Staging deployments
+- **Format**: `planner`
+
+#### `STAGING_DB_USER`
+- **Description**: Database username for staging
+- **Required for**: Staging deployments
+- **Format**: `planner_admin`
+
+#### `STAGING_DB_PASSWORD`
+- **Description**: Database password for staging
+- **Required for**: Staging deployments
+- **Security**: Store securely, never commit
+
+#### `STAGING_REDIS_HOST`
+- **Description**: ElastiCache Redis hostname for staging
+- **Required for**: Staging deployments
+- **Format**: `planner-staging-redis.xxxxx.cache.amazonaws.com`
+
+#### `STAGING_REDIS_PORT`
+- **Description**: Redis port for staging
+- **Required for**: Staging deployments
+- **Format**: `6379`
+- **Default**: `6379`
+
+#### `STAGING_SECRET_KEY`
+- **Description**: Application secret key for staging
+- **Required for**: Staging deployments
+- **Security**: Generate a strong random key
+
+#### `STAGING_APP_POD_ROLE_ARN`
+- **Description**: IAM role ARN for application pods (IRSA)
+- **Required for**: Staging deployments
+- **Format**: `arn:aws:iam::123456789012:role/planner-staging-app-pod-role`
+- **How to obtain**: From Terraform outputs
+
+#### `STAGING_CERTIFICATE_ARN`
+- **Description**: ACM certificate ARN for HTTPS (optional)
+- **Required for**: Staging ingress with HTTPS
+- **Format**: `arn:aws:acm:us-east-1:123456789012:certificate/xxxxx`
+
+#### `STAGING_DOMAIN_NAME`
+- **Description**: Domain name for staging environment (optional)
+- **Required for**: Staging ingress
+- **Format**: `staging.planner.example.com`
 
 ### Production Environment
 
-#### `PRODUCTION_SUBNET_IDS`
-- **Description**: Comma-separated list of subnet IDs for production ECS tasks
-- **Required for**: Production deployments, migration tasks
-- **Format**: `subnet-abc123,subnet-def456`
-- **How to obtain**:
-  ```bash
-  aws ec2 describe-subnets \
-    --filters "Name=tag:Environment,Values=production" \
-    --query 'Subnets[*].SubnetId' \
-    --output text | tr '\t' ','
-  ```
+#### `PRODUCTION_DB_HOST`
+- **Description**: RDS database hostname for production
+- **Required for**: Production deployments
+- **Format**: `planner-production-db.xxxxx.us-east-1.rds.amazonaws.com`
+- **How to obtain**: From Terraform outputs or RDS console
 
-#### `PRODUCTION_SECURITY_GROUP`
-- **Description**: Security group ID for production ECS tasks
-- **Required for**: Production deployments, migration tasks
-- **Format**: `sg-abc123def`
-- **How to obtain**:
-  ```bash
-  aws ec2 describe-security-groups \
-    --filters "Name=tag:Name,Values=planner-production-ecs-sg" \
-    --query 'SecurityGroups[0].GroupId' \
-    --output text
-  ```
+#### `PRODUCTION_DB_PORT`
+- **Description**: RDS database port for production
+- **Required for**: Production deployments
+- **Format**: `5432`
+- **Default**: `5432` for PostgreSQL
+
+#### `PRODUCTION_DB_NAME`
+- **Description**: Database name for production
+- **Required for**: Production deployments
+- **Format**: `planner`
+
+#### `PRODUCTION_DB_USER`
+- **Description**: Database username for production
+- **Required for**: Production deployments
+- **Format**: `planner_admin`
+
+#### `PRODUCTION_DB_PASSWORD`
+- **Description**: Database password for production
+- **Required for**: Production deployments
+- **Security**: Store securely, never commit
+
+#### `PRODUCTION_REDIS_HOST`
+- **Description**: ElastiCache Redis hostname for production
+- **Required for**: Production deployments
+- **Format**: `planner-production-redis.xxxxx.cache.amazonaws.com`
+
+#### `PRODUCTION_REDIS_PORT`
+- **Description**: Redis port for production
+- **Required for**: Production deployments
+- **Format**: `6379`
+- **Default**: `6379`
+
+#### `PRODUCTION_SECRET_KEY`
+- **Description**: Application secret key for production
+- **Required for**: Production deployments
+- **Security**: Generate a strong random key
+
+#### `PRODUCTION_APP_POD_ROLE_ARN`
+- **Description**: IAM role ARN for application pods (IRSA)
+- **Required for**: Production deployments
+- **Format**: `arn:aws:iam::123456789012:role/planner-production-app-pod-role`
+- **How to obtain**: From Terraform outputs
+
+#### `PRODUCTION_CERTIFICATE_ARN`
+- **Description**: ACM certificate ARN for HTTPS (optional)
+- **Required for**: Production ingress with HTTPS
+- **Format**: `arn:aws:acm:us-east-1:123456789012:certificate/xxxxx`
+
+#### `PRODUCTION_DOMAIN_NAME`
+- **Description**: Domain name for production environment (optional)
+- **Required for**: Production ingress
+- **Format**: `planner.example.com`
 
 ## Optional Secrets
 
@@ -118,27 +188,13 @@ Create an IAM user with the following policy:
       "Resource": "*"
     },
     {
-      "Sid": "ECSAccess",
+      "Sid": "EKSAccess",
       "Effect": "Allow",
       "Action": [
-        "ecs:DescribeTaskDefinition",
-        "ecs:RegisterTaskDefinition",
-        "ecs:UpdateService",
-        "ecs:DescribeServices",
-        "ecs:RunTask",
-        "ecs:DescribeTasks",
-        "ecs:ListTasks"
+        "eks:DescribeCluster",
+        "eks:ListClusters"
       ],
       "Resource": "*"
-    },
-    {
-      "Sid": "IAMPassRole",
-      "Effect": "Allow",
-      "Action": "iam:PassRole",
-      "Resource": [
-        "arn:aws:iam::*:role/ecsTaskExecutionRole",
-        "arn:aws:iam::*:role/planner-*-task-role"
-      ]
     },
     {
       "Sid": "RDSSnapshots",
@@ -158,29 +214,12 @@ Create an IAM user with the following policy:
         "logs:DescribeLogStreams"
       ],
       "Resource": "*"
-    },
-    {
-      "Sid": "ELBAccess",
-      "Effect": "Allow",
-      "Action": [
-        "elasticloadbalancing:DescribeLoadBalancers",
-        "elasticloadbalancing:DescribeTargetGroups",
-        "elasticloadbalancing:DescribeTargetHealth"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "EC2NetworkInfo",
-      "Effect": "Allow",
-      "Action": [
-        "ec2:DescribeSubnets",
-        "ec2:DescribeSecurityGroups"
-      ],
-      "Resource": "*"
     }
   ]
 }
 ```
+
+**Note**: The GitHub Actions workflows use `kubectl` to interact with EKS. The IAM user needs permissions to update kubeconfig, which is provided by the `eks:DescribeCluster` permission. Kubernetes RBAC within the cluster controls what operations can be performed.
 
 ## Environment Configuration
 
@@ -222,8 +261,21 @@ export AWS_SECRET_ACCESS_KEY="your-secret-key"
 # Test ECR access
 aws ecr describe-repositories --region us-east-1
 
-# Test ECS access
-aws ecs list-clusters --region us-east-1
+# Test EKS access
+aws eks list-clusters --region us-east-1
+aws eks describe-cluster --name planner-production-cluster --region us-east-1
+```
+
+### Test kubectl Access
+
+```bash
+# Update kubeconfig
+aws eks update-kubeconfig --region us-east-1 --name planner-production-cluster
+
+# Test cluster access
+kubectl cluster-info
+kubectl get nodes
+kubectl get namespaces
 ```
 
 ### Test Workflow
@@ -231,7 +283,11 @@ aws ecs list-clusters --region us-east-1
 1. Push a commit to `develop` branch
 2. Check Actions tab for workflow run
 3. Verify all jobs complete successfully
-4. Check staging deployment
+4. Check staging deployment:
+   ```bash
+   kubectl get pods -n planner-app
+   kubectl get deployment -n planner-app
+   ```
 
 ## Security Best Practices
 
@@ -273,32 +329,56 @@ aws ecs list-clusters --region us-east-1
 2. Check IAM user has required permissions
 3. Verify credentials are not expired
 
-### "Error: Unable to describe task definition"
+### "Error: Unable to describe cluster"
 
-**Cause**: ECS task definition doesn't exist or insufficient permissions
+**Cause**: EKS cluster doesn't exist or insufficient permissions
 
 **Solution**:
-1. Verify task definition exists in AWS
-2. Check IAM policy includes `ecs:DescribeTaskDefinition`
+1. Verify cluster exists in AWS
+2. Check IAM policy includes `eks:DescribeCluster`
 3. Verify AWS region is correct
+4. Ensure cluster name matches environment
 
-### "Error: Unable to run task"
+### "Error: Unable to connect to cluster"
 
-**Cause**: Subnet or security group not found
-
-**Solution**:
-1. Verify `STAGING_SUBNET_IDS` or `PRODUCTION_SUBNET_IDS` are correct
-2. Verify `STAGING_SECURITY_GROUP` or `PRODUCTION_SECURITY_GROUP` are correct
-3. Check resources exist in correct AWS region
-
-### "Error: Access denied"
-
-**Cause**: IAM permissions insufficient
+**Cause**: kubectl cannot connect to EKS cluster
 
 **Solution**:
-1. Review IAM policy above
-2. Add missing permissions
-3. Verify IAM user is attached to policy
+1. Verify kubeconfig is updated correctly
+2. Check cluster endpoint is accessible
+3. Verify IAM permissions for EKS
+4. Check network connectivity
+
+### "Error: Forbidden - User cannot create resource"
+
+**Cause**: Kubernetes RBAC permissions insufficient
+
+**Solution**:
+1. Verify IAM role has proper Kubernetes RBAC bindings
+2. Check if user/role is mapped in aws-auth ConfigMap
+3. Ensure service account has necessary permissions
+4. Review Kubernetes RBAC roles and bindings
+
+### "Error: Migration job failed"
+
+**Cause**: Database migration job failed
+
+**Solution**:
+1. Check migration job logs: `kubectl logs -n planner-app job/planner-migration-xxxxx`
+2. Verify database credentials are correct
+3. Check database connectivity from pods
+4. Review Alembic migration scripts
+
+### "Error: Pods not starting"
+
+**Cause**: Various pod startup issues
+
+**Solution**:
+1. Check pod status: `kubectl describe pod <pod-name> -n planner-app`
+2. View pod logs: `kubectl logs <pod-name> -n planner-app`
+3. Verify secrets exist: `kubectl get secrets -n planner-app`
+4. Check resource limits and node capacity
+5. Verify image exists in ECR
 
 ## Additional Resources
 

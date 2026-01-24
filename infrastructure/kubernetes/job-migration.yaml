@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: planner-migration-${TIMESTAMP}
+  namespace: planner-app
+  labels:
+    app: planner
+    job-type: migration
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: planner
+        job-type: migration
+    spec:
+      serviceAccountName: planner-app-sa
+      restartPolicy: Never
+      containers:
+      - name: migration
+        image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+        command: ["alembic", "upgrade", "head"]
+        env:
+        - name: ENVIRONMENT
+          value: "${ENVIRONMENT}"
+        - name: POSTGRES_SERVER
+          value: "${DB_HOST}"
+        - name: POSTGRES_PORT
+          value: "${DB_PORT}"
+        - name: POSTGRES_DB
+          value: "${DB_NAME}"
+        - name: POSTGRES_USER
+          value: "${DB_USER}"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: planner-secrets
+              key: db-password
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: planner-secrets
+              key: secret-key
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"

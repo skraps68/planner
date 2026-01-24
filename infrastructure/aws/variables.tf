@@ -1,4 +1,4 @@
-# Variables for AWS ECS Fargate deployment
+# Variables for AWS EKS Fargate deployment
 
 variable "aws_region" {
   description = "AWS region for deployment"
@@ -31,7 +31,38 @@ variable "availability_zones_count" {
   default     = 2
 }
 
-# ECS Configuration
+# EKS Configuration
+variable "eks_cluster_version" {
+  description = "Kubernetes version for EKS cluster"
+  type        = string
+  default     = "1.28"
+}
+
+variable "eks_public_access_cidrs" {
+  description = "CIDR blocks that can access the EKS public API endpoint"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "vpc_cni_version" {
+  description = "Version of VPC CNI addon"
+  type        = string
+  default     = "v1.15.1-eksbuild.1"
+}
+
+variable "coredns_version" {
+  description = "Version of CoreDNS addon"
+  type        = string
+  default     = "v1.10.1-eksbuild.6"
+}
+
+variable "kube_proxy_version" {
+  description = "Version of kube-proxy addon"
+  type        = string
+  default     = "v1.28.2-eksbuild.2"
+}
+
+# Application Configuration
 variable "app_image" {
   description = "Docker image for the application"
   type        = string
@@ -43,22 +74,34 @@ variable "app_port" {
   default     = 8000
 }
 
-variable "app_count" {
-  description = "Number of application instances"
+variable "app_replicas" {
+  description = "Number of application pod replicas"
   type        = number
   default     = 2
 }
 
-variable "fargate_cpu" {
-  description = "Fargate instance CPU units (1024 = 1 vCPU)"
-  type        = number
-  default     = 1024
+variable "app_cpu_request" {
+  description = "CPU request for application pods (e.g., '500m')"
+  type        = string
+  default     = "500m"
 }
 
-variable "fargate_memory" {
-  description = "Fargate instance memory in MB"
-  type        = number
-  default     = 2048
+variable "app_cpu_limit" {
+  description = "CPU limit for application pods (e.g., '1000m')"
+  type        = string
+  default     = "1000m"
+}
+
+variable "app_memory_request" {
+  description = "Memory request for application pods (e.g., '1Gi')"
+  type        = string
+  default     = "1Gi"
+}
+
+variable "app_memory_limit" {
+  description = "Memory limit for application pods (e.g., '2Gi')"
+  type        = string
+  default     = "2Gi"
 }
 
 # Database Configuration
@@ -125,26 +168,26 @@ variable "certificate_arn" {
 }
 
 # Auto Scaling Configuration
-variable "autoscaling_min_capacity" {
-  description = "Minimum number of tasks"
+variable "autoscaling_min_replicas" {
+  description = "Minimum number of pod replicas"
   type        = number
   default     = 2
 }
 
-variable "autoscaling_max_capacity" {
-  description = "Maximum number of tasks"
+variable "autoscaling_max_replicas" {
+  description = "Maximum number of pod replicas"
   type        = number
   default     = 10
 }
 
 variable "autoscaling_target_cpu" {
-  description = "Target CPU utilization for autoscaling"
+  description = "Target CPU utilization percentage for autoscaling"
   type        = number
   default     = 70
 }
 
 variable "autoscaling_target_memory" {
-  description = "Target memory utilization for autoscaling"
+  description = "Target memory utilization percentage for autoscaling"
   type        = number
   default     = 80
 }
@@ -169,8 +212,8 @@ variable "maintenance_window" {
 }
 
 # Monitoring Configuration
-variable "enable_container_insights" {
-  description = "Enable CloudWatch Container Insights"
+variable "enable_control_plane_logging" {
+  description = "Enable EKS control plane logging"
   type        = bool
   default     = true
 }

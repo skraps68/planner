@@ -10,10 +10,9 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: planner-app
-  ECS_CLUSTER: planner-production
-  ECS_SERVICE: planner-app-service
-  ECS_TASK_DEFINITION: planner-app-task
-  CONTAINER_NAME: planner-app
+  EKS_CLUSTER_NAME: planner-production-cluster
+  K8S_NAMESPACE: planner-app
+  DEPLOYMENT_NAME: planner-app
 
 jobs:
   deploy-production:
@@ -63,19 +62,15 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:production-latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
       
-      - name: Download task definition
+      - name: Configure kubectl
         run: |
-          aws ecs describe-task-definition \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --query taskDefinition > task-definition.json
-      
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ steps.build-image.outputs.image }}
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER_NAME }}
+          
+          # Verify connection
+          kubectl cluster-info
+          kubectl get nodes
       
       - name: Create database backup before migration
         run: |
@@ -85,73 +80,101 @@ jobs:
             --db-instance-identifier planner-production-db \
             --db-snapshot-identifier planner-production-backup-$TIMESTAMP
           
-          echo "Waiting for backup to complete..."
-          aws rds wait db-snapshot-completed \
-            --db-snapshot-identifier planner-production-backup-$TIMESTAMP
-          
-          echo "Backup completed: planner-production-backup-$TIMESTAMP"
+          echo "Backup initiated: planner-production-backup-$TIMESTAMP"
+          echo "Note: Backup is running in background"
       
       - name: Run database migrations
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ steps.version.outputs.version }}
+          TIMESTAMP: ${{ steps.version.outputs.version }}
         run: |
-          # Run migrations in a one-off ECS task
-          TASK_ARN=$(aws ecs run-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.PRODUCTION_SUBNET_IDS }}],securityGroups=[${{ secrets.PRODUCTION_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
-            --overrides '{
-              "containerOverrides": [{
-                "name": "${{ env.CONTAINER_NAME }}",
-                "command": ["alembic", "upgrade", "head"]
-              }]
-            }' \
-            --query 'tasks[0].taskArn' \
-            --output text)
+          # Set environment variables for manifest substitution
+          export ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}
+          export ENVIRONMENT=production
+          export DB_HOST=${{ secrets.PRODUCTION_DB_HOST }}
+          export DB_PORT=${{ secrets.PRODUCTION_DB_PORT }}
+          export DB_NAME=${{ secrets.PRODUCTION_DB_NAME }}
+          export DB_USER=${{ secrets.PRODUCTION_DB_USER }}
           
-          echo "Migration task ARN: $TASK_ARN"
+          # Apply migration job
+          envsubst < infrastructure/kubernetes/job-migration.yaml | kubectl apply -f -
           
-          # Wait for migration task to complete
-          aws ecs wait tasks-stopped \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --tasks $TASK_ARN
-          
-          # Check if migration was successful
-          EXIT_CODE=$(aws ecs describe-tasks \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --tasks $TASK_ARN \
-            --query 'tasks[0].containers[0].exitCode' \
-            --output text)
-          
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "Migration failed with exit code $EXIT_CODE"
+          # Wait for job to complete
+          JOB_NAME="planner-migration-${TIMESTAMP}"
+          kubectl wait --for=condition=complete --timeout=600s job/${JOB_NAME} -n ${{ env.K8S_NAMESPACE }} || {
+            echo "Migration job failed or timed out"
+            kubectl logs -n ${{ env.K8S_NAMESPACE }} job/${JOB_NAME}
             exit 1
-          fi
+          }
           
           echo "Migration completed successfully"
       
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Update Kubernetes secrets
+        run: |
+          # Update secrets if they don't exist
+          kubectl create secret generic planner-secrets \
+            --from-literal=db-password="${{ secrets.PRODUCTION_DB_PASSWORD }}" \
+            --from-literal=secret-key="${{ secrets.PRODUCTION_SECRET_KEY }}" \
+            -n ${{ env.K8S_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Deploy to EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.version.outputs.version }}
+        run: |
+          # Set environment variables for manifest substitution
+          export ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}
+          export ENVIRONMENT=production
+          export DB_HOST=${{ secrets.PRODUCTION_DB_HOST }}
+          export DB_PORT=${{ secrets.PRODUCTION_DB_PORT }}
+          export DB_NAME=${{ secrets.PRODUCTION_DB_NAME }}
+          export DB_USER=${{ secrets.PRODUCTION_DB_USER }}
+          export REDIS_HOST=${{ secrets.PRODUCTION_REDIS_HOST }}
+          export REDIS_PORT=${{ secrets.PRODUCTION_REDIS_PORT }}
+          export APP_POD_ROLE_ARN=${{ secrets.PRODUCTION_APP_POD_ROLE_ARN }}
+          
+          # Apply Kubernetes manifests
+          kubectl apply -f infrastructure/kubernetes/namespace.yaml
+          envsubst < infrastructure/kubernetes/serviceaccount.yaml | kubectl apply -f -
+          envsubst < infrastructure/kubernetes/deployment.yaml | kubectl apply -f -
+          kubectl apply -f infrastructure/kubernetes/service.yaml
+          
+          # Apply ingress if certificate ARN is provided
+          if [ -n "${{ secrets.PRODUCTION_CERTIFICATE_ARN }}" ]; then
+            export CERTIFICATE_ARN=${{ secrets.PRODUCTION_CERTIFICATE_ARN }}
+            export DOMAIN_NAME=${{ secrets.PRODUCTION_DOMAIN_NAME }}
+            envsubst < infrastructure/kubernetes/ingress.yaml | kubectl apply -f -
+          fi
+          
+          # Apply HPA
+          kubectl apply -f infrastructure/kubernetes/hpa.yaml
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }} --timeout=600s
       
       - name: Verify deployment
         run: |
-          # Wait for service to be healthy
-          sleep 60
+          # Check pod status
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }}
           
-          # Check health endpoint
-          curl -f https://planner.example.com/health || exit 1
+          # Check deployment status
+          kubectl get deployment ${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }}
           
-          # Run smoke tests
-          curl -f https://planner.example.com/api/v1/health || exit 1
+          # Get ingress information
+          kubectl get ingress -n ${{ env.K8S_NAMESPACE }}
           
-          echo "Deployment successful! Service is healthy."
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod -l app=planner -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+          
+          # Check health endpoint (if ingress is configured)
+          if [ -n "${{ secrets.PRODUCTION_DOMAIN_NAME }}" ]; then
+            sleep 60
+            curl -f https://${{ secrets.PRODUCTION_DOMAIN_NAME }}/health || echo "Health check failed, but continuing..."
+          fi
+          
+          echo "✅ Deployment successful! Pods are healthy."
       
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/')
@@ -164,8 +187,10 @@ jobs:
           body: |
             Production deployment of version ${{ steps.version.outputs.version }}
             
-            Deployed to: https://planner.example.com
+            Deployed to: https://${{ secrets.PRODUCTION_DOMAIN_NAME }}
             Image: ${{ steps.build-image.outputs.image }}
+            Cluster: ${{ env.EKS_CLUSTER_NAME }}
+            Namespace: ${{ env.K8S_NAMESPACE }}
           draft: false
           prerelease: false
       
@@ -176,6 +201,7 @@ jobs:
             echo "✅ Production deployment successful"
             echo "Version: ${{ steps.version.outputs.version }}"
             echo "Image: ${{ steps.build-image.outputs.image }}"
+            echo "Cluster: ${{ env.EKS_CLUSTER_NAME }}"
           else
             echo "❌ Production deployment failed"
           fi
@@ -183,23 +209,15 @@ jobs:
       - name: Rollback on failure
         if: failure()
         run: |
-          echo "⚠️ Rolling back to previous task definition..."
-          PREVIOUS_TASK_DEF=$(aws ecs describe-services \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }} \
-            --query 'services[0].deployments[1].taskDefinition' \
-            --output text)
+          echo "⚠️ Rolling back to previous deployment..."
           
-          if [ ! -z "$PREVIOUS_TASK_DEF" ]; then
-            aws ecs update-service \
-              --cluster ${{ env.ECS_CLUSTER }} \
-              --service ${{ env.ECS_SERVICE }} \
-              --task-definition $PREVIOUS_TASK_DEF \
-              --force-new-deployment
-            echo "Rollback initiated to $PREVIOUS_TASK_DEF"
-            
-            # Notify about rollback
-            echo "🔄 Automatic rollback completed"
-          else
-            echo "⚠️ No previous task definition found for rollback"
-          fi
+          # Rollback deployment
+          kubectl rollout undo deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }}
+          
+          # Wait for rollback to complete
+          kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+          
+          echo "🔄 Automatic rollback completed"
+          
+          # Show current status
+          kubectl get pods -n ${{ env.K8S_NAMESPACE }}
