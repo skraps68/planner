@@ -3,26 +3,34 @@ version: '3.8'
 services:
   # PostgreSQL database
   db:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: planner-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: planner
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-planner}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-planner}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - planner-network
 
   # Redis cache
   redis:
     image: redis:7-alpine
+    container_name: planner-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,24 +38,52 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - planner-network
 
   # FastAPI application
   app:
     build:
       context: .
-      target: development
+      target: ${BUILD_TARGET:-development}
+      dockerfile: Dockerfile
+    container_name: planner-app
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     environment:
-      - POSTGRES_SERVER=db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=planner
-      - REDIS_HOST=redis
-      - ENVIRONMENT=development
-      - DEBUG=true
+      # Application
+      - PROJECT_NAME=${PROJECT_NAME:-Program and Project Management System}
+      - VERSION=${VERSION:-1.0.0}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      
+      # Security
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-11520}
+      
+      # CORS
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      
+      # Database
+      - POSTGRES_SERVER=${POSTGRES_SERVER:-db}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-planner}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      
+      # Redis
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      
+      # Celery
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
     volumes:
-      - ./backend:/app
+      - ./backend:/app:${VOLUME_MODE:-rw}
     depends_on:
       db:
         condition: service_healthy
@@ -58,7 +94,58 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - planner-network
+
+  # Celery worker (optional, for background tasks)
+  celery-worker:
+    build:
+      context: .
+      target: ${BUILD_TARGET:-development}
+      dockerfile: Dockerfile
+    container_name: planner-celery-worker
+    command: celery -A app.main.celery worker --loglevel=info
+    environment:
+      # Application
+      - PROJECT_NAME=${PROJECT_NAME:-Program and Project Management System}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      
+      # Database
+      - POSTGRES_SERVER=${POSTGRES_SERVER:-db}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-planner}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      
+      # Redis
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      
+      # Celery
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+    volumes:
+      - ./backend:/app:${VOLUME_MODE:-rw}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - planner-network
+    profiles:
+      - with-celery
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+
+networks:
+  planner-network:
+    driver: bridge

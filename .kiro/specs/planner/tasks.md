@@ -341,8 +341,8 @@
     - Add seed data script for easy database reset
     - _Requirements: All requirements benefit from test data, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-- [ ] 12. Final integration and testing with scoped permissions
-  - [ ] 12.1 Create end-to-end integration tests
+- [x] 12. Final integration and testing with scoped permissions
+  - [x] 12.1 Create end-to-end integration tests
     - Test complete program and project creation workflows with scope restrictions
     - Validate resource assignment and actuals import workflows with permissions
     - Test forecasting and reporting functionality with scope filtering
@@ -351,7 +351,7 @@
     - Test error handling and edge cases across the system
     - _Requirements: All requirements need integration testing, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-  - [ ] 12.2 Performance optimization and caching with permission caching
+  - [x] 12.2 Performance optimization and caching with permission caching
     - Verify Redis caching for frequently accessed data
     - Optimize database queries with proper indexing
     - Implement query optimization for reporting endpoints
@@ -360,7 +360,7 @@
     - Add database query profiling and optimization
     - _Requirements: 8.1, 8.2, 8.5 (reporting performance), 11.4, 11.5_
 
-  - [ ] 12.3 Security audit and penetration testing
+  - [x] 12.3 Security audit and penetration testing
     - Test authentication and authorization security
     - Verify scope isolation between users
     - Test for SQL injection vulnerabilities
@@ -369,8 +369,8 @@
     - Audit sensitive data exposure in logs and errors
     - _Requirements: 7.5, 10.1, 10.2, 10.3, 10.4, 10.5, 11.6_
 
-- [ ] 13. Create containerization and deployment configuration
-  - [ ] 13.1 Enhance Docker configuration for production
+- [-] 13. Create containerization and deployment configuration
+  - [x] 13.1 Enhance Docker configuration for production
     - Review and optimize existing Dockerfile for production use
     - Verify Docker Compose configuration includes all services
     - Add production environment variable configuration
@@ -378,7 +378,7 @@
     - Verify local development scripts work correctly
     - _Requirements: All requirements need local development environment_
 
-  - [ ] 13.2 Create production deployment documentation
+  - [x] 13.2 Create production deployment documentation
     - Document production environment setup
     - Create deployment runbook with step-by-step instructions
     - Document database migration procedures

@@ -1,7 +1,34 @@
 - need to manage differences between labor and non-labor resources. how will non-labor resource costs be forecast and tracked? could associate an overall cost and then just amortize over the length of the assignment. this would mean deviating from the rate concept that labor uses.
 
+- what about non-labor resources that are not associated with a project? they should not necessarily go against BAU if you want to track BAU as a labor-only bucket. there needs to be some concept of BAU operating costs for non-labor. ormaybe we still use BAU for both and just add reporting breakdowns for labor/non-labor.
+
 - how do we account for BAU? is it just another project (nothing special) that you assign labor and non-labor resources to? does that mean that all non-labor (contracts, licenses, SOWs, etc. also need to be captured?). what additional data models would we need to capture all of that cleanly.
 
 - if we want to capture BAU as a project, then will we assignment all resources to BAU? do we need to support the concept of a "plug" to make it easier and less labor intensive? 
 
-- what about the concept of auto-adjusting BAU based on a resource's other assignments? e.g. if a resource is assigned <100%, then automaticlaly offer up a BAU assignment for the remainder, and ask the user to confirm?
+- what about the concept of auto-adjusting BAU based on a resource's other assignments? e.g. if a resource is assigned <100%, then automaticlaly offer up a BAU assignment for the remainder, and ask the user to confirm? if we do this, then BAU is indeed a special project, OR, do we create a feature whereby you can choose a "slop" or "remainder" project to auto-assign remaining percentages to (after confirmation).
+
+- need the concept of proposed assignment edits that can be stored in a user's profile as drafts. draft assignments can then be applied at any time, and the system will keep track of these. need to be able to groups a bunch of assignments/re-assignments and even non-labor changes together into an edit (what should we call this edit set?) and assign a unique ID to the edit set. the system can then apply, generate a history of edits sets applied, and even roll back an edit, assumin other edits were not made over it (this could create conflicts and make it unclear what a rollback means). alternatively, the system could offer to rollback the edit set and all edit sets done since then?
+
+- draft edits sets should be creatable and the impacts of them should be visible in a "modeling" mode whereby the user is experimenting with moving resources around and understanding the impacts to a project/program/overall annual budget. that means that top-level statistics of variance vs budget AND vs the the previous forecast need to be tracked and clearly displayed as potential impact. this will allow a user to model until they achieve the desired impacts before "saving" or "applying" the edit set.
+
+- if a user stores a draft edit set, but then later wants to visualize the impact in modeling mode, but changes have been made to the "trunk", then the system should warn them that changes have been made since they did their modeling. the systen should give them all the details of the other edit set that was applied: name of the set, name of the user, when applied, impact on metrics at resource, project, program, and top-level annual level. the user might then want to ask the other user to roll back their edits.
+
+- need good names for all these concepts:
+  - change set: set of resource and assignment changes
+    - statuses:
+      - draft: changes are not yet applied, but forecasted impacts of changes are snapshotted and kept with the draft
+      - applied: change set has been applied to the shared planning data. impacts at the time of application are recorded.
+      - note that if a change set is (can be) rolled back, then it can go back into a draft status
+  - modeling mode: allows user to experimentally build a change set and visualize the impact of that change set
+
+- actuals/forecast period: need the concept of a planning period (this is top-level budget). this should not be fixed to any particular program or projet, but be independently definable as a overlayed reporting mechanism. when you define a reporting period, you must assign a budget to that period so that actuals/forecast can be compared against the budget. since budgets will likely evolve, the budget for a given reporting period needs to have a history that is tracked in periods (to which the budget applied).
+<=== actually, this concept is at a higher level than phases, projects, and programs. this is at an org level. maybe this is something we add later after debugging all the core project budget logic?
+
+- need solid management of before/after/impacts from a historical perspective. perhaps a screen that shows a timeline of all key metrics (budget, actuals, remaining forecast) over time for the entire porfolio and then showing how these change over time both with actuals imports and with change sets being applied. each of these are represented as events in the timelines (which proceeds vertically and can be sorted either direction). additionally, you should be able to drilldown into impacts from portfolio level, to program level, to project level, to phase level, to resource level. it may get trickly trying to annotate how a specific change set impacted a specific resource so some sort of bracketing display to the side of the hierarchical table may be necessary.
+
+- a change set should probably be the most generic, top-level concept of changes and include all types of changes:
+  - actuals edit/import
+  - resource assignment changes
+  - phase changes (could impact budget, timelines)
+  - project changes (could impact timelines, which could impact amortization of non-labor costs)
