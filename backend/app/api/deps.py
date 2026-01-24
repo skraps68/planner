@@ -1,7 +1,8 @@
 """
 API dependencies for authentication and database sessions.
 """
-from typing import Generator
+from typing import Generator, List
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.user import User
+from app.services.authorization import Permission
 
 # Security scheme for JWT tokens
 security = HTTPBearer()
@@ -118,6 +120,81 @@ def check_admin_permission(
     return current_user
 
 
+def check_permission(*permissions: Permission):
+    """
+    Dependency factory for checking specific permissions.
+    
+    Usage:
+        @router.get("/programs")
+        async def list_programs(
+            current_user: User = Depends(check_permission(Permission.READ_PROGRAM))
+        ):
+            ...
+    
+    Args:
+        *permissions: Required permissions (user needs at least one)
+        
+    Returns:
+        Dependency function that checks permissions
+    """
+    async def permission_checker(
+        current_user: User = Depends(get_current_active_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        from app.services.authorization import authorization_service
+        
+        if not authorization_service.has_any_permission(
+            db, current_user.id, list(permissions)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Required permissions: {', '.join(p.value for p in permissions)}"
+            )
+        
+        return current_user
+    
+    return permission_checker
+
+
+def check_all_permissions(*permissions: Permission):
+    """
+    Dependency factory for checking that user has ALL specified permissions.
+    
+    Usage:
+        @router.post("/programs")
+        async def create_program(
+            current_user: User = Depends(check_all_permissions(
+                Permission.CREATE_PROGRAM,
+                Permission.UPDATE_BUDGET
+            ))
+        ):
+            ...
+    
+    Args:
+        *permissions: Required permissions (user needs all of them)
+        
+    Returns:
+        Dependency function that checks permissions
+    """
+    async def permission_checker(
+        current_user: User = Depends(get_current_active_user),
+        db: Session = Depends(get_db)
+    ) -> User:
+        from app.services.authorization import authorization_service
+        
+        if not authorization_service.has_all_permissions(
+            db, current_user.id, list(permissions)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Required permissions: {', '.join(p.value for p in permissions)}"
+            )
+        
+        return current_user
+    
+    return permission_checker
+
+
 def check_program_access(
     program_id: str,
     current_user: User = Depends(get_current_active_user),
@@ -194,3 +271,41 @@ def check_project_access(
         )
     
     return current_user
+
+
+def get_accessible_programs(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> List[UUID]:
+    """
+    Dependency for getting list of accessible program IDs for current user.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        List of accessible program IDs
+    """
+    from app.services.scope_validator import scope_validator_service
+    
+    return scope_validator_service.get_user_accessible_programs(db, current_user.id)
+
+
+def get_accessible_projects(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> List[UUID]:
+    """
+    Dependency for getting list of accessible project IDs for current user.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        List of accessible project IDs
+    """
+    from app.services.scope_validator import scope_validator_service
+    
+    return scope_validator_service.get_user_accessible_projects(db, current_user.id)

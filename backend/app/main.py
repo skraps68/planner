@@ -5,6 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.api import api_router
+from app.api.middleware import (
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+    AuditLoggingMiddleware
+)
 from app.core.config import settings
 
 app = FastAPI(
@@ -13,6 +18,15 @@ app = FastAPI(
     description="Program and Project Management System API",
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add rate limiting middleware (100 requests per minute per IP)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=100, window_seconds=60)
+
+# Add audit logging middleware
+app.add_middleware(AuditLoggingMiddleware)
 
 # Set up CORS middleware
 if settings.BACKEND_CORS_ORIGINS:
