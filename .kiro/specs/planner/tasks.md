@@ -287,7 +287,7 @@
     - Create export functionality for reports (PDF, Excel)
     - _Requirements: 8.1, 8.2, 8.4, 8.5_
 
-  - [ ] 8.7 Create admin interfaces for user and role management
+  - [x] 8.7 Create admin interfaces for user and role management
     - Implement user management interface with role assignment
     - Add scope assignment interface for programs and projects
     - Create role switching and permission management UI
@@ -295,7 +295,7 @@
     - Implement permission-based UI element visibility
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.6, 11.7_
 
-  - [ ] 8.8 Implement scope-aware navigation and filtering
+  - [x] 8.8 Implement scope-aware navigation and filtering
     - Add scope-based menu filtering and navigation
     - Implement automatic data filtering by user scope
     - Create scope context breadcrumbs and indicators

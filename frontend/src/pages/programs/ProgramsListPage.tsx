@@ -1,10 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
   Typography,
-  Button,
   Paper,
   TextField,
   InputAdornment,
@@ -16,12 +15,19 @@ import { Add, Search, Edit, Delete, Visibility } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
 import { Program } from '../../types'
 import { format } from 'date-fns'
+import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
+import PermissionButton from '../../components/common/PermissionButton'
+import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 
 const ProgramsListPage: React.FC = () => {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
+
+  const { hasPermission, canAccessProgram } = usePermissions()
+  const { filterPrograms } = useScopeFilter()
 
   const { data, isLoading } = useQuery({
     queryKey: ['programs', page, pageSize, search],
@@ -32,6 +38,12 @@ const ProgramsListPage: React.FC = () => {
         search: search || undefined,
       }),
   })
+
+  // Filter programs based on user scope
+  const filteredPrograms = useMemo(() => {
+    if (!data?.items) return []
+    return filterPrograms(data.items)
+  }, [data?.items, filterPrograms])
 
   const columns: GridColDef<Program>[] = [
     {
@@ -92,42 +104,74 @@ const ProgramsListPage: React.FC = () => {
       headerName: 'Actions',
       width: 150,
       sortable: false,
-      renderCell: (params: GridRenderCellParams<Program>) => (
-        <Box>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/programs/${params.row.id}`)}
-            title="View"
-          >
-            <Visibility fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/programs/${params.row.id}/edit`)}
-            title="Edit"
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton size="small" color="error" title="Delete">
-            <Delete fontSize="small" />
-          </IconButton>
-        </Box>
-      ),
+      renderCell: (params: GridRenderCellParams<Program>) => {
+        const programAccess = canAccessProgram(params.row.id)
+        const canEdit = hasPermission('edit_programs')
+
+        return (
+          <Box>
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/programs/${params.row.id}`)}
+              disabled={!programAccess.hasPermission}
+              title={programAccess.hasPermission ? 'View' : programAccess.reason}
+            >
+              <Visibility fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/programs/${params.row.id}/edit`)}
+              disabled={!programAccess.hasPermission || !canEdit.hasPermission}
+              title={
+                !programAccess.hasPermission
+                  ? programAccess.reason
+                  : !canEdit.hasPermission
+                  ? canEdit.reason
+                  : 'Edit'
+              }
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              disabled={!programAccess.hasPermission || !hasPermission('delete_programs').hasPermission}
+              title={
+                !programAccess.hasPermission
+                  ? programAccess.reason
+                  : 'Delete'
+              }
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
+        )
+      },
     },
   ]
 
   return (
     <Box>
+      <ScopeBreadcrumbs
+        items={[
+          { label: 'Home', path: '/dashboard' },
+          { label: 'Programs' },
+        ]}
+      />
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Programs</Typography>
-        <Button
+        <PermissionButton
+          permission="create_programs"
           variant="contained"
           startIcon={<Add />}
           onClick={() => navigate('/programs/new')}
         >
           Create Program
-        </Button>
+        </PermissionButton>
       </Box>
+
+      <ScopeFilterBanner entityType="programs" />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <TextField
@@ -147,7 +191,7 @@ const ProgramsListPage: React.FC = () => {
 
       <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid
-          rows={data?.items || []}
+          rows={filteredPrograms}
           columns={columns}
           loading={isLoading}
           pageSizeOptions={[10, 25, 50, 100]}
@@ -156,8 +200,8 @@ const ProgramsListPage: React.FC = () => {
             setPage(model.page)
             setPageSize(model.pageSize)
           }}
-          rowCount={data?.total || 0}
-          paginationMode="server"
+          rowCount={filteredPrograms.length}
+          paginationMode="client"
           disableRowSelectionOnClick
         />
       </Paper>

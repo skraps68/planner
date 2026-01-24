@@ -22,6 +22,12 @@ import BudgetVsActualDashboard from './pages/reports/BudgetVsActualDashboard'
 import TimeSeriesCostReport from './pages/reports/TimeSeriesCostReport'
 import ResourceUtilizationReport from './pages/reports/ResourceUtilizationReport'
 import DrillDownReport from './pages/reports/DrillDownReport'
+import UsersListPage from './pages/admin/UsersListPage'
+import UserDetailPage from './pages/admin/UserDetailPage'
+import UserFormPage from './pages/admin/UserFormPage'
+import UserRolesPage from './pages/admin/UserRolesPage'
+import RoleScopesPage from './pages/admin/RoleScopesPage'
+import UserAuditPage from './pages/admin/UserAuditPage'
 
 function App() {
   return (
@@ -54,6 +60,13 @@ function App() {
                     <Route path="/reports/time-series" element={<TimeSeriesCostReport />} />
                     <Route path="/reports/resource-utilization" element={<ResourceUtilizationReport />} />
                     <Route path="/reports/drill-down" element={<DrillDownReport />} />
+                    <Route path="/admin/users" element={<UsersListPage />} />
+                    <Route path="/admin/users/create" element={<UserFormPage />} />
+                    <Route path="/admin/users/:id" element={<UserDetailPage />} />
+                    <Route path="/admin/users/:id/edit" element={<UserFormPage />} />
+                    <Route path="/admin/users/:id/roles" element={<UserRolesPage />} />
+                    <Route path="/admin/users/:id/roles/:roleId/scopes" element={<RoleScopesPage />} />
+                    <Route path="/admin/users/:id/audit" element={<UserAuditPage />} />
                     {/* Additional routes will be added in subsequent tasks */}
                   </Routes>
                 </Layout>

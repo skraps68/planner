@@ -1,10 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
   Typography,
-  Button,
   Paper,
   TextField,
   InputAdornment,
@@ -16,12 +15,19 @@ import { Add, Search, Edit, Delete, Visibility } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
 import { Project } from '../../types'
 import { format } from 'date-fns'
+import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
+import PermissionButton from '../../components/common/PermissionButton'
+import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 
 const ProjectsListPage: React.FC = () => {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
+
+  const { hasPermission, canAccessProject } = usePermissions()
+  const { filterProjects } = useScopeFilter()
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects', page, pageSize, search],
@@ -32,6 +38,12 @@ const ProjectsListPage: React.FC = () => {
         search: search || undefined,
       }),
   })
+
+  // Filter projects based on user scope
+  const filteredProjects = useMemo(() => {
+    if (!data?.items) return []
+    return filterProjects(data.items)
+  }, [data?.items, filterProjects])
 
   const columns: GridColDef<Project>[] = [
     {
@@ -91,42 +103,74 @@ const ProjectsListPage: React.FC = () => {
       headerName: 'Actions',
       width: 150,
       sortable: false,
-      renderCell: (params: GridRenderCellParams<Project>) => (
-        <Box>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/projects/${params.row.id}`)}
-            title="View"
-          >
-            <Visibility fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/projects/${params.row.id}/edit`)}
-            title="Edit"
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton size="small" color="error" title="Delete">
-            <Delete fontSize="small" />
-          </IconButton>
-        </Box>
-      ),
+      renderCell: (params: GridRenderCellParams<Project>) => {
+        const projectAccess = canAccessProject(params.row.id, params.row.program_id)
+        const canEdit = hasPermission('edit_projects')
+
+        return (
+          <Box>
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/projects/${params.row.id}`)}
+              disabled={!projectAccess.hasPermission}
+              title={projectAccess.hasPermission ? 'View' : projectAccess.reason}
+            >
+              <Visibility fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/projects/${params.row.id}/edit`)}
+              disabled={!projectAccess.hasPermission || !canEdit.hasPermission}
+              title={
+                !projectAccess.hasPermission
+                  ? projectAccess.reason
+                  : !canEdit.hasPermission
+                  ? canEdit.reason
+                  : 'Edit'
+              }
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              disabled={!projectAccess.hasPermission || !hasPermission('delete_projects').hasPermission}
+              title={
+                !projectAccess.hasPermission
+                  ? projectAccess.reason
+                  : 'Delete'
+              }
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
+        )
+      },
     },
   ]
 
   return (
     <Box>
+      <ScopeBreadcrumbs
+        items={[
+          { label: 'Home', path: '/dashboard' },
+          { label: 'Projects' },
+        ]}
+      />
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Projects</Typography>
-        <Button
+        <PermissionButton
+          permission="create_projects"
           variant="contained"
           startIcon={<Add />}
           onClick={() => navigate('/projects/new')}
         >
           Create Project
-        </Button>
+        </PermissionButton>
       </Box>
+
+      <ScopeFilterBanner entityType="projects" />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <TextField
@@ -146,7 +190,7 @@ const ProjectsListPage: React.FC = () => {
 
       <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid
-          rows={data?.items || []}
+          rows={filteredProjects}
           columns={columns}
           loading={isLoading}
           pageSizeOptions={[10, 25, 50, 100]}
@@ -155,8 +199,8 @@ const ProjectsListPage: React.FC = () => {
             setPage(model.page)
             setPageSize(model.pageSize)
           }}
-          rowCount={data?.total || 0}
-          paginationMode="server"
+          rowCount={filteredProjects.length}
+          paginationMode="client"
           disableRowSelectionOnClick
         />
       </Paper>
