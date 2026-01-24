@@ -45,32 +45,26 @@ async def get_current_user(
     Raises:
         HTTPException: If authentication fails
     """
-    # TODO: Implement JWT token validation and user retrieval
-    # For now, this is a placeholder that will be implemented with authentication service
+    from app.services.authentication import authentication_service
     
-    # This will be replaced with actual JWT validation:
-    # from app.services.authentication import authentication_service
-    # try:
-    #     token_data = authentication_service.verify_token(credentials.credentials)
-    #     user = authentication_service.get_user_by_id(db, token_data.user_id)
-    #     if not user or not user.is_active:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_401_UNAUTHORIZED,
-    #             detail="User not found or inactive"
-    #         )
-    #     return user
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Could not validate credentials"
-    #     )
-    
-    # Placeholder: Return a mock user for development
-    # This should be removed once authentication is implemented
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Authentication not yet implemented. This endpoint requires authentication."
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    try:
+        # Decode token
+        token = credentials.credentials
+        user = authentication_service.get_user_from_token(db, token)
+        
+        if user is None:
+            raise credentials_exception
+        
+        return user
+        
+    except Exception:
+        raise credentials_exception
 
 
 async def get_current_active_user(
@@ -97,13 +91,15 @@ async def get_current_active_user(
 
 
 def check_admin_permission(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> User:
     """
     Dependency for checking admin permissions.
     
     Args:
         current_user: Current authenticated user
+        db: Database session
         
     Returns:
         Current user if admin
@@ -111,22 +107,21 @@ def check_admin_permission(
     Raises:
         HTTPException: If user is not admin
     """
-    # TODO: Implement role checking with authorization service
-    # from app.models.user import RoleType
-    # from app.services.authorization import authorization_service
-    # 
-    # if not authorization_service.has_role(current_user, RoleType.ADMIN):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Admin permission required"
-    #     )
+    from app.services.authorization import authorization_service
+    
+    if not authorization_service.is_admin(db, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin permission required"
+        )
     
     return current_user
 
 
 def check_program_access(
     program_id: str,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> User:
     """
     Dependency for checking program-level access.
@@ -134,6 +129,7 @@ def check_program_access(
     Args:
         program_id: Program ID to check access for
         current_user: Current authenticated user
+        db: Database session
         
     Returns:
         Current user if has access
@@ -141,21 +137,30 @@ def check_program_access(
     Raises:
         HTTPException: If user doesn't have access
     """
-    # TODO: Implement scope-based access checking
-    # from app.services.scope_validator import scope_validator_service
-    # 
-    # if not scope_validator_service.has_program_access(current_user, program_id):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Access denied to this program"
-    #     )
+    from uuid import UUID
+    from app.services.scope_validator import scope_validator_service
+    
+    try:
+        program_uuid = UUID(program_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid program ID format"
+        )
+    
+    if not scope_validator_service.can_access_program(db, current_user.id, program_uuid):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this program"
+        )
     
     return current_user
 
 
 def check_project_access(
     project_id: str,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ) -> User:
     """
     Dependency for checking project-level access.
@@ -163,6 +168,7 @@ def check_project_access(
     Args:
         project_id: Project ID to check access for
         current_user: Current authenticated user
+        db: Database session
         
     Returns:
         Current user if has access
@@ -170,13 +176,21 @@ def check_project_access(
     Raises:
         HTTPException: If user doesn't have access
     """
-    # TODO: Implement scope-based access checking
-    # from app.services.scope_validator import scope_validator_service
-    # 
-    # if not scope_validator_service.has_project_access(current_user, project_id):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="Access denied to this project"
-    #     )
+    from uuid import UUID
+    from app.services.scope_validator import scope_validator_service
+    
+    try:
+        project_uuid = UUID(project_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid project ID format"
+        )
+    
+    if not scope_validator_service.can_access_project(db, current_user.id, project_uuid):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this project"
+        )
     
     return current_user
