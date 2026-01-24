@@ -237,8 +237,8 @@
     - Add rate limiting and security headers
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 11.5, 11.6_
 
-- [ ] 8. Implement frontend application with scoped permissions
-  - [ ] 8.1 Set up React frontend project structure
+- [-] 8. Implement frontend application with scoped permissions
+  - [x] 8.1 Set up React frontend project structure
     - Create React + TypeScript project with Vite or Create React App
     - Set up Material-UI design system
     - Configure Redux Toolkit for state management
@@ -247,7 +247,7 @@
     - Add authentication context and protected routes
     - _Requirements: All requirements need frontend interface_
 
-  - [ ] 8.2 Create authentication and user profile components
+  - [x] 8.2 Create authentication and user profile components
     - Implement login and logout pages
     - Create user profile header with role/scope display
     - Add role switching dropdown with scope context
@@ -255,7 +255,7 @@
     - Add protected route wrapper component
     - _Requirements: 7.5, 10.1, 10.4, 11.1, 11.2, 11.3, 11.4_
 
-  - [ ] 8.3 Create program and project management UI
+  - [x] 8.3 Create program and project management UI
     - Implement program list and detail views
     - Create project list and detail views with phases
     - Add program/project creation and edit forms
@@ -263,7 +263,7 @@
     - Add budget visualization components
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 9.1, 9.2, 9.3, 9.4, 9.5, 11.5_
 
-  - [ ] 8.4 Create resource and worker management UI
+  - [x] 8.4 Create resource and worker management UI
     - Implement resource list and detail views
     - Create worker management interface
     - Add worker type and rate management UI
@@ -271,7 +271,7 @@
     - Add allocation conflict visualization
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 3.1, 3.2, 3.3, 3.4, 3.5_
 
-  - [ ] 8.5 Create actuals import and variance analysis UI
+  - [x] 8.5 Create actuals import and variance analysis UI
     - Implement CSV upload interface with drag-and-drop
     - Create actuals import wizard with validation feedback
     - Add variance analysis dashboard
@@ -279,7 +279,7 @@
     - Create variance reports with drill-down capabilities
     - _Requirements: 8.3, 8.1, 8.2, 8.5_
 
-  - [ ] 8.6 Create reporting and forecasting dashboards
+  - [x] 8.6 Create reporting and forecasting dashboards
     - Implement budget vs actual vs forecast dashboard
     - Create resource utilization reports and heatmaps
     - Add time-series charts for cost tracking
