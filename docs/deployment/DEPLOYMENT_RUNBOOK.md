@@ -2,7 +2,7 @@
 
 ## Overview
 
-This runbook provides detailed step-by-step procedures for deploying updates to the Program and Project Management System in production.
+This runbook provides detailed step-by-step procedures for deploying updates to the Program and Project Management System in production on AWS EKS (Elastic Kubernetes Service) Fargate.
 
 ## Table of Contents
 
@@ -112,14 +112,20 @@ See [Database Migration Procedure](#database-migration-procedure) section.
 ### Step 6: Deploy New Version
 
 ```bash
-# Stop current containers
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+# Update kubeconfig for EKS cluster
+aws eks update-kubeconfig --name planner-production-cluster --region us-east-1
 
-# Start new containers
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Update deployment with new image
+kubectl set image deployment/planner-app app=<account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:latest -n planner-production
 
-# Wait for services to be healthy
-sleep 30
+# Or apply updated manifests
+kubectl apply -f infrastructure/kubernetes/deployment.yaml
+
+# Wait for rollout to complete
+kubectl rollout status deployment/planner-app -n planner-production
+
+# Verify pods are running
+kubectl get pods -n planner-production
 ```
 
 ### Step 7: Verify Deployment
@@ -146,30 +152,37 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic
 ### Migration Execution
 
 ```bash
-# Dry run (if supported by your migrations)
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic upgrade head --sql > migration-preview.sql
+# Execute migrations using Kubernetes Job
+kubectl apply -f infrastructure/kubernetes/job-migration.yaml
 
-# Review the SQL
-cat migration-preview.sql
+# Monitor job progress
+kubectl get jobs -n planner-production -w
 
-# Execute migrations
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic upgrade head
+# Check job logs
+kubectl logs job/planner-migration -n planner-production
 
-# Verify migration completed
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic current
+# Verify migration completed successfully
+kubectl get jobs planner-migration -n planner-production -o jsonpath='{.status.succeeded}'
+
+# Or connect to a running pod to check migration status
+POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $POD_NAME -n planner-production -- alembic current
 ```
 
 ### Post-Migration Verification
 
 ```bash
-# Check database schema
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec db psql -U planner_admin -d planner_production -c "\dt"
+# Check database schema (connect to RDS endpoint)
+psql -h <rds-endpoint> -U planner_admin -d planner_production -c "\dt"
 
 # Verify critical tables
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec db psql -U planner_admin -d planner_production -c "SELECT COUNT(*) FROM programs;"
+psql -h <rds-endpoint> -U planner_admin -d planner_production -c "SELECT COUNT(*) FROM programs;"
 
 # Check for migration errors in logs
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app | grep -i "error\|exception"
+kubectl logs job/planner-migration -n planner-production | grep -i "error\|exception"
+
+# Or check application pod logs
+kubectl logs -l app=planner-app -n planner-production | grep -i "error\|exception"
 ```
 
 ---
@@ -186,13 +199,20 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app | grep 
 
 ### Rollback Steps
 
-#### Step 1: Stop Current Services
+#### Step 1: Rollback Kubernetes Deployment
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+# Rollback to previous revision
+kubectl rollout undo deployment/planner-app -n planner-production
+
+# Or rollback to specific revision
+kubectl rollout undo deployment/planner-app -n planner-production --to-revision=2
+
+# Monitor rollback progress
+kubectl rollout status deployment/planner-app -n planner-production
 ```
 
-#### Step 2: Revert Code
+#### Step 2: Revert Code (if needed)
 
 ```bash
 # Find previous version
@@ -208,41 +228,53 @@ git checkout v1.2.2
 #### Step 3: Rollback Database (if migrations were run)
 
 ```bash
+# Create a Kubernetes Job to run migration rollback
+# Or connect to a pod to run alembic downgrade
+POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+
 # Identify target migration version
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic history
+kubectl exec -it $POD_NAME -n planner-production -- alembic history
 
 # Downgrade to previous version
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic downgrade <revision-id>
+kubectl exec -it $POD_NAME -n planner-production -- alembic downgrade <revision-id>
 
-# Or restore from backup
-BACKUP_FILE="/var/backups/planner/pre-deploy-<timestamp>.sql"
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec -T db psql -U planner_admin -d planner_production < ${BACKUP_FILE}
+# Or restore from RDS snapshot
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier planner-production-db-restored \
+  --db-snapshot-identifier <snapshot-id> \
+  --region us-east-1
 ```
 
-#### Step 4: Rebuild and Restart
+#### Step 4: Rebuild and Deploy (if needed)
 
 ```bash
-# Rebuild images
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
+# Build and push new image with previous version
+docker build -t planner-production-app:v1.2.2 -f Dockerfile --target production .
+docker tag planner-production-app:v1.2.2 <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:v1.2.2
+docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:v1.2.2
 
-# Start services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Update deployment with previous image
+kubectl set image deployment/planner-app app=<account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:v1.2.2 -n planner-production
 
-# Verify services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+# Wait for rollout
+kubectl rollout status deployment/planner-app -n planner-production
 ```
 
 #### Step 5: Verify Rollback
 
 ```bash
+# Check pod status
+kubectl get pods -n planner-production
+
 # Check application version
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -c "from app.core.config import settings; print(settings.VERSION)"
+POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $POD_NAME -n planner-production -- python -c "from app.core.config import settings; print(settings.VERSION)"
 
 # Test health endpoint
 curl https://your-domain.com/health
 
 # Check logs
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app | tail -100
+kubectl logs -l app=planner-app -n planner-production --tail=100
 ```
 
 ---
@@ -252,88 +284,110 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app | tail 
 ### Service Completely Down
 
 ```bash
-# Check all services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+# Check all pods
+kubectl get pods -n planner-production
 
-# Check logs for all services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=100
+# Check pod logs
+kubectl logs -l app=planner-app -n planner-production --tail=100
 
-# Restart all services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart
+# Check deployment status
+kubectl describe deployment planner-app -n planner-production
 
-# If restart fails, recreate containers
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Restart pods (delete and let deployment recreate)
+kubectl rollout restart deployment/planner-app -n planner-production
+
+# If restart fails, check events
+kubectl get events -n planner-production --sort-by='.lastTimestamp'
 ```
 
 ### Database Connection Lost
 
 ```bash
-# Check database container
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps db
+# Check RDS instance status
+aws rds describe-db-instances \
+  --db-instance-identifier planner-production-db \
+  --query 'DBInstances[0].DBInstanceStatus' \
+  --region us-east-1
 
-# Check database logs
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs db | tail -100
+# Check RDS events
+aws rds describe-events \
+  --source-identifier planner-production-db \
+  --source-type db-instance \
+  --region us-east-1
 
-# Restart database
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart db
+# Restart application pods
+kubectl rollout restart deployment/planner-app -n planner-production
 
-# Wait for database to be ready
-sleep 10
-
-# Restart application
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart app
+# Check pod logs for connection errors
+kubectl logs -l app=planner-app -n planner-production --tail=100
 ```
 
 ### Out of Disk Space
 
 ```bash
-# Check disk usage
-df -h
+# Check EBS volume usage (if using persistent volumes)
+kubectl get pv
 
-# Clean up Docker resources
-docker system prune -a --volumes
+# Check pod ephemeral storage
+kubectl top pods -n planner-production
 
-# Remove old backups (keep last 7 days)
-find /var/backups/planner -name "*.sql" -mtime +7 -delete
+# Clean up old images from ECR
+aws ecr list-images \
+  --repository-name planner-production-app \
+  --region us-east-1
 
-# Remove old logs
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=0 app
+# Delete old images
+aws ecr batch-delete-image \
+  --repository-name planner-production-app \
+  --image-ids imageTag=old-tag \
+  --region us-east-1
+
+# Clean up completed jobs
+kubectl delete jobs --field-selector status.successful=1 -n planner-production
 ```
 
 ### High Memory Usage
 
 ```bash
-# Check container memory usage
-docker stats --no-stream
+# Check pod memory usage
+kubectl top pods -n planner-production
 
-# Restart high-memory containers
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml restart app
+# Check pod resource limits
+kubectl describe pod -l app=planner-app -n planner-production | grep -A 5 "Limits:"
 
-# If issue persists, increase memory limits in docker-compose.prod.yml
+# Restart high-memory pods
+kubectl rollout restart deployment/planner-app -n planner-production
+
+# If issue persists, increase memory limits in deployment.yaml
 ```
 
 ### Security Incident
 
 ```bash
-# Immediately stop all services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+# Immediately scale down deployment
+kubectl scale deployment planner-app --replicas=0 -n planner-production
 
 # Preserve logs for investigation
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs > /var/log/planner/incident-$(date +%Y%m%d-%H%M%S).log
+kubectl logs -l app=planner-app -n planner-production --all-containers=true > /var/log/planner/incident-$(date +%Y%m%d-%H%M%S).log
 
 # Rotate all secrets
 # 1. Generate new SECRET_KEY
-# 2. Update database passwords
-# 3. Update Redis password
+# 2. Update database passwords in AWS Secrets Manager
+# 3. Update Redis password in AWS Secrets Manager
 # 4. Regenerate SSL certificates if compromised
 
-# Review and update .env file
-nano .env
+# Update Kubernetes secrets
+kubectl create secret generic planner-secrets \
+  --from-literal=SECRET_KEY=<new-key> \
+  --from-literal=POSTGRES_PASSWORD=<new-password> \
+  --from-literal=REDIS_PASSWORD=<new-password> \
+  --dry-run=client -o yaml | kubectl apply -f - -n planner-production
 
-# Rebuild and restart with new secrets
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Rebuild and redeploy with new secrets
+docker build -t planner-production-app:secure -f Dockerfile --target production .
+docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:secure
+kubectl set image deployment/planner-app app=<account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:secure -n planner-production
+kubectl scale deployment planner-app --replicas=2 -n planner-production
 ```
 
 ---
@@ -350,7 +404,8 @@ curl -f https://your-domain.com/health || echo "Health check failed!"
 curl -f https://your-domain.com/docs || echo "API docs not accessible!"
 
 # Database connectivity
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app python -c "from app.db.session import SessionLocal; db = SessionLocal(); print('DB Connected')"
+POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $POD_NAME -n planner-production -- python -c "from app.db.session import SessionLocal; db = SessionLocal(); print('DB Connected')"
 ```
 
 ### Manual Verification
@@ -386,10 +441,10 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app python 
 5. **Log Review**
    ```bash
    # Check for errors
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app | grep -i "error\|exception\|critical"
+   kubectl logs -l app=planner-app -n planner-production | grep -i "error\|exception\|critical"
    
    # Check for warnings
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app | grep -i "warning"
+   kubectl logs -l app=planner-app -n planner-production | grep -i "warning"
    ```
 
 ### Monitoring Dashboard Check

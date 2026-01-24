@@ -1,0 +1,14 @@
+# Deploy to staging
+./scripts/deploy-eks.sh deploy staging
+
+# Deploy to production
+./scripts/deploy-eks.sh deploy production --image-tag v1.0.0
+
+# Check status
+./scripts/deploy-eks.sh status production
+
+# View logs
+./scripts/deploy-eks.sh logs production
+
+# Rollback if needed
+./scripts/deploy-eks.sh rollback production

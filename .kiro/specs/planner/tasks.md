@@ -386,15 +386,16 @@
     - Create troubleshooting guide for common issues
     - _Requirements: All requirements need production deployment_
 
-  - [x] 13.3 Create AWS ECS Fargate deployment configuration
-    - Create ECS task definitions for FastAPI application
-    - Add ECS service configuration with load balancer integration
+  - [x] 13.3 Create AWS EKS Fargate deployment configuration
+    - Create EKS cluster with Fargate profiles for serverless pods
+    - Add Kubernetes deployment manifests for FastAPI application
     - Configure AWS RDS PostgreSQL for production database
     - Set up AWS ElastiCache Redis for production caching
-    - Create CloudFormation or Terraform templates for infrastructure
-    - Add AWS secrets management for environment variables
-    - Configure VPC, security groups, and networking
-    - Set up CloudWatch logging and monitoring
+    - Create Terraform templates for EKS infrastructure
+    - Add AWS secrets management and Kubernetes secrets integration
+    - Configure VPC, security groups, and networking for EKS
+    - Set up CloudWatch logging and monitoring for EKS
+    - Install AWS Load Balancer Controller for ingress management
     - _Requirements: All requirements need production AWS deployment_
 
   - [x] 13.4 Create CI/CD pipeline configuration

@@ -2,71 +2,68 @@
 
 ## Overview
 
-This guide provides step-by-step instructions for setting up the Program and Project Management System in a production environment.
+This guide provides step-by-step instructions for setting up the Program and Project Management System in a production environment on AWS EKS (Elastic Kubernetes Service) Fargate.
 
 ## Prerequisites
 
 ### System Requirements
 
-- **Operating System**: Linux (Ubuntu 20.04+ or similar)
-- **Docker**: Version 20.10 or higher
-- **Docker Compose**: Version 2.0 or higher
-- **Memory**: Minimum 4GB RAM (8GB+ recommended)
-- **Storage**: Minimum 20GB available disk space
-- **Network**: Stable internet connection for initial setup
+- **Cloud Platform**: AWS Account with appropriate permissions
+- **Kubernetes**: kubectl CLI tool
+- **AWS CLI**: Version 2.0 or higher
+- **Terraform**: Version 1.0 or higher
+- **Docker**: Version 20.10 or higher (for local builds)
+- **Domain name**: Optional, for HTTPS setup
+- **SSL certificates**: For HTTPS (can use AWS Certificate Manager)
 
 ### Required Access
 
-- Root or sudo access to the server
-- Access to configure firewall rules
-- Domain name (optional, for HTTPS setup)
-- SSL certificates (for HTTPS)
+- AWS account with permissions for:
+  - EKS cluster creation and management
+  - VPC and networking resources
+  - RDS database instances
+  - ElastiCache clusters
+  - ECR repositories
+  - IAM roles and policies
+  - Secrets Manager
+  - CloudWatch logs and metrics
+- Domain name (optional, for custom domain)
+- SSL certificates (can use AWS Certificate Manager)
 
 ## Installation Steps
 
-### 1. Install Docker
+### 1. Install Required Tools
 
 ```bash
-# Update package index
-sudo apt-get update
+# Install AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 
-# Install required packages
-sudo apt-get install -y \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
-# Add Docker's official GPG key
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+# Install Terraform
+wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
+unzip terraform_1.6.0_linux_amd64.zip
+sudo mv terraform /usr/local/bin/
 
-# Set up stable repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install Docker Engine
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-
-# Add your user to docker group
-sudo usermod -aG docker $USER
-
-# Log out and back in for group changes to take effect
+# Verify installations
+aws --version
+kubectl version --client
+terraform --version
 ```
 
-### 2. Install Docker Compose
+### 2. Configure AWS Credentials
 
 ```bash
-# Download Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-# Make it executable
-sudo chmod +x /usr/local/bin/docker-compose
-
-# Verify installation
-docker-compose --version
+# Configure AWS CLI
+aws configure
+# Enter your AWS Access Key ID
+# Enter your AWS Secret Access Key
+# Enter your default region (e.g., us-east-1)
+# Enter your default output format (json)
 ```
 
 ### 3. Clone the Repository
@@ -80,139 +77,122 @@ cd planner
 git checkout main  # or specific version tag
 ```
 
-### 4. Configure Environment Variables
+### 4. Deploy AWS Infrastructure with Terraform
 
 ```bash
-# Copy the production environment template
-cp .env.production.example .env
+# Navigate to infrastructure directory
+cd infrastructure/aws
 
-# Edit the .env file with production values
-nano .env
+# Copy example variables file
+cp terraform.tfvars.example terraform.tfvars
+
+# Edit with your values
+nano terraform.tfvars
+
+# Initialize Terraform
+terraform init
+
+# Review the plan
+terraform plan
+
+# Apply the configuration
+terraform apply
 ```
 
-**Critical Environment Variables to Update:**
+**Critical Terraform Variables to Update:**
+- `db_password`: Strong database password
+- `secret_key`: Application secret key (generate with `openssl rand -hex 32`)
+- `domain_name`: Your domain name (optional)
+- `alert_email`: Email for CloudWatch alerts
+- `app_image`: ECR image URL (will be available after first push)
+
+### 5. Configure kubectl for EKS
 
 ```bash
-# Security - MUST CHANGE!
-SECRET_KEY="<generate-with-openssl-rand-hex-32>"
-ACCESS_TOKEN_EXPIRE_MINUTES=480
+# Update kubeconfig for EKS cluster
+aws eks update-kubeconfig --name planner-production-cluster --region us-east-1
 
-# Database
-POSTGRES_SERVER="db"  # or external RDS endpoint
-POSTGRES_USER="planner_admin"
-POSTGRES_PASSWORD="<strong-password>"
-POSTGRES_DB="planner_production"
-
-# Redis
-REDIS_HOST="redis"  # or external ElastiCache endpoint
-REDIS_PASSWORD="<strong-password>"
-
-# Application
-ENVIRONMENT="production"
-DEBUG=false
-BACKEND_CORS_ORIGINS="https://your-domain.com"
+# Verify connection
+kubectl get nodes
+kubectl get namespaces
 ```
 
-**Generate a secure SECRET_KEY:**
+### 6. Build and Push Docker Image to ECR
 
 ```bash
-openssl rand -hex 32
+# Get ECR login command
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+
+# Build image
+docker build -t planner-production-app:latest -f Dockerfile --target production .
+
+# Tag image
+docker tag planner-production-app:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:latest
+
+# Push image
+docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:latest
 ```
 
-### 5. Configure SSL Certificates (for HTTPS)
+### 7. Deploy Kubernetes Resources
 
 ```bash
-# Create SSL directory
-mkdir -p nginx/ssl
+# Navigate to Kubernetes manifests directory
+cd ../../infrastructure/kubernetes
 
-# Copy your SSL certificates
-cp /path/to/your/cert.pem nginx/ssl/cert.pem
-cp /path/to/your/key.pem nginx/ssl/key.pem
+# Create namespace
+kubectl apply -f namespace.yaml
 
-# Set proper permissions
-chmod 600 nginx/ssl/key.pem
-chmod 644 nginx/ssl/cert.pem
-```
+# Create secrets (update values first)
+kubectl create secret generic planner-secrets \
+  --from-literal=SECRET_KEY=<your-secret-key> \
+  --from-literal=POSTGRES_PASSWORD=<your-db-password> \
+  --from-literal=REDIS_PASSWORD=<your-redis-password> \
+  -n planner-production
 
-**For Let's Encrypt certificates:**
+# Deploy application
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f hpa.yaml
+kubectl apply -f ingress.yaml
 
-```bash
-# Install certbot
-sudo apt-get install -y certbot
-
-# Obtain certificates
-sudo certbot certonly --standalone -d your-domain.com
-
-# Copy certificates
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem nginx/ssl/cert.pem
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem nginx/ssl/key.pem
-```
-
-### 6. Configure Firewall
-
-```bash
-# Allow SSH (if not already allowed)
-sudo ufw allow 22/tcp
-
-# Allow HTTP and HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# Enable firewall
-sudo ufw enable
-
-# Check status
-sudo ufw status
-```
-
-### 7. Build and Start Services
-
-```bash
-# Build production images
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
-
-# Start services
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-# Check service status
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+# Verify deployment
+kubectl get pods -n planner-production
+kubectl get svc -n planner-production
+kubectl get ingress -n planner-production
 ```
 
 ### 8. Run Database Migrations
 
 ```bash
-# Run migrations
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic upgrade head
+# Apply migration job
+kubectl apply -f job-migration.yaml
 
-# Verify migration status
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app alembic current
+# Monitor migration job
+kubectl get jobs -n planner-production -w
+
+# Check migration logs
+kubectl logs job/planner-migration -n planner-production
+
+# Verify migration completed
+kubectl get jobs planner-migration -n planner-production -o jsonpath='{.status.succeeded}'
 ```
 
-### 9. Create Initial Admin User
+### 9. Verify Installation
 
 ```bash
-# Access the application container
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec app bash
-
-# Run the user creation script (if available)
-python scripts/create_admin_user.py
-
-# Or use the API to create the first user
-```
-
-### 10. Verify Installation
-
-```bash
-# Check all services are running
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml ps
+# Check all pods are running
+kubectl get pods -n planner-production
 
 # Check application logs
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs app
+kubectl logs -l app=planner-app -n planner-production
+
+# Get ingress URL
+kubectl get ingress -n planner-production
 
 # Test API health endpoint
-curl http://localhost:8000/health
+curl http://<ingress-url>/health
 
-# Or with HTTPS
+# Or with custom domain
 curl https://your-domain.com/health
 ```
 

@@ -1,16 +1,16 @@
-# AWS ECS Fargate Infrastructure
+# AWS EKS Fargate Infrastructure
 
-This directory contains Terraform configuration for deploying the Program and Project Management System to AWS ECS Fargate.
+This directory contains Terraform configuration for deploying the Program and Project Management System to AWS EKS (Elastic Kubernetes Service) Fargate.
 
 ## Architecture Overview
 
 The infrastructure includes:
 
 - **VPC**: Multi-AZ VPC with public and private subnets
-- **ECS Fargate**: Containerized application with auto-scaling
+- **EKS Fargate**: Serverless Kubernetes cluster with Fargate profiles
 - **RDS PostgreSQL**: Managed database with automated backups
 - **ElastiCache Redis**: Managed cache cluster
-- **Application Load Balancer**: HTTPS load balancer with SSL/TLS
+- **Application Load Balancer**: HTTPS load balancer with SSL/TLS (managed by AWS Load Balancer Controller)
 - **S3**: Storage for application data and ALB logs
 - **ECR**: Container image registry
 - **CloudWatch**: Logging and monitoring
@@ -22,7 +22,8 @@ The infrastructure includes:
 1. **AWS Account**: Active AWS account with appropriate permissions
 2. **Terraform**: Version 1.0 or higher
 3. **AWS CLI**: Configured with credentials
-4. **Domain Name**: (Optional) For custom domain and SSL certificate
+4. **kubectl**: For Kubernetes cluster management
+5. **Domain Name**: (Optional) For custom domain and SSL certificate
 
 ## Initial Setup
 
@@ -45,6 +46,20 @@ aws configure
 # Enter your AWS Access Key ID
 # Enter your AWS Secret Access Key
 # Enter your default region (e.g., us-east-1)
+```
+
+### 3. Install kubectl
+
+```bash
+# Linux
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# macOS
+brew install kubectl
+
+# Verify installation
+kubectl version --client
 ```
 
 ### 3. Create S3 Backend for Terraform State
@@ -124,36 +139,60 @@ docker tag planner-production-app:latest <account-id>.dkr.ecr.us-east-1.amazonaw
 docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:latest
 ```
 
-### 5. Update ECS Service
+### 5. Configure kubectl for EKS
 
 ```bash
-# Force new deployment with updated image
-aws ecs update-service \
-  --cluster planner-production-cluster \
-  --service planner-production-service \
-  --force-new-deployment \
-  --region us-east-1
+# Update kubeconfig
+aws eks update-kubeconfig --name planner-production-cluster --region us-east-1
+
+# Verify connection
+kubectl get nodes
+kubectl get namespaces
 ```
 
-### 6. Run Database Migrations
+### 6. Deploy Kubernetes Resources
 
 ```bash
-# Get ECS task ARN
-TASK_ARN=$(aws ecs list-tasks \
-  --cluster planner-production-cluster \
-  --service-name planner-production-service \
-  --query 'taskArns[0]' \
-  --output text \
-  --region us-east-1)
+# Navigate to Kubernetes manifests
+cd ../kubernetes
 
-# Run migrations
-aws ecs execute-command \
-  --cluster planner-production-cluster \
-  --task $TASK_ARN \
-  --container app \
-  --interactive \
-  --command "alembic upgrade head" \
-  --region us-east-1
+# Create namespace
+kubectl apply -f namespace.yaml
+
+# Create secrets
+kubectl create secret generic planner-secrets \
+  --from-literal=SECRET_KEY=<your-secret-key> \
+  --from-literal=POSTGRES_PASSWORD=<your-db-password> \
+  --from-literal=REDIS_PASSWORD=<your-redis-password> \
+  -n planner-production
+
+# Deploy application
+kubectl apply -f serviceaccount.yaml
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+kubectl apply -f hpa.yaml
+kubectl apply -f ingress.yaml
+
+# Verify deployment
+kubectl get pods -n planner-production
+kubectl get svc -n planner-production
+kubectl get ingress -n planner-production
+```
+
+### 7. Run Database Migrations
+
+```bash
+# Apply migration job
+kubectl apply -f job-migration.yaml
+
+# Monitor job
+kubectl get jobs -n planner-production -w
+
+# Check logs
+kubectl logs job/planner-migration -n planner-production
+
+# Verify completion
+kubectl get jobs planner-migration -n planner-production -o jsonpath='{.status.succeeded}'
 ```
 
 ## Accessing the Application
@@ -161,12 +200,12 @@ aws ecs execute-command \
 After deployment, you can access the application at:
 
 - **With custom domain**: `https://your-domain.com`
-- **Without custom domain**: `https://<alb-dns-name>` (from Terraform outputs)
+- **Without custom domain**: `https://<alb-dns-name>` (from Ingress resource)
 
 Get the ALB DNS name:
 
 ```bash
-terraform output alb_dns_name
+kubectl get ingress -n planner-production -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}'
 ```
 
 ## Monitoring
@@ -184,16 +223,19 @@ echo "https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards
 
 ```bash
 # View application logs
-aws logs tail /ecs/planner-production-app --follow --region us-east-1
+kubectl logs -l app=planner-app -n planner-production --tail=100 -f
 
-# View specific time range
-aws logs tail /ecs/planner-production-app --since 1h --region us-east-1
+# View logs from specific pod
+kubectl logs <pod-name> -n planner-production
+
+# View logs from all containers in a pod
+kubectl logs <pod-name> -n planner-production --all-containers=true
 ```
 
 ### CloudWatch Alarms
 
 Alarms are configured for:
-- ECS CPU and memory utilization
+- EKS pod CPU and memory utilization
 - RDS CPU, memory, and storage
 - ALB response time and errors
 - ElastiCache CPU and memory
@@ -204,23 +246,20 @@ Alarms are configured for:
 ### Manual Scaling
 
 ```bash
-# Scale ECS service
-aws ecs update-service \
-  --cluster planner-production-cluster \
-  --service planner-production-service \
-  --desired-count 4 \
-  --region us-east-1
+# Scale deployment
+kubectl scale deployment planner-app --replicas=4 -n planner-production
+
+# Verify scaling
+kubectl get pods -n planner-production
 ```
 
 ### Auto Scaling
 
-Auto-scaling is configured based on:
+Horizontal Pod Autoscaling (HPA) is configured based on:
 - CPU utilization (target: 70%)
 - Memory utilization (target: 80%)
 
-Adjust thresholds in `variables.tf`:
-- `autoscaling_target_cpu`
-- `autoscaling_target_memory`
+Adjust thresholds in `infrastructure/kubernetes/hpa.yaml`.
 
 ## Backup and Recovery
 
@@ -260,48 +299,44 @@ aws rds restore-db-instance-from-db-snapshot \
 
 ### Estimated Monthly Costs
 
-- **ECS Fargate** (2 tasks): ~$60
+- **EKS Control Plane**: ~$73
+- **EKS Fargate** (2 pods, 0.5 vCPU, 1GB each): ~$30
 - **RDS db.t3.medium**: ~$70
 - **ElastiCache cache.t3.medium**: ~$50
 - **ALB**: ~$20
 - **Data Transfer**: Variable
 - **CloudWatch**: ~$10
-- **Total**: ~$210/month
+- **Total**: ~$253/month
 
 ### Cost Reduction Tips
 
 1. **Use Reserved Instances** for RDS and ElastiCache
 2. **Enable S3 Lifecycle Policies** for old logs
-3. **Adjust Auto-Scaling** thresholds
-4. **Use Spot Instances** for non-critical workloads
+3. **Adjust HPA** thresholds to optimize pod count
+4. **Use Spot Instances** for non-Fargate workloads (if applicable)
 5. **Review CloudWatch Logs** retention
 
 ## Troubleshooting
 
-### ECS Tasks Not Starting
+### EKS Pods Not Starting
 
 ```bash
-# Check service events
-aws ecs describe-services \
-  --cluster planner-production-cluster \
-  --services planner-production-service \
-  --region us-east-1
+# Check pod status
+kubectl get pods -n planner-production
 
-# Check task logs
-aws logs tail /ecs/planner-production-app --follow --region us-east-1
+# Describe pod for events
+kubectl describe pod -l app=planner-app -n planner-production
+
+# Check pod logs
+kubectl logs -l app=planner-app -n planner-production
 ```
 
 ### Database Connection Issues
 
 ```bash
-# Test database connectivity from ECS task
-aws ecs execute-command \
-  --cluster planner-production-cluster \
-  --task $TASK_ARN \
-  --container app \
-  --interactive \
-  --command "psql -h $POSTGRES_SERVER -U $POSTGRES_USER -d $POSTGRES_DB" \
-  --region us-east-1
+# Test database connectivity from pod
+POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $POD_NAME -n planner-production -- psql -h $POSTGRES_SERVER -U $POSTGRES_USER -d $POSTGRES_DB
 ```
 
 ### High Costs
@@ -339,13 +374,11 @@ docker build -t planner-production-app:v1.1.0 -f ../../Dockerfile --target produ
 docker tag planner-production-app:v1.1.0 <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:v1.1.0
 docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:v1.1.0
 
-# Update task definition with new image
-# Then force new deployment
-aws ecs update-service \
-  --cluster planner-production-cluster \
-  --service planner-production-service \
-  --force-new-deployment \
-  --region us-east-1
+# Update deployment with new image
+kubectl set image deployment/planner-app app=<account-id>.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:v1.1.0 -n planner-production
+
+# Monitor rollout
+kubectl rollout status deployment/planner-app -n planner-production
 ```
 
 ## Destroying Infrastructure
@@ -353,6 +386,9 @@ aws ecs update-service \
 **WARNING**: This will delete all resources and data!
 
 ```bash
+# Delete Kubernetes resources first
+kubectl delete namespace planner-production
+
 # Disable deletion protection on RDS
 aws rds modify-db-instance \
   --db-instance-identifier planner-production-db \
@@ -391,6 +427,7 @@ For issues or questions:
 ## Additional Resources
 
 - [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS ECS Documentation](https://docs.aws.amazon.com/ecs/)
+- [AWS EKS Documentation](https://docs.aws.amazon.com/eks/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
 - [AWS RDS Documentation](https://docs.aws.amazon.com/rds/)
 - [AWS Best Practices](https://aws.amazon.com/architecture/well-architected/)

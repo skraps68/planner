@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides solutions to common issues encountered in the Program and Project Management System.
+This guide provides solutions to common issues encountered in the Program and Project Management System deployed on AWS EKS (Elastic Kubernetes Service) Fargate.
 
 ## Table of Contents
 
@@ -20,58 +20,67 @@ This guide provides solutions to common issues encountered in the Program and Pr
 ### Application Won't Start
 
 **Symptoms:**
-- Container exits immediately after starting
+- Pods crash immediately after starting
 - Health checks failing
 - Error messages in logs
 
 **Diagnosis:**
 ```bash
-# Check container status
-docker-compose ps
+# Check pod status
+kubectl get pods -n planner-production
 
-# Check application logs
-docker-compose logs app
+# Check pod logs
+kubectl logs -l app=planner-app -n planner-production
 
 # Check for Python errors
-docker-compose logs app | grep -i "error\|exception\|traceback"
+kubectl logs -l app=planner-app -n planner-production | grep -i "error\|exception\|traceback"
+
+# Describe pod for events
+kubectl describe pod -l app=planner-app -n planner-production
 ```
 
 **Common Causes & Solutions:**
 
 1. **Missing Environment Variables**
    ```bash
-   # Check if .env file exists
-   ls -la .env
+   # Check if secrets exist
+   kubectl get secrets -n planner-production
    
-   # Verify required variables
-   grep -E "SECRET_KEY|POSTGRES_|REDIS_" .env
+   # Verify secret contents (base64 encoded)
+   kubectl get secret planner-secrets -n planner-production -o yaml
    
-   # Solution: Copy from example and configure
-   cp .env.example .env
-   nano .env
+   # Solution: Update secrets
+   kubectl create secret generic planner-secrets \
+     --from-literal=SECRET_KEY=<value> \
+     --from-literal=POSTGRES_PASSWORD=<value> \
+     --from-literal=REDIS_PASSWORD=<value> \
+     --dry-run=client -o yaml | kubectl apply -f - -n planner-production
    ```
 
 2. **Database Connection Failed**
    ```bash
-   # Check database is running
-   docker-compose ps db
+   # Check RDS instance status
+   aws rds describe-db-instances \
+     --db-instance-identifier planner-production-db \
+     --query 'DBInstances[0].DBInstanceStatus' \
+     --region us-east-1
    
-   # Test database connection
-   docker-compose exec db psql -U postgres -d planner -c "SELECT 1;"
+   # Test database connection from pod
+   POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+   kubectl exec -it $POD_NAME -n planner-production -- psql -h <rds-endpoint> -U planner_admin -d planner_production -c "SELECT 1;"
    
-   # Solution: Ensure database is healthy before starting app
-   docker-compose up -d db
-   sleep 10
-   docker-compose up -d app
+   # Solution: Ensure RDS is accessible and security groups allow traffic
    ```
 
-3. **Port Already in Use**
+3. **Image Pull Errors**
    ```bash
-   # Check what's using port 8000
-   sudo lsof -i :8000
+   # Check image pull status
+   kubectl describe pod -l app=planner-app -n planner-production | grep -A 5 "Events:"
    
-   # Solution: Stop conflicting service or change port
-   # Edit docker-compose.yml to use different port
+   # Solution: Verify ECR permissions and image exists
+   aws ecr describe-images \
+     --repository-name planner-production-app \
+     --region us-east-1
    ```
 
 ### API Endpoints Returning 500 Errors
@@ -79,62 +88,72 @@ docker-compose logs app | grep -i "error\|exception\|traceback"
 **Diagnosis:**
 ```bash
 # Check recent errors
-docker-compose logs app --tail=100 | grep "500\|ERROR"
+kubectl logs -l app=planner-app -n planner-production --tail=100 | grep "500\|ERROR"
 
-# Check database connectivity
-docker-compose exec app python -c "from app.db.session import SessionLocal; db = SessionLocal(); print('Connected')"
+# Check database connectivity from pod
+POD_NAME=$(kubectl get pods -n planner-production -l app=planner-app -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $POD_NAME -n planner-production -- python -c "from app.db.session import SessionLocal; db = SessionLocal(); print('Connected')"
 ```
 
 **Solutions:**
 
 1. **Database Query Errors**
-   - Check migration status: `docker-compose exec app alembic current`
-   - Run pending migrations: `docker-compose exec app alembic upgrade head`
+   - Check migration status: `kubectl exec -it $POD_NAME -n planner-production -- alembic current`
+   - Run pending migrations: Create migration job or exec into pod
 
 2. **Redis Connection Issues**
    ```bash
-   # Test Redis connection
-   docker-compose exec redis redis-cli ping
+   # Check ElastiCache cluster status
+   aws elasticache describe-cache-clusters \
+     --cache-cluster-id planner-production-redis \
+     --region us-east-1
    
-   # Restart Redis if needed
-   docker-compose restart redis
+   # Test Redis connection from pod
+   kubectl exec -it $POD_NAME -n planner-production -- redis-cli -h <elasticache-endpoint> ping
    ```
 
 ### Slow Response Times
 
 **Diagnosis:**
 ```bash
-# Check container resource usage
-docker stats
+# Check pod resource usage
+kubectl top pods -n planner-production
 
-# Check database query performance
-docker-compose exec db psql -U postgres -d planner -c "SELECT * FROM pg_stat_activity;"
+# Check HPA status
+kubectl get hpa -n planner-production
 
-# Check for slow queries
-docker-compose logs app | grep "slow query"
+# Check for slow queries in RDS
+aws rds describe-db-log-files \
+  --db-instance-identifier planner-production-db \
+  --region us-east-1
+
+# Check pod logs for slow queries
+kubectl logs -l app=planner-app -n planner-production | grep "slow query"
 ```
 
 **Solutions:**
 
 1. **High CPU Usage**
-   - Increase worker count in docker-compose.prod.yml
-   - Add more application replicas
+   - Scale deployment: `kubectl scale deployment planner-app --replicas=4 -n planner-production`
+   - Adjust HPA settings in `infrastructure/kubernetes/hpa.yaml`
 
 2. **Database Performance**
    - Add missing indexes
    - Optimize slow queries
-   - Increase database resources
+   - Increase RDS instance size
 
 3. **Cache Not Working**
    ```bash
-   # Check Redis is running
-   docker-compose ps redis
-   
-   # Check Redis memory usage
-   docker-compose exec redis redis-cli info memory
-   
-   # Clear cache if needed
-   docker-compose exec redis redis-cli FLUSHALL
+   # Check ElastiCache metrics
+   aws cloudwatch get-metric-statistics \
+     --namespace AWS/ElastiCache \
+     --metric-name CacheHits \
+     --dimensions Name=CacheClusterId,Value=planner-production-redis \
+     --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+     --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+     --period 300 \
+     --statistics Sum \
+     --region us-east-1
    ```
 
 ---

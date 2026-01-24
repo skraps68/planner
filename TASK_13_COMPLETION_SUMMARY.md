@@ -2,7 +2,7 @@
 
 ## Overview
 
-Task 13 "Create containerization and deployment configuration" has been successfully completed with all four subtasks implemented and tested.
+Task 13 "Create containerization and deployment configuration" has been successfully completed with all four subtasks implemented and tested. The deployment has been migrated from AWS ECS Fargate to AWS EKS (Elastic Kubernetes Service) Fargate for improved orchestration and scalability.
 
 ## Completed Subtasks
 
@@ -41,11 +41,11 @@ Task 13 "Create containerization and deployment configuration" has been successf
 - Troubleshooting common issues
 - Security best practices
 
-### ✅ 13.3 - Create AWS ECS Fargate deployment configuration
+### ✅ 13.3 - Create AWS EKS Fargate deployment configuration
 
 **Deliverables:**
 
-Complete Terraform infrastructure in `infrastructure/aws/`:
+Complete Terraform infrastructure in `infrastructure/aws/` and Kubernetes manifests in `infrastructure/kubernetes/`:
 
 1. **Core Infrastructure:**
    - `main.tf` - Main configuration with S3 backend
@@ -57,7 +57,7 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
    - `vpc.tf` - VPC, subnets (public/private), NAT gateways, security groups
 
 3. **Compute:**
-   - `ecs.tf` - ECS cluster, task definitions, service, auto-scaling
+   - `eks.tf` - EKS cluster, Fargate profiles, IAM roles, OIDC provider
    - `ecr.tf` - ECR repository for Docker images
 
 4. **Data Layer:**
@@ -65,7 +65,8 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
    - `elasticache.tf` - Redis ElastiCache cluster
 
 5. **Load Balancing:**
-   - `alb.tf` - Application Load Balancer with HTTPS
+   - `alb.tf` - ALB configuration (managed by Kubernetes Ingress)
+   - `policies/aws-load-balancer-controller-policy.json` - IAM policy for ALB controller
 
 6. **Storage:**
    - `s3.tf` - S3 buckets for logs and app storage
@@ -77,15 +78,28 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
 8. **Monitoring:**
    - `monitoring.tf` - CloudWatch dashboards, alarms, SNS topics
 
-9. **Documentation:**
-   - `README.md` - Comprehensive AWS deployment guide
+9. **Kubernetes Manifests:**
+   - `namespace.yaml` - Kubernetes namespace
+   - `serviceaccount.yaml` - Service account with IAM role
+   - `deployment.yaml` - Application deployment
+   - `service.yaml` - Kubernetes service
+   - `hpa.yaml` - Horizontal Pod Autoscaler
+   - `ingress.yaml` - ALB Ingress
+   - `job-migration.yaml` - Database migration job
+   - `README.md` - Kubernetes deployment guide
+
+10. **Documentation:**
+   - `infrastructure/aws/README.md` - Comprehensive AWS deployment guide
+   - `infrastructure/kubernetes/README.md` - Kubernetes deployment guide
 
 **Features:**
 - Multi-AZ deployment for high availability
-- Auto-scaling based on CPU/memory metrics
+- Serverless compute with EKS Fargate
+- Horizontal Pod Autoscaling (HPA) based on CPU/memory metrics
 - Automated backups and disaster recovery
 - Comprehensive monitoring and alerting
 - Security best practices (private subnets, security groups, secrets management)
+- AWS Load Balancer Controller for Ingress management
 
 ### ✅ 13.4 - Create CI/CD pipeline configuration
 
@@ -144,7 +158,7 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
      - CD production pipeline details
      - Manual deployment workflow
      - Required GitHub secrets
-     - ECS deployment helper script usage
+     - EKS deployment helper script usage
      - Deployment workflows
      - Rollback procedures
      - Monitoring deployments
@@ -173,10 +187,11 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
 
 ### AWS Infrastructure
 - ✅ Multi-AZ high availability setup
-- ✅ Auto-scaling for ECS services
+- ✅ Serverless compute with EKS Fargate
+- ✅ Horizontal Pod Autoscaling (HPA)
 - ✅ RDS with automated backups
 - ✅ Redis caching layer
-- ✅ Application Load Balancer with HTTPS
+- ✅ Application Load Balancer with HTTPS (via Ingress)
 - ✅ CloudWatch monitoring and alarms
 - ✅ Secrets management
 - ✅ S3 for logs and storage
@@ -206,12 +221,12 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
 - `.github/workflows/deploy-manual.yml` (new)
 - `.github/SECRETS.md` (new)
 
-### AWS Infrastructure (13 files)
+### AWS Infrastructure (13 Terraform files + 8 Kubernetes manifests)
 - `infrastructure/aws/main.tf` (new)
 - `infrastructure/aws/variables.tf` (new)
 - `infrastructure/aws/outputs.tf` (new)
 - `infrastructure/aws/vpc.tf` (new)
-- `infrastructure/aws/ecs.tf` (new)
+- `infrastructure/aws/eks.tf` (new)
 - `infrastructure/aws/rds.tf` (new)
 - `infrastructure/aws/elasticache.tf` (new)
 - `infrastructure/aws/alb.tf` (new)
@@ -220,8 +235,17 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
 - `infrastructure/aws/acm.tf` (new)
 - `infrastructure/aws/monitoring.tf` (new)
 - `infrastructure/aws/ecr.tf` (new)
+- `infrastructure/aws/policies/aws-load-balancer-controller-policy.json` (new)
 - `infrastructure/aws/terraform.tfvars.example` (new)
 - `infrastructure/aws/README.md` (new)
+- `infrastructure/kubernetes/namespace.yaml` (new)
+- `infrastructure/kubernetes/serviceaccount.yaml` (new)
+- `infrastructure/kubernetes/deployment.yaml` (new)
+- `infrastructure/kubernetes/service.yaml` (new)
+- `infrastructure/kubernetes/hpa.yaml` (new)
+- `infrastructure/kubernetes/ingress.yaml` (new)
+- `infrastructure/kubernetes/job-migration.yaml` (new)
+- `infrastructure/kubernetes/README.md` (new)
 
 ### Docker Configuration (7 files)
 - `Dockerfile` (enhanced)
@@ -231,12 +255,12 @@ Complete Terraform infrastructure in `infrastructure/aws/`:
 - `.env.production.example` (new)
 - `nginx/nginx.conf` (new)
 
-### Scripts (4 files)
+### Scripts (5 files)
 - `scripts/start-dev.sh` (updated)
 - `scripts/stop-dev.sh` (updated)
 - `scripts/reset-dev.sh` (updated)
 - `scripts/deploy-prod.sh` (new)
-- `scripts/deploy-ecs.sh` (new)
+- `scripts/deploy-eks.sh` (new)
 
 ### Documentation (7 files)
 - `docs/deployment/PRODUCTION_SETUP.md` (new)
@@ -293,6 +317,8 @@ Before deploying to AWS:
    - Review Terraform plan before apply
    - Deploy to staging environment first
    - Verify all AWS resources created correctly
+   - Configure kubectl for EKS cluster
+   - Deploy Kubernetes manifests
    - Test application in staging
 
 4. **Production Deployment:**
@@ -305,7 +331,8 @@ Before deploying to AWS:
 
 ✅ Docker configuration optimized for production  
 ✅ Production deployment documentation complete  
-✅ AWS ECS Fargate infrastructure defined  
+✅ AWS EKS Fargate infrastructure defined  
+✅ Kubernetes manifests created  
 ✅ CI/CD pipelines implemented  
 ✅ Database migration automation in place  
 ✅ Automated rollback on failure  
@@ -319,12 +346,13 @@ Task 13 has been successfully completed with all deliverables implemented, teste
 
 - A complete containerization strategy with Docker
 - Comprehensive deployment documentation
-- Production-ready AWS infrastructure (Terraform)
+- Production-ready AWS infrastructure (Terraform) with EKS Fargate
+- Kubernetes manifests for application deployment
 - Automated CI/CD pipelines (GitHub Actions)
 - Deployment tooling and helper scripts
 - Monitoring and troubleshooting guides
 
-The project is now ready for deployment to AWS ECS Fargate with automated CI/CD workflows.
+The project is now ready for deployment to AWS EKS Fargate with automated CI/CD workflows.
 
 ---
 

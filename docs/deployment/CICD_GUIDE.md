@@ -11,6 +11,8 @@ The CI/CD pipeline is implemented using GitHub Actions and consists of:
 3. **CD Production Pipeline** - Automated deployment to production on main branch
 4. **Manual Deployment** - On-demand deployment with custom options
 
+The application is deployed to AWS EKS (Elastic Kubernetes Service) on Fargate for serverless container orchestration.
+
 ## CI Pipeline
 
 **Workflow File**: `.github/workflows/ci.yml`
@@ -73,14 +75,14 @@ The CI/CD pipeline is implemented using GitHub Actions and consists of:
    - Pushes to Amazon ECR
 
 2. **Database Migration**
-   - Runs Alembic migrations in one-off ECS task
-   - Waits for migration completion
+   - Runs Alembic migrations in Kubernetes Job
+   - Waits for job completion
    - Validates migration success
 
-3. **ECS Deployment**
-   - Updates ECS task definition with new image
-   - Deploys to ECS Fargate service
-   - Waits for service stability
+3. **EKS Deployment**
+   - Updates Kubernetes deployment with new image
+   - Deploys to EKS Fargate
+   - Waits for rollout completion
 
 4. **Verification**
    - Checks health endpoint
@@ -114,14 +116,14 @@ The CI/CD pipeline is implemented using GitHub Actions and consists of:
    - Provides backup identifier for recovery
 
 3. **Database Migration**
-   - Runs Alembic migrations in one-off ECS task
-   - Monitors task execution
+   - Runs Alembic migrations in Kubernetes Job
+   - Monitors job execution
    - Validates migration exit code
 
-4. **ECS Deployment**
-   - Updates ECS task definition with new image
-   - Deploys to ECS Fargate service
-   - Waits for service stability
+4. **EKS Deployment**
+   - Updates Kubernetes deployment with new image
+   - Deploys to EKS Fargate
+   - Waits for rollout completion
 
 5. **Verification**
    - Extended health checks (60s wait)
@@ -185,43 +187,40 @@ Configure these secrets in your GitHub repository settings:
 ### AWS Credentials
 - `AWS_ACCESS_KEY_ID` - AWS access key for deployment
 - `AWS_SECRET_ACCESS_KEY` - AWS secret key for deployment
+- `AWS_REGION` - AWS region (default: us-east-1)
 
-### Staging Environment
-- `STAGING_SUBNET_IDS` - Comma-separated subnet IDs for staging
-- `STAGING_SECURITY_GROUP` - Security group ID for staging
+### EKS Configuration
+- `EKS_CLUSTER_NAME` - EKS cluster name (e.g., planner-production-cluster)
+- `KUBE_CONFIG_DATA` - Base64-encoded kubeconfig (optional, generated from EKS)
 
-### Production Environment
-- `PRODUCTION_SUBNET_IDS` - Comma-separated subnet IDs for production
-- `PRODUCTION_SECURITY_GROUP` - Security group ID for production
+## EKS Deployment Helper Script
 
-## ECS Deployment Helper Script
+**Script**: `scripts/deploy-eks.sh`
 
-**Script**: `scripts/deploy-ecs.sh`
-
-A command-line tool for manual ECS operations:
+A command-line tool for manual EKS operations:
 
 ### Commands
 
 ```bash
 # Deploy to environment
-./scripts/deploy-ecs.sh deploy staging
-./scripts/deploy-ecs.sh deploy production --image-tag v1.2.3
+./scripts/deploy-eks.sh deploy staging
+./scripts/deploy-eks.sh deploy production --image-tag v1.2.3
 
 # Rollback deployment
-./scripts/deploy-ecs.sh rollback production
+./scripts/deploy-eks.sh rollback production
 
 # Check deployment status
-./scripts/deploy-ecs.sh status staging
+./scripts/deploy-eks.sh status staging
 
 # View logs
-./scripts/deploy-ecs.sh logs production
-./scripts/deploy-ecs.sh logs staging task-id-123
+./scripts/deploy-eks.sh logs production
+./scripts/deploy-eks.sh logs staging pod-name-123
 
 # Run migrations
-./scripts/deploy-ecs.sh migrate staging
+./scripts/deploy-eks.sh migrate staging
 
-# Scale service
-./scripts/deploy-ecs.sh scale staging 3
+# Scale deployment
+./scripts/deploy-eks.sh scale staging 3
 ```
 
 ### Options
@@ -233,15 +232,13 @@ A command-line tool for manual ECS operations:
 ### Prerequisites
 
 1. AWS CLI installed and configured
-2. `jq` installed for JSON processing
-3. Appropriate AWS credentials with ECS permissions
-4. Environment variables set:
+2. `kubectl` installed and configured
+3. `jq` installed for JSON processing
+4. Appropriate AWS credentials with EKS permissions
+5. Environment variables set:
    - `AWS_REGION` (default: us-east-1)
    - `ECR_REPOSITORY` (default: planner-app)
-   - `STAGING_SUBNET_IDS` (for staging operations)
-   - `STAGING_SECURITY_GROUP` (for staging operations)
-   - `PRODUCTION_SUBNET_IDS` (for production operations)
-   - `PRODUCTION_SECURITY_GROUP` (for production operations)
+   - `EKS_CLUSTER_NAME` (default: planner-production-cluster)
 
 ## Deployment Workflow
 
@@ -280,7 +277,7 @@ A command-line tool for manual ECS operations:
 
 Both staging and production pipelines include automatic rollback:
 - Triggered on deployment failure
-- Reverts to previous task definition
+- Reverts to previous deployment revision
 - Maintains service availability
 
 ### Manual Rollback
@@ -294,14 +291,17 @@ Using GitHub Actions:
 
 Using CLI script:
 ```bash
-./scripts/deploy-ecs.sh rollback production
+./scripts/deploy-eks.sh rollback production
 ```
 
-Using AWS Console:
-1. Navigate to ECS → Clusters → Service
-2. Update service
-3. Select previous task definition revision
-4. Force new deployment
+Using kubectl:
+```bash
+# Rollback to previous revision
+kubectl rollout undo deployment/planner-app -n planner-production
+
+# Rollback to specific revision
+kubectl rollout undo deployment/planner-app -n planner-production --to-revision=2
+```
 
 ## Monitoring Deployments
 
@@ -311,28 +311,28 @@ Using AWS Console:
 - Download artifacts (coverage reports, security scans)
 
 ### AWS CloudWatch
-- View ECS service events
+- View EKS pod logs
 - Check container logs
 - Monitor CloudWatch alarms
 
-### ECS Console
-- View service status and deployments
-- Check task health
-- Review task definitions
+### EKS Console
+- View deployment status
+- Check pod health
+- Review deployment history
 
 ### CLI Monitoring
 ```bash
 # Check deployment status
-./scripts/deploy-ecs.sh status production
+./scripts/deploy-eks.sh status production
 
 # View real-time logs
-./scripts/deploy-ecs.sh logs production
+./scripts/deploy-eks.sh logs production
 
-# Check service events
-aws ecs describe-services \
-  --cluster planner-production \
-  --services planner-app-service \
-  --query 'services[0].events[0:10]'
+# Check deployment events
+kubectl describe deployment planner-app -n planner-production
+
+# View pod status
+kubectl get pods -n planner-production
 ```
 
 ## Troubleshooting
@@ -350,11 +350,11 @@ aws ecs describe-services \
 
 ### Service Fails Health Checks
 
-**Symptoms**: ECS service doesn't reach stable state
+**Symptoms**: Kubernetes deployment doesn't reach ready state
 
 **Solutions**:
-1. Check container logs in CloudWatch
-2. Verify environment variables in task definition
+1. Check pod logs with kubectl
+2. Verify environment variables in deployment manifest
 3. Check security group rules
 4. Verify database and Redis connectivity
 5. Review application startup logs
@@ -374,9 +374,9 @@ aws ecs describe-services \
 **Symptoms**: Automatic rollback fails
 
 **Solutions**:
-1. Use manual rollback via AWS Console
-2. Check previous task definition exists
-3. Verify ECS service permissions
+1. Use manual rollback via kubectl
+2. Check previous deployment revision exists
+3. Verify Kubernetes service account permissions
 4. Force new deployment with known good version
 
 ## Best Practices
