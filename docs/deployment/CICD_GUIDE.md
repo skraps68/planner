@@ -412,7 +412,9 @@ kubectl get pods -n planner-production
 
 ## Additional Resources
 
-- [AWS ECS Documentation](https://docs.aws.amazon.com/ecs/)
+- [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [AWS EKS Documentation](https://docs.aws.amazon.com/eks/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
 - [Alembic Migration Guide](https://alembic.sqlalchemy.org/)

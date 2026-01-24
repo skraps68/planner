@@ -81,7 +81,7 @@ Comprehensive guide for Continuous Integration and Continuous Deployment.
 - CD production pipeline
 - Manual deployment workflow
 - GitHub Actions configuration
-- ECS deployment helper script
+- EKS deployment helper script
 - Rollback procedures
 - Monitoring deployments
 

@@ -26,13 +26,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         type = "metric"
         properties = {
           metrics = [
-            ["AWS/ECS", "CPUUtilization", { stat = "Average" }],
-            [".", "MemoryUtilization", { stat = "Average" }]
+            ["AWS/EKS", "pod_cpu_utilization", { stat = "Average" }],
+            [".", "pod_memory_utilization", { stat = "Average" }]
           ]
           period = 300
           stat   = "Average"
           region = var.aws_region
-          title  = "ECS Service Metrics"
+          title  = "EKS Pod Metrics"
         }
       },
       {
@@ -110,43 +110,41 @@ resource "aws_cloudwatch_metric_alarm" "app_errors" {
   tags = local.common_tags
 }
 
-# CloudWatch Alarm for ECS Service CPU
-resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
-  alarm_name          = "${local.name_prefix}-ecs-cpu-utilization"
+# CloudWatch Alarm for EKS Pod CPU
+resource "aws_cloudwatch_metric_alarm" "eks_cpu" {
+  alarm_name          = "${local.name_prefix}-eks-cpu-utilization"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
+  metric_name         = "pod_cpu_utilization"
+  namespace           = "AWS/EKS"
   period              = "300"
   statistic           = "Average"
   threshold           = "80"
-  alarm_description   = "This metric monitors ECS CPU utilization"
+  alarm_description   = "This metric monitors EKS pod CPU utilization"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   
   dimensions = {
-    ClusterName = aws_ecs_cluster.main.name
-    ServiceName = aws_ecs_service.app.name
+    ClusterName = aws_eks_cluster.main.name
   }
   
   tags = local.common_tags
 }
 
-# CloudWatch Alarm for ECS Service Memory
-resource "aws_cloudwatch_metric_alarm" "ecs_memory" {
-  alarm_name          = "${local.name_prefix}-ecs-memory-utilization"
+# CloudWatch Alarm for EKS Pod Memory
+resource "aws_cloudwatch_metric_alarm" "eks_memory" {
+  alarm_name          = "${local.name_prefix}-eks-memory-utilization"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
-  metric_name         = "MemoryUtilization"
-  namespace           = "AWS/ECS"
+  metric_name         = "pod_memory_utilization"
+  namespace           = "AWS/EKS"
   period              = "300"
   statistic           = "Average"
   threshold           = "85"
-  alarm_description   = "This metric monitors ECS memory utilization"
+  alarm_description   = "This metric monitors EKS pod memory utilization"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   
   dimensions = {
-    ClusterName = aws_ecs_cluster.main.name
-    ServiceName = aws_ecs_service.app.name
+    ClusterName = aws_eks_cluster.main.name
   }
   
   tags = local.common_tags

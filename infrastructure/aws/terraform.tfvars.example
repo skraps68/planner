@@ -10,7 +10,7 @@ project_name = "planner"
 vpc_cidr                 = "10.0.0.0/16"
 availability_zones_count = 2
 
-# ECS Configuration
+# EKS Configuration
 app_image      = "123456789012.dkr.ecr.us-east-1.amazonaws.com/planner-production-app:latest"
 app_port       = 8000
 app_count      = 2

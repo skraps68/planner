@@ -63,7 +63,7 @@ resource "aws_ecr_repository_policy" "app" {
         Sid    = "AllowPull"
         Effect = "Allow"
         Principal = {
-          Service = "ecs-tasks.amazonaws.com"
+          Service = ["ecs-tasks.amazonaws.com", "eks.amazonaws.com"]
         }
         Action = [
           "ecr:GetDownloadUrlForLayer",
