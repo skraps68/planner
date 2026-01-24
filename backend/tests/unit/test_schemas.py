@@ -13,7 +13,7 @@ from app.schemas.project import ProjectCreate, ProjectPhaseCreate, ProjectUpdate
 from app.schemas.resource import ResourceCreate, WorkerCreate, WorkerTypeCreate
 from app.schemas.user import UserCreate, UserRoleCreate, ScopeAssignmentCreate
 from app.schemas.assignment import ResourceAssignmentCreate, AssignmentImportRow
-from app.schemas.actual import ActualCreate, ActualImportRow
+from app.schemas.actual import ActualCreate, ActualBase, ActualImportRow
 from app.schemas.rate import RateCreate
 from app.schemas.auth import LoginRequest, RoleSwitchRequest
 from app.models.project import PhaseType
@@ -289,17 +289,14 @@ class TestActualSchemas:
             "external_worker_id": "EMP001",
             "worker_name": "John Developer",
             "actual_date": date(2024, 1, 15),
-            "allocation_percentage": Decimal("100.00"),
-            "actual_cost": Decimal("800.00"),
-            "capital_amount": Decimal("480.00"),
-            "expense_amount": Decimal("320.00")
+            "allocation_percentage": Decimal("100.00")
         }
         actual = ActualCreate(**actual_data)
         assert actual.external_worker_id == "EMP001"
-        assert actual.actual_cost == Decimal("800.00")
+        assert actual.allocation_percentage == Decimal("100.00")
     
     def test_actual_create_invalid_cost_split(self):
-        """Test actual creation with invalid cost split."""
+        """Test actual base schema with invalid cost split."""
         actual_data = {
             "project_id": uuid4(),
             "external_worker_id": "EMP001",
@@ -311,7 +308,7 @@ class TestActualSchemas:
             "expense_amount": Decimal("400.00")  # Total = 900, not 800
         }
         with pytest.raises(ValidationError) as exc_info:
-            ActualCreate(**actual_data)
+            ActualBase(**actual_data)
         assert "Capital amount + expense amount must equal actual cost" in str(exc_info.value)
     
     def test_actual_import_row_valid(self):

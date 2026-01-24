@@ -197,11 +197,73 @@ class TestDatabaseCompatibility:
         assert retrieved.is_active is False
     
     def test_json_type_compatibility(self, db):
-        """Test that JSON types work correctly - WorkerType doesn't have JSON field."""
-        # Note: Our current models don't use JSON fields
-        # This test verifies the JSON type decorator works if we add JSON fields later
-        # For now, we'll skip this test
-        pytest.skip("No JSON fields in current models")
+        """Test that JSON types work correctly with AuditLog model."""
+        # Create a user first (required for audit log)
+        user = User(
+            username="testuser",
+            email="test@example.com",
+            password_hash="hashed",
+            is_active=True
+        )
+        db.add(user)
+        db.commit()
+        
+        # Create an audit log with JSON data
+        before_data = {
+            "name": "Old Name",
+            "value": 100,
+            "nested": {"key": "value"},
+            "list": [1, 2, 3]
+        }
+        after_data = {
+            "name": "New Name",
+            "value": 200,
+            "nested": {"key": "updated"},
+            "list": [4, 5, 6]
+        }
+        
+        audit_log = AuditLog(
+            user_id=user.id,
+            entity_type="Program",
+            entity_id=uuid4(),
+            operation="UPDATE",
+            before_values=before_data,
+            after_values=after_data
+        )
+        db.add(audit_log)
+        db.commit()
+        
+        # Retrieve and verify JSON data is preserved
+        retrieved = db.query(AuditLog).filter(AuditLog.user_id == user.id).first()
+        assert retrieved is not None
+        assert retrieved.before_values == before_data
+        assert retrieved.after_values == after_data
+        assert isinstance(retrieved.before_values, dict)
+        assert isinstance(retrieved.after_values, dict)
+        
+        # Verify nested structures are preserved
+        assert retrieved.before_values["nested"]["key"] == "value"
+        assert retrieved.after_values["nested"]["key"] == "updated"
+        assert retrieved.before_values["list"] == [1, 2, 3]
+        assert retrieved.after_values["list"] == [4, 5, 6]
+        
+        # Test with None values
+        audit_log2 = AuditLog(
+            user_id=user.id,
+            entity_type="Project",
+            entity_id=uuid4(),
+            operation="CREATE",
+            before_values=None,
+            after_values={"name": "New Project"}
+        )
+        db.add(audit_log2)
+        db.commit()
+        
+        retrieved2 = db.query(AuditLog).filter(
+            AuditLog.operation == "CREATE"
+        ).first()
+        assert retrieved2.before_values is None
+        assert retrieved2.after_values == {"name": "New Project"}
     
     def test_foreign_key_compatibility(self, db):
         """Test that foreign key relationships work correctly."""

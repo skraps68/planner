@@ -26,8 +26,11 @@ register_error_handlers(app)
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Add rate limiting middleware (100 requests per minute per IP)
-app.add_middleware(RateLimitMiddleware, requests_per_minute=100, window_seconds=60)
+# Add rate limiting middleware (disabled in test/development environments)
+# In production: 100 requests per minute per IP
+# In development/test: 10000 requests per minute (effectively unlimited)
+rate_limit = 10000 if settings.ENVIRONMENT in ["development", "test"] else 100
+app.add_middleware(RateLimitMiddleware, requests_per_minute=rate_limit, window_seconds=60)
 
 # Add audit logging middleware
 app.add_middleware(AuditLoggingMiddleware)

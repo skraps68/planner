@@ -320,7 +320,7 @@
     - Implement SQL injection prevention
     - _Requirements: All requirements need input validation, 11.5, 11.6_
 
-- [ ] 10. Checkpoint - Ensure all tests pass
+- [x] 10. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 11. Create database migrations and seed data with scoped permissions

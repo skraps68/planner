@@ -417,7 +417,8 @@ class ActualsService:
     
     def delete_actual(self, db: Session, actual_id: UUID) -> bool:
         """Delete an actual record."""
-        return actual_repository.delete(db, actual_id)
+        result = actual_repository.remove(db, id=actual_id)
+        return result is not None
 
 
 # Create service instance

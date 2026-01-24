@@ -39,9 +39,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
-        assert "not yet implemented" in response.json()["detail"].lower()
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_list_assignments(self, client: TestClient):
         """Test listing assignments."""
@@ -50,8 +49,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_get_assignment(self, client: TestClient):
         """Test getting an assignment by ID."""
@@ -61,8 +60,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_update_assignment(self, client: TestClient):
         """Test updating an assignment."""
@@ -77,8 +76,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_delete_assignment(self, client: TestClient):
         """Test deleting an assignment."""
@@ -88,8 +87,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_get_assignments_by_project(self, client: TestClient):
         """Test getting assignments by project."""
@@ -99,8 +98,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_get_assignments_by_resource(self, client: TestClient):
         """Test getting assignments by resource."""
@@ -110,8 +109,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_get_assignments_by_date(self, client: TestClient):
         """Test getting assignments by resource and date."""
@@ -122,8 +121,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_get_resource_allocation(self, client: TestClient):
         """Test getting resource allocation for a date."""
@@ -134,8 +133,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
     
     def test_check_allocation_conflicts(self, client: TestClient):
         """Test checking for allocation conflicts."""
@@ -150,8 +149,8 @@ class TestAssignmentAPI:
             headers={"Authorization": "Bearer test-token"}
         )
         
-        # Expect 501 because authentication is not implemented
-        assert response.status_code == 501
+        # Expect 401 because authentication requires valid token
+        assert response.status_code == 401
 
 
 class TestAPIInfo:

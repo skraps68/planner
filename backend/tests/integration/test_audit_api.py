@@ -47,7 +47,7 @@ class TestAuditAPI:
     """Test audit API endpoints."""
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_list_audit_logs(self, client, db_session):
+    def test_list_audit_logs(self, client, db_session, monkeypatch):
         """Test listing audit logs."""
         from app.services.authorization import authorization_service, Permission
         
@@ -55,7 +55,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         response = client.get(
             "/api/v1/audit",
@@ -69,7 +69,7 @@ class TestAuditAPI:
         assert isinstance(data["items"], list)
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_entity_audit_history(self, client, db_session):
+    def test_get_entity_audit_history(self, client, db_session, monkeypatch):
         """Test getting audit history for a specific entity."""
         from app.services.authorization import authorization_service, Permission
         from app.services.authentication import authentication_service
@@ -79,7 +79,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         # Create a test user and log an action
         user = authentication_service.create_user(
@@ -105,7 +105,7 @@ class TestAuditAPI:
         assert len(data) > 0
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_user_audit_activity(self, client, db_session):
+    def test_get_user_audit_activity(self, client, db_session, monkeypatch):
         """Test getting audit activity for a specific user."""
         from app.services.authorization import authorization_service, Permission
         from app.services.authentication import authentication_service
@@ -115,7 +115,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         # Create a test user
         user = authentication_service.create_user(
@@ -139,7 +139,7 @@ class TestAuditAPI:
         assert isinstance(data, list)
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_permission_changes(self, client, db_session):
+    def test_get_permission_changes(self, client, db_session, monkeypatch):
         """Test getting permission change audit logs."""
         from app.services.authorization import authorization_service, Permission
         from app.services.authentication import authentication_service
@@ -149,7 +149,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         # Create test users
         admin_user = authentication_service.create_user(
@@ -187,7 +187,7 @@ class TestAuditAPI:
         assert isinstance(data, list)
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_audit_summary(self, client, db_session):
+    def test_get_audit_summary(self, client, db_session, monkeypatch):
         """Test getting audit summary statistics."""
         from app.services.authorization import authorization_service, Permission
         
@@ -195,7 +195,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         response = client.get(
             "/api/v1/audit/summary",
@@ -212,7 +212,7 @@ class TestAuditAPI:
         assert "by_user" in data
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_recent_changes(self, client, db_session):
+    def test_get_recent_changes(self, client, db_session, monkeypatch):
         """Test getting recent audit changes."""
         from app.services.authorization import authorization_service, Permission
         
@@ -220,7 +220,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         response = client.get(
             "/api/v1/audit/recent?limit=10",
@@ -233,7 +233,7 @@ class TestAuditAPI:
         assert len(data) <= 10
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_user_activity_summary(self, client, db_session):
+    def test_get_user_activity_summary(self, client, db_session, monkeypatch):
         """Test getting user activity summary."""
         from app.services.authorization import authorization_service, Permission
         from app.services.authentication import authentication_service
@@ -243,7 +243,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         # Create a test user and log some actions
         user = authentication_service.create_user(
@@ -270,7 +270,7 @@ class TestAuditAPI:
         assert "entities_modified" in data
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_entity_changes_summary(self, client, db_session):
+    def test_get_entity_changes_summary(self, client, db_session, monkeypatch):
         """Test getting entity changes summary."""
         from app.services.authorization import authorization_service, Permission
         from app.services.authentication import authentication_service
@@ -280,7 +280,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         # Create a test user and log actions
         user = authentication_service.create_user(
@@ -306,7 +306,7 @@ class TestAuditAPI:
         assert "operations" in data
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_get_field_change_history(self, client, db_session):
+    def test_get_field_change_history(self, client, db_session, monkeypatch):
         """Test getting field change history."""
         from app.services.authorization import authorization_service, Permission
         from app.services.authentication import authentication_service
@@ -316,7 +316,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return permission == Permission.VIEW_AUDIT_LOGS
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         # Create a test user
         user = authentication_service.create_user(
@@ -346,7 +346,7 @@ class TestAuditAPI:
         assert isinstance(data, list)
     
     @pytest.mark.usefixtures("override_auth_dependency")
-    def test_audit_access_denied_without_permission(self, client, db_session):
+    def test_audit_access_denied_without_permission(self, client, db_session, monkeypatch):
         """Test that audit endpoints deny access without proper permissions."""
         from app.services.authorization import authorization_service, Permission
         
@@ -354,7 +354,7 @@ class TestAuditAPI:
         def mock_has_permission(db, user_id, permission):
             return False
         
-        authorization_service.has_permission = mock_has_permission
+        monkeypatch.setattr(authorization_service, "has_permission", mock_has_permission)
         
         response = client.get(
             "/api/v1/audit",
