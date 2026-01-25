@@ -48,11 +48,29 @@ export const authApi = {
 
   getCurrentUser: async (): Promise<User> => {
     const response = await apiClient.get('/auth/me')
-    return response.data
+    const data = response.data
+    // Map backend response to frontend User type
+    return {
+      id: data.id || data.user_id,
+      username: data.username,
+      email: data.email,
+      isActive: data.is_active,
+      roles: data.active_roles || [],
+      permissions: data.permissions || [],
+    }
   },
 
   switchRole: async (roleId: string): Promise<User> => {
     const response = await apiClient.post('/auth/switch-role', { role_id: roleId })
-    return response.data
+    const data = response.data
+    // Map backend response to frontend User type
+    return {
+      id: data.id || data.user_id,
+      username: data.username,
+      email: data.email,
+      isActive: data.is_active,
+      roles: data.active_roles || [],
+      permissions: data.permissions || [],
+    }
   },
 }

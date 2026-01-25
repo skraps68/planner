@@ -154,7 +154,7 @@ const Header: React.FC = () => {
             )}
           </Box>
           <Divider />
-          {user && user.roles.length > 1 && (
+          {user && user.roles && user.roles.length > 1 && (
             <>
               <MenuItem onClick={handleOpenRoleSwitcher}>
                 <ListItemIcon>

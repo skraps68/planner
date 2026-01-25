@@ -22,8 +22,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           flexGrow: 1,
           p: 3,
           mt: 8,
-          ml: sidebarOpen ? '240px' : '64px',
-          transition: 'margin-left 0.3s',
+          width: '100%',
+          maxWidth: '100%',
         }}
       >
         {children}

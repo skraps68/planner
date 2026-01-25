@@ -17,7 +17,6 @@ import {
   Divider,
 } from '@mui/material'
 import { useAuth } from '../../contexts/AuthContext'
-import { UserRole } from '../../store/slices/authSlice'
 
 interface RoleSwitcherProps {
   open: boolean
@@ -27,16 +26,16 @@ interface RoleSwitcherProps {
 const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ open, onClose }) => {
   const { user, switchRole } = useAuth()
   const [selectedRole, setSelectedRole] = useState<string>(
-    user?.activeRole?.id || user?.roles[0]?.id || ''
+    user?.roles?.[0] || ''
   )
   const [loading, setLoading] = useState(false)
 
-  const handleRoleChange = (roleId: string) => {
-    setSelectedRole(roleId)
+  const handleRoleChange = (role: string) => {
+    setSelectedRole(role)
   }
 
   const handleConfirm = async () => {
-    if (selectedRole && selectedRole !== user?.activeRole?.id) {
+    if (selectedRole && selectedRole !== user?.roles?.[0]) {
       setLoading(true)
       try {
         await switchRole(selectedRole)
@@ -67,21 +66,6 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ open, onClose }) => {
     return roleType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
-  const getScopeDescription = (role: UserRole) => {
-    if (!role.scopes || role.scopes.length === 0) {
-      return 'No scope assigned'
-    }
-
-    const scopeTexts = role.scopes.map((scope) => {
-      if (scope.scope_type === 'GLOBAL') return 'Full System Access'
-      if (scope.scope_type === 'PROGRAM') return `Program: ${scope.program_name || 'Unknown'}`
-      if (scope.scope_type === 'PROJECT') return `Project: ${scope.project_name || 'Unknown'}`
-      return ''
-    })
-
-    return scopeTexts.filter(Boolean).join(', ')
-  }
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Switch Role</DialogTitle>
@@ -90,18 +74,18 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ open, onClose }) => {
           Select a role to switch your current permissions and access scope
         </Typography>
         <List>
-          {user?.roles.map((role, index) => (
-            <React.Fragment key={role.id}>
+          {user?.roles?.map((role, index) => (
+            <React.Fragment key={role}>
               {index > 0 && <Divider />}
               <ListItem disablePadding>
                 <ListItemButton
-                  onClick={() => handleRoleChange(role.id)}
-                  selected={selectedRole === role.id}
+                  onClick={() => handleRoleChange(role)}
+                  selected={selectedRole === role}
                 >
                   <ListItemIcon>
                     <Radio
-                      checked={selectedRole === role.id}
-                      value={role.id}
+                      checked={selectedRole === role}
+                      value={role}
                       name="role-radio"
                     />
                   </ListItemIcon>
@@ -109,15 +93,15 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ open, onClose }) => {
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="body1">
-                          {formatRoleType(role.role_type)}
+                          {formatRoleType(role)}
                         </Typography>
                         <Chip
-                          label={role.role_type}
+                          label={role}
                           size="small"
-                          color={getRoleBadgeColor(role.role_type)}
+                          color={getRoleBadgeColor(role)}
                           sx={{ height: 20, fontSize: '0.7rem' }}
                         />
-                        {role.id === user?.activeRole?.id && (
+                        {role === user?.roles?.[0] && (
                           <Chip
                             label="Current"
                             size="small"
@@ -129,7 +113,7 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ open, onClose }) => {
                     }
                     secondary={
                       <Typography variant="caption" color="text.secondary">
-                        {getScopeDescription(role)}
+                        {role === 'ADMIN' ? 'Full System Access' : 'Role-based Access'}
                       </Typography>
                     }
                   />
@@ -144,7 +128,7 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ open, onClose }) => {
         <Button
           onClick={handleConfirm}
           variant="contained"
-          disabled={loading || selectedRole === user?.activeRole?.id}
+          disabled={loading || selectedRole === user?.roles?.[0]}
         >
           {loading ? 'Switching...' : 'Switch Role'}
         </Button>

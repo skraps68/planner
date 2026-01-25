@@ -15,7 +15,6 @@ import {
   ListItemText,
 } from '@mui/material'
 import { useAuth } from '../../contexts/AuthContext'
-import { UserRole } from '../../store/slices/authSlice'
 
 interface UserProfileProps {
   open: boolean
@@ -39,19 +38,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ open, onClose }) => {
 
   const formatRoleType = (roleType: string) => {
     return roleType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-  }
-
-  const getScopeDescription = (role: UserRole) => {
-    if (!role.scopes || role.scopes.length === 0) {
-      return ['No scope assigned']
-    }
-
-    return role.scopes.map((scope) => {
-      if (scope.scope_type === 'GLOBAL') return 'Full System Access'
-      if (scope.scope_type === 'PROGRAM') return `Program: ${scope.program_name || 'Unknown'}`
-      if (scope.scope_type === 'PROJECT') return `Project: ${scope.project_name || 'Unknown'}`
-      return ''
-    }).filter(Boolean)
   }
 
   return (
@@ -82,48 +68,51 @@ const UserProfile: React.FC<UserProfileProps> = ({ open, onClose }) => {
           Assigned Roles
         </Typography>
         <List dense>
-          {user?.roles.map((role) => (
-            <ListItem key={role.id} sx={{ px: 0 }}>
-              <ListItemText
-                primary={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <Typography variant="body2">
-                      {formatRoleType(role.role_type)}
-                    </Typography>
-                    <Chip
-                      label={role.role_type}
-                      size="small"
-                      color={getRoleBadgeColor(role.role_type)}
-                      sx={{ height: 20, fontSize: '0.7rem' }}
-                    />
-                    {role.id === user?.activeRole?.id && (
+          {user?.roles && user.roles.length > 0 ? (
+            user.roles.map((role, index) => (
+              <ListItem key={index} sx={{ px: 0 }}>
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Typography variant="body2">
+                        {formatRoleType(role)}
+                      </Typography>
                       <Chip
-                        label="Active"
+                        label={role}
                         size="small"
-                        color="success"
-                        variant="outlined"
+                        color={getRoleBadgeColor(role)}
                         sx={{ height: 20, fontSize: '0.7rem' }}
                       />
-                    )}
-                  </Box>
-                }
-                secondary={
-                  <Box component="span">
-                    {getScopeDescription(role).map((scope, idx) => (
-                      <Typography
-                        key={idx}
-                        variant="caption"
-                        display="block"
-                        color="text.secondary"
-                      >
-                        • {scope}
-                      </Typography>
-                    ))}
-                  </Box>
+                      {index === 0 && (
+                        <Chip
+                          label="Active"
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
+                    </Box>
+                  }
+                  secondary={
+                    <Typography variant="caption" color="text.secondary">
+                      • {role === 'ADMIN' ? 'Full System Access' : 'Role-based Access'}
+                    </Typography>
+                  }
+                />
+              </ListItem>
+            ))
+          ) : (
+            <ListItem sx={{ px: 0 }}>
+              <ListItemText
+                primary={
+                  <Typography variant="body2" color="text.secondary">
+                    No roles assigned
+                  </Typography>
                 }
               />
             </ListItem>
-          ))}
+          )}
         </List>
 
         <Divider sx={{ my: 2 }} />
@@ -143,7 +132,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ open, onClose }) => {
           <ListItem sx={{ px: 0 }}>
             <ListItemText
               primary="Total Roles"
-              secondary={user?.roles.length || 0}
+              secondary={user?.roles?.length || 0}
               primaryTypographyProps={{ variant: 'caption', color: 'text.secondary' }}
               secondaryTypographyProps={{ variant: 'body2' }}
             />

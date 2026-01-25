@@ -111,7 +111,9 @@ export const hasPermission = (user: User | null, permission: Permission): Permis
     return { hasPermission: false, reason: 'No active role assigned' }
   }
 
-  const permissions = rolePermissions[activeRole] || []
+  // Normalize role to uppercase for comparison
+  const normalizedRole = activeRole.toUpperCase()
+  const permissions = rolePermissions[normalizedRole] || []
   const hasAccess = permissions.includes(permission)
 
   return {
@@ -134,8 +136,8 @@ export const canAccessProgram = (user: User | null, programId: string): Permissi
     return { hasPermission: false, reason: 'No active role assigned' }
   }
 
-  // ADMIN has global access
-  if (activeRole === 'ADMIN') {
+  // ADMIN has global access (case-insensitive)
+  if (activeRole.toUpperCase() === 'ADMIN') {
     return { hasPermission: true }
   }
 
@@ -157,8 +159,8 @@ export const canAccessProject = (user: User | null, projectId: string, programId
     return { hasPermission: false, reason: 'No active role assigned' }
   }
 
-  // ADMIN has global access
-  if (activeRole === 'ADMIN') {
+  // ADMIN has global access (case-insensitive)
+  if (activeRole.toUpperCase() === 'ADMIN') {
     return { hasPermission: true }
   }
 
@@ -176,8 +178,8 @@ export const getAccessibleProgramIds = (user: User | null): string[] | 'all' => 
   const activeRole = user.roles?.[0]
   if (!activeRole) return []
 
-  // ADMIN has global access
-  if (activeRole === 'ADMIN') return 'all'
+  // ADMIN has global access (case-insensitive)
+  if (activeRole.toUpperCase() === 'ADMIN') return 'all'
 
   // For other roles, backend will filter
   return []
@@ -193,8 +195,8 @@ export const getAccessibleProjectIds = (user: User | null): string[] | 'all' => 
   const activeRole = user.roles?.[0]
   if (!activeRole) return []
 
-  // ADMIN has global access
-  if (activeRole === 'ADMIN') return 'all'
+  // ADMIN has global access (case-insensitive)
+  if (activeRole.toUpperCase() === 'ADMIN') return 'all'
 
   // For other roles, backend will filter
   return []
@@ -210,7 +212,7 @@ export const getScopeContext = (user: User | null): string[] => {
   const activeRole = user.roles?.[0]
   if (!activeRole) return []
 
-  if (activeRole === 'ADMIN') {
+  if (activeRole.toUpperCase() === 'ADMIN') {
     return ['All Programs & Projects']
   }
 

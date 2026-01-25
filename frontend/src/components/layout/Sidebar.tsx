@@ -64,7 +64,8 @@ const Sidebar: React.FC = () => {
     // Check role requirement
     if (item.requiredRole) {
       const activeRole = user?.roles?.[0]
-      if (!activeRole || activeRole !== item.requiredRole) {
+      // Case-insensitive role comparison
+      if (!activeRole || activeRole.toUpperCase() !== item.requiredRole.toUpperCase()) {
         return { hasAccess: false, reason: `Requires ${item.requiredRole} role` }
       }
     }
