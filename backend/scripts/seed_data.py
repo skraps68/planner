@@ -372,7 +372,27 @@ def create_resources(db: Session) -> dict:
     return resources
 
 
-def create_resource_assignments(db: Session, workers: dict, projects: dict, phases: dict):
+def create_labor_resources_for_workers(db: Session, workers: dict) -> dict:
+    """Create labor resources for each worker."""
+    print("Creating labor resources for workers...")
+    
+    labor_resources = {}
+    for worker_key, worker in workers.items():
+        labor_resource = Resource(
+            id=uuid4(),
+            name=worker.name,
+            resource_type=ResourceType.LABOR,
+            description=f"Labor resource for {worker.name} ({worker.external_id})"
+        )
+        db.add(labor_resource)
+        labor_resources[worker_key] = labor_resource
+    
+    db.commit()
+    print(f"Created {len(labor_resources)} labor resources.")
+    return labor_resources
+
+
+def create_resource_assignments(db: Session, labor_resources: dict, projects: dict, phases: dict):
     """Create sample resource assignments."""
     print("Creating resource assignments...")
     
@@ -388,7 +408,7 @@ def create_resource_assignments(db: Session, workers: dict, projects: dict, phas
         # John Smith - 75% allocation, 60% capital / 40% expense
         assignments.append(ResourceAssignment(
             id=uuid4(),
-            resource_id=workers["john_smith"].id,
+            resource_id=labor_resources["john_smith"].id,
             project_id=projects["mobile_app"].id,
             project_phase_id=mobile_exec.id,
             assignment_date=assignment_date,
@@ -400,7 +420,7 @@ def create_resource_assignments(db: Session, workers: dict, projects: dict, phas
         # Bob Johnson - 50% allocation, 70% capital / 30% expense
         assignments.append(ResourceAssignment(
             id=uuid4(),
-            resource_id=workers["bob_johnson"].id,
+            resource_id=labor_resources["bob_johnson"].id,
             project_id=projects["mobile_app"].id,
             project_phase_id=mobile_exec.id,
             assignment_date=assignment_date,
@@ -419,7 +439,7 @@ def create_resource_assignments(db: Session, workers: dict, projects: dict, phas
         # Alice Williams - 100% allocation, 50% capital / 50% expense
         assignments.append(ResourceAssignment(
             id=uuid4(),
-            resource_id=workers["alice_williams"].id,
+            resource_id=labor_resources["alice_williams"].id,
             project_id=projects["web_portal"].id,
             project_phase_id=web_exec.id,
             assignment_date=assignment_date,
@@ -431,7 +451,7 @@ def create_resource_assignments(db: Session, workers: dict, projects: dict, phas
         # Charlie Brown - 25% allocation, 80% capital / 20% expense
         assignments.append(ResourceAssignment(
             id=uuid4(),
-            resource_id=workers["charlie_brown"].id,
+            resource_id=labor_resources["charlie_brown"].id,
             project_id=projects["web_portal"].id,
             project_phase_id=web_exec.id,
             assignment_date=assignment_date,
@@ -450,7 +470,7 @@ def create_resource_assignments(db: Session, workers: dict, projects: dict, phas
         # Jane Doe - 80% allocation, 90% capital / 10% expense
         assignments.append(ResourceAssignment(
             id=uuid4(),
-            resource_id=workers["jane_doe"].id,
+            resource_id=labor_resources["jane_doe"].id,
             project_id=projects["cloud_migration"].id,
             project_phase_id=cloud_exec.id,
             assignment_date=assignment_date,
@@ -803,7 +823,8 @@ def main():
         worker_types = create_worker_types_and_rates(db)
         workers = create_workers(db, worker_types)
         resources = create_resources(db)
-        create_resource_assignments(db, workers, projects, phases)
+        labor_resources = create_labor_resources_for_workers(db, workers)
+        create_resource_assignments(db, labor_resources, projects, phases)
         create_actuals(db, workers, projects)
         create_users_with_roles_and_scopes(db, programs, projects)
         

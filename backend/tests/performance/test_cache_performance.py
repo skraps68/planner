@@ -160,13 +160,13 @@ class TestDatabaseIndexPerformance:
     
     def test_role_lookup_performance(self, db_session, test_user):
         """Test role lookup performance with indexes."""
-        from app.repositories.user import user_repository
+        from app.repositories.user import user_role_repository
         
         user_id = test_user.id
         
         # Get user roles (uses indexed query)
         start_time = time.time()
-        roles = user_repository.get_user_roles(db_session, user_id)
+        roles = user_role_repository.get_by_user(db_session, user_id)
         query_time = time.time() - start_time
         
         # Query should complete quickly

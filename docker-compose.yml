@@ -64,7 +64,7 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-11520}
       
       # CORS
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      - BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:8080
       
       # Database
       - POSTGRES_SERVER=${POSTGRES_SERVER:-db}
@@ -77,7 +77,6 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_DB=${REDIS_DB:-0}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       
       # Celery
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
