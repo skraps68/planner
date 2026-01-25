@@ -32,3 +32,7 @@
   - resource assignment changes
   - phase changes (could impact budget, timelines)
   - project changes (could impact timelines, which could impact amortization of non-labor costs)
+
+- need slice/dice of budget vs actual across all dimensions and at all levels. need to happen both with/without a change set applied (would be nice to be able to toggle a change set to see the differences easily).
+
+- in the future, add chatbot to explain the variances introduced by a changeset (largest change happening where and due to what)

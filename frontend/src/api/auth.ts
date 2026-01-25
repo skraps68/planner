@@ -6,11 +6,21 @@ export interface LoginRequest {
   password: string
 }
 
-export interface LoginResponse {
+export interface TokenData {
   access_token: string
   refresh_token: string
   token_type: string
-  user: User
+  expires_in: number
+}
+
+export interface LoginResponse {
+  user_id: string
+  username: string
+  email: string
+  is_active: boolean
+  active_roles: string[]
+  available_scopes: any[]
+  tokens: TokenData
 }
 
 export interface RefreshTokenRequest {
@@ -18,8 +28,7 @@ export interface RefreshTokenRequest {
 }
 
 export interface RefreshTokenResponse {
-  access_token: string
-  token_type: string
+  tokens: TokenData
 }
 
 export const authApi = {

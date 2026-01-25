@@ -62,11 +62,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       dispatch(setLoading(true))
       const response = await authApi.login(credentials)
+      
+      // Map the backend response to the frontend User structure
+      const user: User = {
+        id: response.user_id,
+        username: response.username,
+        email: response.email,
+        isActive: response.is_active,
+        roles: response.active_roles,
+        permissions: [], // Will be populated later if needed
+      }
+      
       dispatch(
         setCredentials({
-          user: response.user,
-          token: response.access_token,
-          refreshToken: response.refresh_token,
+          user: user,
+          token: response.tokens.access_token,
+          refreshToken: response.tokens.refresh_token,
         })
       )
       navigate('/dashboard')

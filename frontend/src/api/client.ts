@@ -39,11 +39,11 @@ apiClient.interceptors.response.use(
             refresh_token: refreshToken,
           })
 
-          const { access_token } = response.data
-          localStorage.setItem('token', access_token)
+          const { tokens } = response.data
+          localStorage.setItem('token', tokens.access_token)
 
           if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${access_token}`
+            originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`
           }
 
           return apiClient(originalRequest)
