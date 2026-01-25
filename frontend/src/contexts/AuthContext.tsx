@@ -70,7 +70,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: response.email,
         isActive: response.is_active,
         roles: response.active_roles,
-        permissions: [], // Will be populated later if needed
+        permissions: [],
       }
       
       dispatch(

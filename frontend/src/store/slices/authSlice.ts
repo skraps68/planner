@@ -4,24 +4,9 @@ export interface User {
   id: string
   username: string
   email: string
-  roles: UserRole[]
-  activeRole?: UserRole
-}
-
-export interface UserRole {
-  id: string
-  role_type: string
-  is_active: boolean
-  scopes: ScopeAssignment[]
-}
-
-export interface ScopeAssignment {
-  id: string
-  scope_type: 'PROGRAM' | 'PROJECT' | 'GLOBAL'
-  program_id?: string
-  project_id?: string
-  program_name?: string
-  project_name?: string
+  isActive: boolean
+  roles: string[]
+  permissions?: string[]
 }
 
 interface AuthState {
@@ -58,11 +43,6 @@ const authSlice = createSlice({
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload
     },
-    setActiveRole: (state, action: PayloadAction<UserRole>) => {
-      if (state.user) {
-        state.user.activeRole = action.payload
-      }
-    },
     logout: (state) => {
       state.user = null
       state.token = null
@@ -77,5 +57,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { setCredentials, setUser, setActiveRole, logout, setLoading } = authSlice.actions
+export const { setCredentials, setUser, logout, setLoading } = authSlice.actions
 export default authSlice.reducer
