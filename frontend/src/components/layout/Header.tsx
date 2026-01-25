@@ -76,16 +76,8 @@ const Header: React.FC = () => {
     return colors[roleType] || 'default'
   }
 
-  const activeRole = user?.activeRole || user?.roles[0]
-  const scopeText = activeRole?.scopes
-    .map((scope) => {
-      if (scope.scope_type === 'GLOBAL') return 'Full Access'
-      if (scope.scope_type === 'PROGRAM') return `Program: ${scope.program_name || 'Unknown'}`
-      if (scope.scope_type === 'PROJECT') return `Project: ${scope.project_name || 'Unknown'}`
-      return ''
-    })
-    .filter(Boolean)
-    .join(', ')
+  const activeRole = user?.roles?.[0] // Just the role string like "ADMIN"
+  const scopeText = 'Full Access' // Simplified for now
 
   return (
     <AppBar
@@ -123,9 +115,9 @@ const Header: React.FC = () => {
             </Typography>
             {activeRole && (
               <Chip
-                label={activeRole.role_type.replace('_', ' ')}
+                label={activeRole.replace('_', ' ')}
                 size="small"
-                color={getRoleBadgeColor(activeRole.role_type)}
+                color={getRoleBadgeColor(activeRole)}
                 sx={{ height: 20, fontSize: '0.7rem' }}
               />
             )}

@@ -106,149 +106,115 @@ export const hasPermission = (user: User | null, permission: Permission): Permis
     return { hasPermission: false, reason: 'User not authenticated' }
   }
 
-  const activeRole = user.activeRole || user.roles[0]
+  const activeRole = user.roles?.[0]
   if (!activeRole) {
     return { hasPermission: false, reason: 'No active role assigned' }
   }
 
-  const permissions = rolePermissions[activeRole.role_type] || []
+  const permissions = rolePermissions[activeRole] || []
   const hasAccess = permissions.includes(permission)
 
   return {
     hasPermission: hasAccess,
-    reason: hasAccess ? undefined : `Role ${activeRole.role_type} does not have ${permission} permission`,
+    reason: hasAccess ? undefined : `Role ${activeRole} does not have ${permission} permission`,
   }
 }
 
 /**
  * Check if user has access to a specific program
+ * Note: Simplified version - assumes ADMIN has global access, others need backend validation
  */
 export const canAccessProgram = (user: User | null, programId: string): PermissionCheck => {
   if (!user) {
     return { hasPermission: false, reason: 'User not authenticated' }
   }
 
-  const activeRole = user.activeRole || user.roles[0]
+  const activeRole = user.roles?.[0]
   if (!activeRole) {
     return { hasPermission: false, reason: 'No active role assigned' }
   }
 
-  // Check for global scope
-  const hasGlobalScope = activeRole.scopes.some((scope) => scope.scope_type === 'GLOBAL')
-  if (hasGlobalScope) {
+  // ADMIN has global access
+  if (activeRole === 'ADMIN') {
     return { hasPermission: true }
   }
 
-  // Check for program scope
-  const hasProgramScope = activeRole.scopes.some(
-    (scope) => scope.scope_type === 'PROGRAM' && scope.program_id === programId
-  )
-
-  return {
-    hasPermission: hasProgramScope,
-    reason: hasProgramScope ? undefined : 'Program not in user scope',
-  }
+  // For other roles, assume access (backend will enforce actual scope)
+  return { hasPermission: true }
 }
 
 /**
  * Check if user has access to a specific project
+ * Note: Simplified version - assumes ADMIN has global access, others need backend validation
  */
 export const canAccessProject = (user: User | null, projectId: string, programId?: string): PermissionCheck => {
   if (!user) {
     return { hasPermission: false, reason: 'User not authenticated' }
   }
 
-  const activeRole = user.activeRole || user.roles[0]
+  const activeRole = user.roles?.[0]
   if (!activeRole) {
     return { hasPermission: false, reason: 'No active role assigned' }
   }
 
-  // Check for global scope
-  const hasGlobalScope = activeRole.scopes.some((scope) => scope.scope_type === 'GLOBAL')
-  if (hasGlobalScope) {
+  // ADMIN has global access
+  if (activeRole === 'ADMIN') {
     return { hasPermission: true }
   }
 
-  // Check for program scope (includes all projects in program)
-  if (programId) {
-    const hasProgramScope = activeRole.scopes.some(
-      (scope) => scope.scope_type === 'PROGRAM' && scope.program_id === programId
-    )
-    if (hasProgramScope) {
-      return { hasPermission: true }
-    }
-  }
-
-  // Check for specific project scope
-  const hasProjectScope = activeRole.scopes.some(
-    (scope) => scope.scope_type === 'PROJECT' && scope.project_id === projectId
-  )
-
-  return {
-    hasPermission: hasProjectScope,
-    reason: hasProjectScope ? undefined : 'Project not in user scope',
-  }
+  // For other roles, assume access (backend will enforce actual scope)
+  return { hasPermission: true }
 }
 
 /**
  * Get all accessible program IDs for the user
+ * Note: Simplified version - returns 'all' for ADMIN, empty array for others (backend enforces)
  */
 export const getAccessibleProgramIds = (user: User | null): string[] | 'all' => {
   if (!user) return []
 
-  const activeRole = user.activeRole || user.roles[0]
+  const activeRole = user.roles?.[0]
   if (!activeRole) return []
 
-  // Check for global scope
-  const hasGlobalScope = activeRole.scopes.some((scope) => scope.scope_type === 'GLOBAL')
-  if (hasGlobalScope) return 'all'
+  // ADMIN has global access
+  if (activeRole === 'ADMIN') return 'all'
 
-  // Get program IDs from program scopes
-  const programIds = activeRole.scopes
-    .filter((scope) => scope.scope_type === 'PROGRAM' && scope.program_id)
-    .map((scope) => scope.program_id!)
-
-  return programIds
+  // For other roles, backend will filter
+  return []
 }
 
 /**
  * Get all accessible project IDs for the user
+ * Note: Simplified version - returns 'all' for ADMIN, empty array for others (backend enforces)
  */
 export const getAccessibleProjectIds = (user: User | null): string[] | 'all' => {
   if (!user) return []
 
-  const activeRole = user.activeRole || user.roles[0]
+  const activeRole = user.roles?.[0]
   if (!activeRole) return []
 
-  // Check for global scope
-  const hasGlobalScope = activeRole.scopes.some((scope) => scope.scope_type === 'GLOBAL')
-  if (hasGlobalScope) return 'all'
+  // ADMIN has global access
+  if (activeRole === 'ADMIN') return 'all'
 
-  // Get project IDs from both program and project scopes
-  const projectIds = activeRole.scopes
-    .filter((scope) => scope.scope_type === 'PROJECT' && scope.project_id)
-    .map((scope) => scope.project_id!)
-
-  return projectIds
+  // For other roles, backend will filter
+  return []
 }
 
 /**
  * Get scope context for display (breadcrumbs, headers, etc.)
+ * Note: Simplified version - shows role-based context
  */
 export const getScopeContext = (user: User | null): string[] => {
   if (!user) return []
 
-  const activeRole = user.activeRole || user.roles[0]
+  const activeRole = user.roles?.[0]
   if (!activeRole) return []
 
-  return activeRole.scopes
-    .map((scope) => {
-      if (scope.scope_type === 'GLOBAL') return 'All Programs & Projects'
-      if (scope.scope_type === 'PROGRAM') return scope.program_name || 'Unknown Program'
-      if (scope.scope_type === 'PROJECT') return scope.project_name || 'Unknown Project'
-      return ''
-    })
-    .filter(Boolean)
+  if (activeRole === 'ADMIN') {
+    return ['All Programs & Projects']
+  }
+
+  return [`${activeRole.replace('_', ' ')} Access`]
 }
 
 /**
@@ -256,8 +222,8 @@ export const getScopeContext = (user: User | null): string[] => {
  */
 export const hasAnyRole = (user: User | null, roles: string[]): boolean => {
   if (!user) return false
-  const activeRole = user.activeRole || user.roles[0]
-  return activeRole ? roles.includes(activeRole.role_type) : false
+  const activeRole = user.roles?.[0]
+  return activeRole ? roles.includes(activeRole) : false
 }
 
 /**
@@ -265,6 +231,6 @@ export const hasAnyRole = (user: User | null, roles: string[]): boolean => {
  */
 export const getActiveRoleType = (user: User | null): string | null => {
   if (!user) return null
-  const activeRole = user.activeRole || user.roles[0]
-  return activeRole ? activeRole.role_type : null
+  return user.roles?.[0] || null
 }
+

@@ -63,8 +63,8 @@ const Sidebar: React.FC = () => {
   const checkItemAccess = (item: NavItem) => {
     // Check role requirement
     if (item.requiredRole) {
-      const activeRole = user?.activeRole || user?.roles[0]
-      if (!activeRole || activeRole.role_type !== item.requiredRole) {
+      const activeRole = user?.roles?.[0]
+      if (!activeRole || activeRole !== item.requiredRole) {
         return { hasAccess: false, reason: `Requires ${item.requiredRole} role` }
       }
     }
