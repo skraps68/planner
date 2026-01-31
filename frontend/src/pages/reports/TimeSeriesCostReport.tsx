@@ -58,6 +58,17 @@ const TimeSeriesCostReport: React.FC = () => {
     loadProjects()
   }, [])
 
+  // Auto-populate dates when project is selected
+  useEffect(() => {
+    if (projectId && projects.length > 0) {
+      const selectedProject = projects.find(p => p.id === projectId)
+      if (selectedProject) {
+        setStartDate(selectedProject.start_date)
+        setEndDate(selectedProject.end_date)
+      }
+    }
+  }, [projectId, projects])
+
   const loadTimeSeriesData = async () => {
     if (!projectId || !startDate || !endDate) {
       setError('Please select project and date range')

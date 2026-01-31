@@ -59,6 +59,7 @@ const BudgetVsActualDashboard: React.FC = () => {
   const [entityType, setEntityType] = useState<'project' | 'program'>('project')
   const [entityId, setEntityId] = useState<string>('')
   const [entities, setEntities] = useState<any[]>([])
+  const [asOfDate, setAsOfDate] = useState<string>('2024-10-15') // Default to middle of project timeline
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +89,7 @@ const BudgetVsActualDashboard: React.FC = () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await reportsApi.getBudgetVsActualVsForecast(entityType, entityId)
+      const data = await reportsApi.getBudgetVsActualVsForecast(entityType, entityId, asOfDate)
       setReportData(data)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load report')
@@ -127,15 +128,43 @@ const BudgetVsActualDashboard: React.FC = () => {
     return percentage > 0 ? <TrendingUp /> : <TrendingDown />
   }
 
-  const renderSummaryCards = (summary: ProjectFinancialSummary | ProgramFinancialSummary) => {
+  const renderSummaryCards = (summary: any) => {
+    // Handle both old and new API response formats
+    const budget = summary.budget || {}
+    const actual = summary.actual || {}
+    const forecast = summary.forecast || {}
+    const variance = summary.variance || {}
+    const analysis = summary.analysis || {}
+    
+    const totalBudget = budget.total_budget || budget.total || 0
+    const capitalBudget = budget.capital_budget || budget.capital || 0
+    const expenseBudget = budget.expense_budget || budget.expense || 0
+    
+    const totalActual = actual.total_actual || actual.total || 0
+    const capitalActual = actual.capital_actual || actual.capital || 0
+    const expenseActual = actual.expense_actual || actual.expense || 0
+    
+    const totalForecast = forecast.total_forecast || forecast.total || 0
+    const capitalForecast = forecast.capital_forecast || forecast.capital || 0
+    const expenseForecast = forecast.expense_forecast || forecast.expense || 0
+    
+    // Calculate variance if not provided
+    const budgetVsActualVariance = variance.budget_vs_actual_variance || (totalBudget - totalActual)
+    const budgetVsActualPercentage = variance.budget_vs_actual_percentage || 
+      (totalBudget !== 0 ? ((totalActual - totalBudget) / totalBudget) * 100 : 0)
+    
+    const budgetVsForecastVariance = variance.budget_vs_forecast_variance || (totalBudget - totalForecast)
+    const budgetVsForecastPercentage = variance.budget_vs_forecast_percentage || 
+      (totalBudget !== 0 ? ((totalForecast - totalBudget) / totalBudget) * 100 : 0)
+    
     const budgetData = [
-      { name: 'Capital', value: summary.budget.capital_budget },
-      { name: 'Expense', value: summary.budget.expense_budget }
+      { name: 'Capital', value: capitalBudget },
+      { name: 'Expense', value: expenseBudget }
     ]
 
     const actualData = [
-      { name: 'Capital', value: summary.actual.capital_actual },
-      { name: 'Expense', value: summary.actual.expense_actual }
+      { name: 'Capital', value: capitalForecast },
+      { name: 'Expense', value: expenseForecast }
     ]
 
     return (
@@ -148,17 +177,17 @@ const BudgetVsActualDashboard: React.FC = () => {
                 Total Budget
               </Typography>
               <Typography variant="h4" gutterBottom>
-                {formatCurrency(summary.budget.total_budget)}
+                {formatCurrency(totalBudget)}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                 <Chip
-                  label={`Capital: ${formatCurrency(summary.budget.capital_budget)}`}
+                  label={`Capital: ${formatCurrency(capitalBudget)}`}
                   size="small"
                   color="primary"
                   variant="outlined"
                 />
                 <Chip
-                  label={`Expense: ${formatCurrency(summary.budget.expense_budget)}`}
+                  label={`Expense: ${formatCurrency(expenseBudget)}`}
                   size="small"
                   color="secondary"
                   variant="outlined"
@@ -176,18 +205,18 @@ const BudgetVsActualDashboard: React.FC = () => {
                 Total Actual
               </Typography>
               <Typography variant="h4" gutterBottom>
-                {formatCurrency(summary.actual.total_actual)}
+                {formatCurrency(totalActual)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                {getStatusIcon(summary.variance.budget_vs_actual_percentage)}
+                {getStatusIcon(budgetVsActualPercentage)}
                 <Chip
-                  label={formatPercentage(summary.variance.budget_vs_actual_percentage)}
+                  label={formatPercentage(budgetVsActualPercentage)}
                   size="small"
-                  color={getStatusColor(summary.variance.budget_vs_actual_percentage)}
+                  color={getStatusColor(budgetVsActualPercentage)}
                 />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                vs Budget: {formatCurrency(summary.variance.budget_vs_actual_variance)}
+                vs Budget: {formatCurrency(budgetVsActualVariance)}
               </Typography>
             </CardContent>
           </Card>
@@ -198,21 +227,24 @@ const BudgetVsActualDashboard: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom>
-                Total Forecast
+                Forecast
+              </Typography>
+              <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 1 }}>
+                (Actuals to date + Forecast for remaining period)
               </Typography>
               <Typography variant="h4" gutterBottom>
-                {formatCurrency(summary.forecast.total_forecast)}
+                {formatCurrency(totalForecast)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                {getStatusIcon(summary.variance.budget_vs_forecast_percentage)}
+                {getStatusIcon(budgetVsForecastPercentage)}
                 <Chip
-                  label={formatPercentage(summary.variance.budget_vs_forecast_percentage)}
+                  label={formatPercentage(budgetVsForecastPercentage)}
                   size="small"
-                  color={getStatusColor(summary.variance.budget_vs_forecast_percentage)}
+                  color={getStatusColor(budgetVsForecastPercentage)}
                 />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                vs Budget: {formatCurrency(summary.variance.budget_vs_forecast_variance)}
+                vs Budget: {formatCurrency(budgetVsForecastVariance)}
               </Typography>
             </CardContent>
           </Card>
@@ -222,25 +254,25 @@ const BudgetVsActualDashboard: React.FC = () => {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Budget vs Actual vs Forecast
+              Budget vs Forecast
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+              Forecast stacks actuals to date (darker) with projected costs (lighter)
             </Typography>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
                 data={[
                   {
                     name: 'Budget',
-                    Capital: summary.budget.capital_budget,
-                    Expense: summary.budget.expense_budget
-                  },
-                  {
-                    name: 'Actual',
-                    Capital: summary.actual.capital_actual,
-                    Expense: summary.actual.expense_actual
+                    'Capital Budget': capitalBudget,
+                    'Expense Budget': expenseBudget
                   },
                   {
                     name: 'Forecast',
-                    Capital: summary.forecast.capital_forecast,
-                    Expense: summary.forecast.expense_forecast
+                    'Capital Actual': capitalActual,
+                    'Expense Actual': expenseActual,
+                    'Capital Forecast': capitalForecast - capitalActual,
+                    'Expense Forecast': expenseForecast - expenseActual
                   }
                 ]}
               >
@@ -249,8 +281,14 @@ const BudgetVsActualDashboard: React.FC = () => {
                 <YAxis />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend />
-                <Bar dataKey="Capital" fill="#0088FE" />
-                <Bar dataKey="Expense" fill="#00C49F" />
+                {/* Budget bars */}
+                <Bar dataKey="Capital Budget" stackId="budget" fill="#0088FE" />
+                <Bar dataKey="Expense Budget" stackId="budget" fill="#00C49F" />
+                {/* Forecast stacked bars */}
+                <Bar dataKey="Capital Actual" stackId="forecast" fill="#0066CC" />
+                <Bar dataKey="Capital Forecast" stackId="forecast" fill="#66B3FF" />
+                <Bar dataKey="Expense Actual" stackId="forecast" fill="#009973" />
+                <Bar dataKey="Expense Forecast" stackId="forecast" fill="#66E6CC" />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
@@ -264,7 +302,7 @@ const BudgetVsActualDashboard: React.FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-around' }}>
               <Box>
-                <Typography variant="caption" align="center" display="block" gutterBottom>
+                <Typography variant="subtitle2" align="center" display="block" gutterBottom>
                   Budget
                 </Typography>
                 <ResponsiveContainer width={150} height={150}>
@@ -286,8 +324,8 @@ const BudgetVsActualDashboard: React.FC = () => {
                 </ResponsiveContainer>
               </Box>
               <Box>
-                <Typography variant="caption" align="center" display="block" gutterBottom>
-                  Actual
+                <Typography variant="subtitle2" align="center" display="block" gutterBottom>
+                  Forecast
                 </Typography>
                 <ResponsiveContainer width={150} height={150}>
                   <PieChart>
@@ -317,7 +355,15 @@ const BudgetVsActualDashboard: React.FC = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Budget vs Actual vs Forecast Dashboard</Typography>
+        <Box>
+          <Typography variant="h4">Budget vs Forecast Dashboard</Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+            Forecast = Actuals to date + Projected costs for remaining period
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+            "As of Date" determines the split: actuals before this date, forecast after
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -341,7 +387,7 @@ const BudgetVsActualDashboard: React.FC = () => {
       {/* Filters */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
             <FormControl fullWidth>
               <InputLabel>Entity Type</InputLabel>
               <Select
@@ -358,7 +404,7 @@ const BudgetVsActualDashboard: React.FC = () => {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth>
               <InputLabel>{entityType === 'project' ? 'Project' : 'Program'}</InputLabel>
               <Select
@@ -372,6 +418,27 @@ const BudgetVsActualDashboard: React.FC = () => {
                   </MenuItem>
                 ))}
               </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>
+                As of Date (for forecast calculation)
+              </Typography>
+              <input
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '16.5px 14px',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  border: '1px solid rgba(0, 0, 0, 0.23)',
+                  borderRadius: '4px',
+                  outline: 'none'
+                }}
+              />
             </FormControl>
           </Grid>
           <Grid item xs={12} md={3}>

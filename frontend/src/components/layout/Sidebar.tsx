@@ -21,6 +21,7 @@ import {
   BarChart,
   AdminPanelSettings,
   Lock,
+  AccountBalance,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -35,6 +36,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { text: 'Portfolio', icon: <AccountBalance />, path: '/portfolio' },
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
   { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs' },
   { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects' },

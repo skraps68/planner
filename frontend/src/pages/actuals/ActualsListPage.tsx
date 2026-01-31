@@ -7,6 +7,10 @@ import {
   TextField,
   Grid,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import { DataGrid, GridColDef, GridPaginationModel, GridValueFormatterParams, GridValueGetterParams } from '@mui/x-data-grid'
 import { Add as AddIcon, Upload as UploadIcon } from '@mui/icons-material'
@@ -15,12 +19,14 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { actualsApi } from '../../api/actuals'
-import { Actual } from '../../types'
+import { projectsApi } from '../../api/projects'
+import { Actual, Project } from '../../types'
 import { format } from 'date-fns'
 
 const ActualsListPage = () => {
   const navigate = useNavigate()
   const [actuals, setActuals] = useState<Actual[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
@@ -30,10 +36,23 @@ const ActualsListPage = () => {
   const [rowCount, setRowCount] = useState(0)
 
   // Filters
-  const [projectId, setProjectId] = useState('')
+  const [projectId, setProjectId] = useState('all')
   const [workerId, setWorkerId] = useState('')
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [endDate, setEndDate] = useState<Date | null>(null)
+
+  // Fetch projects for dropdown
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await projectsApi.list({ limit: 1000 })
+        setProjects(response.items)
+      } catch (err) {
+        console.error('Failed to load projects:', err)
+      }
+    }
+    fetchProjects()
+  }, [])
 
   const fetchActuals = async () => {
     setLoading(true)
@@ -45,7 +64,7 @@ const ActualsListPage = () => {
         size: paginationModel.pageSize,
       }
 
-      if (projectId) params.project_id = projectId
+      if (projectId && projectId !== 'all') params.project_id = projectId
       if (workerId) params.external_worker_id = workerId
       if (startDate) params.start_date = format(startDate, 'yyyy-MM-dd')
       if (endDate) params.end_date = format(endDate, 'yyyy-MM-dd')
@@ -62,7 +81,7 @@ const ActualsListPage = () => {
 
   useEffect(() => {
     fetchActuals()
-  }, [paginationModel])
+  }, [paginationModel, projectId])
 
   const handleSearch = () => {
     setPaginationModel({ ...paginationModel, page: 0 })
@@ -70,7 +89,7 @@ const ActualsListPage = () => {
   }
 
   const handleClearFilters = () => {
-    setProjectId('')
+    setProjectId('all')
     setWorkerId('')
     setStartDate(null)
     setEndDate(null)
@@ -166,13 +185,21 @@ const ActualsListPage = () => {
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                label="Project ID"
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                size="small"
-              />
+              <FormControl fullWidth size="small">
+                <InputLabel>Project</InputLabel>
+                <Select
+                  value={projectId}
+                  label="Project"
+                  onChange={(e) => setProjectId(e.target.value)}
+                >
+                  <MenuItem value="all">All Projects</MenuItem>
+                  {projects.map((project) => (
+                    <MenuItem key={project.id} value={project.id}>
+                      {project.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={3}>
               <TextField

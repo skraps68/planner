@@ -21,6 +21,10 @@ import {
   TableRow,
   IconButton,
   Collapse,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import {
   TrendingUp as TrendingUpIcon,
@@ -34,6 +38,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { useSearchParams } from 'react-router-dom'
 import { actualsApi, VarianceAnalysisResponse, ExceptionalVariancesResponse, VarianceRecord } from '../../api/actuals'
+import { projectsApi } from '../../api/projects'
+import { Project } from '../../types'
 import { format } from 'date-fns'
 import {
   BarChart,
@@ -67,6 +73,7 @@ const TabPanel = (props: TabPanelProps) => {
 const VarianceAnalysisPage = () => {
   const [searchParams] = useSearchParams()
   const [projectId, setProjectId] = useState(searchParams.get('project_id') || '')
+  const [projects, setProjects] = useState<Project[]>([])
   const [startDate, setStartDate] = useState<Date | null>(
     searchParams.get('start_date') ? new Date(searchParams.get('start_date')!) : null
   )
@@ -122,6 +129,29 @@ const VarianceAnalysisPage = () => {
   }
 
   useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const response = await projectsApi.list()
+        setProjects(response.items || [])
+      } catch (err) {
+        console.error('Failed to load projects:', err)
+      }
+    }
+    loadProjects()
+  }, [])
+
+  // Auto-populate dates when project is selected
+  useEffect(() => {
+    if (projectId && projects.length > 0) {
+      const selectedProject = projects.find(p => p.id === projectId)
+      if (selectedProject) {
+        setStartDate(new Date(selectedProject.start_date))
+        setEndDate(new Date(selectedProject.end_date))
+      }
+    }
+  }, [projectId, projects])
+
+  useEffect(() => {
     if (projectId && startDate && endDate) {
       fetchVarianceAnalysis()
     }
@@ -155,6 +185,13 @@ const VarianceAnalysisPage = () => {
     if (!varianceData) return null
 
     const summary = varianceData.summary
+    const varianceByType = summary.variance_by_type || {}
+
+    // Extract counts from variance_by_type dictionary
+    const allocationOver = varianceByType.allocation_over || 0
+    const allocationUnder = varianceByType.allocation_under || 0
+    const unplannedWork = varianceByType.unplanned_work || 0
+    const unworkedAssignment = varianceByType.unworked_assignment || 0
 
     return (
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -175,7 +212,7 @@ const VarianceAnalysisPage = () => {
                 Over Allocated
               </Typography>
               <Typography variant="h4" color="error.main">
-                {summary.allocation_over}
+                {allocationOver}
               </Typography>
               <TrendingUpIcon color="error" />
             </CardContent>
@@ -188,7 +225,7 @@ const VarianceAnalysisPage = () => {
                 Under Allocated
               </Typography>
               <Typography variant="h4" color="warning.main">
-                {summary.allocation_under}
+                {allocationUnder}
               </Typography>
               <TrendingDownIcon color="warning" />
             </CardContent>
@@ -201,7 +238,7 @@ const VarianceAnalysisPage = () => {
                 Unplanned Work
               </Typography>
               <Typography variant="h4" color="info.main">
-                {summary.unplanned_work}
+                {unplannedWork}
               </Typography>
             </CardContent>
           </Card>
@@ -213,7 +250,7 @@ const VarianceAnalysisPage = () => {
                 Unworked Assignments
               </Typography>
               <Typography variant="h4" color="text.secondary">
-                {summary.unworked_assignment}
+                {unworkedAssignment}
               </Typography>
             </CardContent>
           </Card>
@@ -225,11 +262,19 @@ const VarianceAnalysisPage = () => {
   const renderVarianceChart = () => {
     if (!varianceData) return null
 
+    const summary = varianceData.summary
+    const varianceByType = summary.variance_by_type || {}
+    
+    const allocationOver = varianceByType.allocation_over || 0
+    const allocationUnder = varianceByType.allocation_under || 0
+    const unplannedWork = varianceByType.unplanned_work || 0
+    const unworkedAssignment = varianceByType.unworked_assignment || 0
+
     const chartData = [
-      { name: 'Over Allocated', value: varianceData.summary.allocation_over, color: '#f44336' },
-      { name: 'Under Allocated', value: varianceData.summary.allocation_under, color: '#ff9800' },
-      { name: 'Unplanned Work', value: varianceData.summary.unplanned_work, color: '#2196f3' },
-      { name: 'Unworked', value: varianceData.summary.unworked_assignment, color: '#9e9e9e' },
+      { name: 'Over Allocated', value: allocationOver, color: '#f44336' },
+      { name: 'Under Allocated', value: allocationUnder, color: '#ff9800' },
+      { name: 'Unplanned Work', value: unplannedWork, color: '#2196f3' },
+      { name: 'Unworked', value: unworkedAssignment, color: '#9e9e9e' },
     ]
 
     return (
@@ -372,7 +417,7 @@ const VarianceAnalysisPage = () => {
                               Variance Percentage:
                             </Typography>
                             <Typography variant="body1">
-                              {variance.variance_percentage.toFixed(2)}%
+                              {variance.allocation_variance_percentage?.toFixed(2) || '0.00'}%
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -447,7 +492,7 @@ const VarianceAnalysisPage = () => {
                       {exception.allocation_variance}%
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">{exception.variance_percentage.toFixed(2)}%</TableCell>
+                  <TableCell align="right">{exception.allocation_variance_percentage?.toFixed(2) || '0.00'}%</TableCell>
                   <TableCell>
                     <Chip
                       icon={<WarningIcon />}
@@ -478,14 +523,20 @@ const VarianceAnalysisPage = () => {
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                label="Project ID"
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                size="small"
-                required
-              />
+              <FormControl fullWidth size="small" required>
+                <InputLabel>Project</InputLabel>
+                <Select
+                  value={projectId}
+                  label="Project"
+                  onChange={(e) => setProjectId(e.target.value)}
+                >
+                  {projects.map((project) => (
+                    <MenuItem key={project.id} value={project.id}>
+                      {project.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={2}>
               <DatePicker

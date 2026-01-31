@@ -36,3 +36,5 @@
 - need slice/dice of budget vs actual across all dimensions and at all levels. need to happen both with/without a change set applied (would be nice to be able to toggle a change set to see the differences easily).
 
 - in the future, add chatbot to explain the variances introduced by a changeset (largest change happening where and due to what)
+
+- on actuals vs forecast variance chart show markers for each change set so that user can click in to examine the change set. should be clear which set aligns with which variance.

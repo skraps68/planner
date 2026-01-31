@@ -22,8 +22,8 @@ const ReportsIndexPage: React.FC = () => {
 
   const reports: ReportCard[] = [
     {
-      title: 'Budget vs Actual vs Forecast',
-      description: 'Comprehensive financial dashboard comparing budget, actual costs, and forecasts',
+      title: 'Budget vs Forecast',
+      description: 'Comprehensive financial dashboard comparing budget with forecast (actuals + projections)',
       icon: <Assessment sx={{ fontSize: 48 }} />,
       path: '/reports/budget-vs-actual',
       color: '#1976d2'
