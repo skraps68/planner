@@ -10,6 +10,8 @@ import ProgramsListPage from './pages/programs/ProgramsListPage'
 import ProgramDetailPage from './pages/programs/ProgramDetailPage'
 import ProgramFormPage from './pages/programs/ProgramFormPage'
 import ProjectsListPage from './pages/projects/ProjectsListPage'
+import ProjectDetailPage from './pages/projects/ProjectDetailPage'
+import ProjectFormPage from './pages/projects/ProjectFormPage'
 import ResourcesListPage from './pages/resources/ResourcesListPage'
 import ResourceDetailPage from './pages/resources/ResourceDetailPage'
 import WorkersListPage from './pages/workers/WorkersListPage'
@@ -49,6 +51,9 @@ function App() {
                     <Route path="/programs/:id" element={<ProgramDetailPage />} />
                     <Route path="/programs/:id/edit" element={<ProgramFormPage />} />
                     <Route path="/projects" element={<ProjectsListPage />} />
+                    <Route path="/projects/new" element={<ProjectFormPage />} />
+                    <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                    <Route path="/projects/:id/edit" element={<ProjectFormPage />} />
                     <Route path="/resources" element={<ResourcesListPage />} />
                     <Route path="/resources/:id" element={<ResourceDetailPage />} />
                     <Route path="/workers" element={<WorkersListPage />} />

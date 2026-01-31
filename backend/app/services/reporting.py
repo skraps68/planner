@@ -522,6 +522,20 @@ class ReportingService:
         # Group data based on group_by parameter
         grouped_data = {}
         
+        # If grouping by phase, get all phases for the project
+        phases_by_date = {}
+        if group_by == "phase":
+            phases = project_phase_repository.get_by_project(db, project_id)
+            # Create a lookup for finding phase by date
+            for phase in phases:
+                current_date = phase.start_date
+                while current_date <= phase.end_date:
+                    phases_by_date[current_date] = {
+                        "id": str(phase.id),
+                        "name": phase.name
+                    }
+                    current_date += timedelta(days=1)
+        
         for actual in actuals:
             if group_by == "worker":
                 key = actual.external_worker_id
@@ -530,10 +544,14 @@ class ReportingService:
                 key = actual.actual_date.isoformat()
                 name = actual.actual_date.isoformat()
             else:  # phase
-                # This would require looking up the phase from resource_assignment
-                # For now, use a simplified approach
-                key = "execution"
-                name = "Execution Phase"
+                # Look up phase by actual date
+                phase_info = phases_by_date.get(actual.actual_date)
+                if phase_info:
+                    key = phase_info["id"]
+                    name = phase_info["name"]
+                else:
+                    key = "unknown"
+                    name = "Unknown Phase"
             
             if key not in grouped_data:
                 grouped_data[key] = {
@@ -586,6 +604,141 @@ class ReportingService:
                 "groups_count": len(breakdown)
             },
             "breakdown": breakdown
+        }
+    
+    def get_phase_level_report(
+        self,
+        db: Session,
+        project_id: UUID,
+        as_of_date: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate phase-level budget vs actual vs forecast report.
+        
+        Args:
+            db: Database session
+            project_id: Project ID
+            as_of_date: Date to generate report as of (default: today)
+            
+        Returns:
+            Dictionary with phase-level financial data
+            
+        Raises:
+            ValueError: If project not found
+        """
+        if as_of_date is None:
+            as_of_date = date.today()
+        
+        project = project_repository.get(db, project_id)
+        if not project:
+            raise ValueError(f"Project with ID {project_id} does not exist")
+        
+        # Get all phases for the project
+        phases = project_phase_repository.get_by_project(db, project_id)
+        
+        # Calculate financial data for each phase
+        phase_reports = []
+        
+        total_budget = Decimal('0.00')
+        total_capital_budget = Decimal('0.00')
+        total_expense_budget = Decimal('0.00')
+        total_actual = Decimal('0.00')
+        total_capital_actual = Decimal('0.00')
+        total_expense_actual = Decimal('0.00')
+        total_forecast = Decimal('0.00')
+        total_capital_forecast = Decimal('0.00')
+        total_expense_forecast = Decimal('0.00')
+        
+        for phase in phases:
+            # Get actuals for this phase (up to as_of_date)
+            end_date = min(phase.end_date, as_of_date)
+            actuals = actual_repository.get_by_date_range(
+                db=db,
+                project_id=project_id,
+                start_date=phase.start_date,
+                end_date=end_date
+            )
+            
+            phase_actual = sum(a.actual_cost for a in actuals)
+            phase_capital_actual = sum(a.capital_amount for a in actuals)
+            phase_expense_actual = sum(a.expense_amount for a in actuals)
+            
+            # Get forecast for this phase (future dates only)
+            phase_forecast = forecasting_service.calculate_phase_forecast(
+                db=db,
+                phase_id=phase.id,
+                as_of_date=as_of_date
+            )
+            
+            phase_forecast_total = Decimal(str(phase_forecast["forecast"]["total"]))
+            phase_forecast_capital = Decimal(str(phase_forecast["forecast"]["capital"]))
+            phase_forecast_expense = Decimal(str(phase_forecast["forecast"]["expense"]))
+            
+            phase_reports.append({
+                "phase_id": str(phase.id),
+                "phase_name": phase.name,
+                "date_range": {
+                    "start_date": phase.start_date.isoformat(),
+                    "end_date": phase.end_date.isoformat()
+                },
+                "budget": {
+                    "total": float(phase.total_budget),
+                    "capital": float(phase.capital_budget),
+                    "expense": float(phase.expense_budget)
+                },
+                "actual": {
+                    "total": float(phase_actual),
+                    "capital": float(phase_capital_actual),
+                    "expense": float(phase_expense_actual)
+                },
+                "forecast": {
+                    "total": float(phase_forecast_total),
+                    "capital": float(phase_forecast_capital),
+                    "expense": float(phase_forecast_expense)
+                },
+                "variance": {
+                    "budget_vs_actual": float(phase.total_budget - phase_actual),
+                    "budget_vs_forecast": float(phase.total_budget - phase_forecast_total)
+                }
+            })
+            
+            # Aggregate totals
+            total_budget += phase.total_budget
+            total_capital_budget += phase.capital_budget
+            total_expense_budget += phase.expense_budget
+            total_actual += phase_actual
+            total_capital_actual += phase_capital_actual
+            total_expense_actual += phase_expense_actual
+            total_forecast += phase_forecast_total
+            total_capital_forecast += phase_forecast_capital
+            total_expense_forecast += phase_forecast_expense
+        
+        return {
+            "project_id": str(project_id),
+            "project_name": project.name,
+            "report_date": as_of_date.isoformat(),
+            "project_totals": {
+                "budget": {
+                    "total": float(total_budget),
+                    "capital": float(total_capital_budget),
+                    "expense": float(total_expense_budget)
+                },
+                "actual": {
+                    "total": float(total_actual),
+                    "capital": float(total_capital_actual),
+                    "expense": float(total_expense_actual)
+                },
+                "forecast": {
+                    "total": float(total_forecast),
+                    "capital": float(total_capital_forecast),
+                    "expense": float(total_expense_forecast)
+                },
+                "variance": {
+                    "budget_vs_actual": float(total_budget - total_actual),
+                    "budget_vs_forecast": float(total_budget - total_forecast)
+                }
+            },
+            "phases": phase_reports
         }
 
 

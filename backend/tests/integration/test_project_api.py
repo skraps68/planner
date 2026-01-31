@@ -13,7 +13,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.models.user import User
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.program import Program
 from app.api import deps
 
@@ -138,6 +138,7 @@ class TestProjectAPICRUD:
             "cost_center_code": f"CC-{uuid4().hex[:8]}"
         }
         
+        # Note: planning/execution budget parameters are now deprecated
         response = client.post(
             "/api/v1/projects/?execution_capital_budget=100000&execution_expense_budget=50000&planning_capital_budget=20000&planning_expense_budget=10000",
             json=project_data,
@@ -146,7 +147,8 @@ class TestProjectAPICRUD:
         
         assert response.status_code == 201
         data = response.json()
-        assert len(data["phases"]) == 2  # Planning and execution
+        assert len(data["phases"]) == 1  # Only default phase now
+        assert data["phases"][0]["name"] == "Default Phase"
     
     def test_create_project_invalid_dates(self, client, test_program):
         """Test project creation with invalid dates."""
@@ -403,6 +405,7 @@ class TestProjectAPICRUD:
         assert get_response.status_code == 404
 
 
+@pytest.mark.skip(reason="Old phase API - replaced by new user-definable phase API in test_phase_api.py")
 class TestProjectPhaseAPI:
     """Test Project Phase API operations."""
     
@@ -445,76 +448,79 @@ class TestProjectPhaseAPI:
         assert isinstance(data, list)
         assert len(data) >= 1  # At least execution phase
     
-    def test_get_execution_phase(self, client, test_project):
-        """Test getting the execution phase."""
-        response = client.get(
-            f"/api/v1/projects/{test_project['id']}/phases/execution",
-            headers={"Authorization": "Bearer fake-token"}
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["phase_type"] == "execution"
+    # NOTE: The following tests are for the old enum-based phase API (Planning/Execution)
+    # which has been replaced with user-defined phases. See test_phase_api.py for current tests.
     
-    def test_create_planning_phase(self, client, test_project):
-        """Test creating a planning phase."""
-        response = client.post(
-            f"/api/v1/projects/{test_project['id']}/phases/planning?capital_budget=20000&expense_budget=10000",
-            headers={"Authorization": "Bearer fake-token"}
-        )
-        
-        assert response.status_code == 201
-        data = response.json()
-        assert data["phase_type"] == "planning"
-        assert float(data["capital_budget"]) == 20000.0
-        assert float(data["expense_budget"]) == 10000.0
-        assert float(data["total_budget"]) == 30000.0
+    # def test_get_execution_phase(self, client, test_project):
+    #     """Test getting the execution phase."""
+    #     response = client.get(
+    #         f"/api/v1/projects/{test_project['id']}/phases/execution",
+    #         headers={"Authorization": "Bearer fake-token"}
+    #     )
+    #     
+    #     assert response.status_code == 200
+    #     data = response.json()
+    #     assert data["phase_type"] == "execution"
     
-    def test_get_planning_phase(self, client, test_project):
-        """Test getting the planning phase."""
-        # Create planning phase first
-        create_response = client.post(
-            f"/api/v1/projects/{test_project['id']}/phases/planning?capital_budget=20000&expense_budget=10000",
-            headers={"Authorization": "Bearer fake-token"}
-        )
-        assert create_response.status_code == 201
-        
-        # Get planning phase
-        response = client.get(
-            f"/api/v1/projects/{test_project['id']}/phases/planning",
-            headers={"Authorization": "Bearer fake-token"}
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["phase_type"] == "planning"
+    # def test_create_planning_phase(self, client, test_project):
+    #     """Test creating a planning phase."""
+    #     response = client.post(
+    #         f"/api/v1/projects/{test_project['id']}/phases/planning?capital_budget=20000&expense_budget=10000",
+    #         headers={"Authorization": "Bearer fake-token"}
+    #     )
+    #     
+    #     assert response.status_code == 201
+    #     data = response.json()
+    #     assert data["phase_type"] == "planning"
+    #     assert float(data["capital_budget"]) == 20000.0
+    #     assert float(data["expense_budget"]) == 10000.0
+    #     assert float(data["total_budget"]) == 30000.0
     
-    def test_update_phase_budget(self, client, test_project):
-        """Test updating phase budget."""
-        # Get execution phase
-        phases_response = client.get(
-            f"/api/v1/projects/{test_project['id']}/phases",
-            headers={"Authorization": "Bearer fake-token"}
-        )
-        assert phases_response.status_code == 200
-        phases = phases_response.json()
-        execution_phase = next(p for p in phases if p["phase_type"] == "execution")
-        
-        # Update budget
-        response = client.put(
-            f"/api/v1/projects/{test_project['id']}/phases/{execution_phase['id']}?capital_budget=150000&expense_budget=75000",
-            headers={"Authorization": "Bearer fake-token"}
-        )
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert float(data["capital_budget"]) == 150000.0
-        assert float(data["expense_budget"]) == 75000.0
-        assert float(data["total_budget"]) == 225000.0
+    # def test_get_planning_phase(self, client, test_project):
+    #     """Test getting the planning phase."""
+    #     # Create planning phase first
+    #     create_response = client.post(
+    #         f"/api/v1/projects/{test_project['id']}/phases/planning?capital_budget=20000&expense_budget=10000",
+    #         headers={"Authorization": "Bearer fake-token"}
+    #     )
+    #     assert create_response.status_code == 201
+    #     
+    #     # Get planning phase
+    #     response = client.get(
+    #         f"/api/v1/projects/{test_project['id']}/phases/planning",
+    #         headers={"Authorization": "Bearer fake-token"}
+    #     )
+    #     
+    #     assert response.status_code == 200
+    #     data = response.json()
+    #     assert data["phase_type"] == "planning"
     
-    def test_delete_planning_phase(self, client, test_project):
-        """Test deleting a planning phase."""
-        # Create planning phase first
+    # def test_update_phase_budget(self, client, test_project):
+    #     """Test updating phase budget."""
+    #     # Get execution phase
+    #     phases_response = client.get(
+    #         f"/api/v1/projects/{test_project['id']}/phases",
+    #         headers={"Authorization": "Bearer fake-token"}
+    #     )
+    #     assert phases_response.status_code == 200
+    #     phases = phases_response.json()
+    #     execution_phase = next(p for p in phases if p["phase_type"] == "execution")
+    #     
+    #     # Update budget
+    #     response = client.put(
+    #         f"/api/v1/projects/{test_project['id']}/phases/{execution_phase['id']}?capital_budget=150000&expense_budget=75000",
+    #         headers={"Authorization": "Bearer fake-token"}
+    #     )
+    #     
+    #     assert response.status_code == 200
+    #     data = response.json()
+    #     assert float(data["capital_budget"]) == 150000.0
+    #     assert float(data["expense_budget"]) == 75000.0
+    #     assert float(data["total_budget"]) == 225000.0
+    
+    # def test_delete_planning_phase(self, client, test_project):
+    #     """Test deleting a planning phase."""
+    #     # Create planning phase first
         create_response = client.post(
             f"/api/v1/projects/{test_project['id']}/phases/planning?capital_budget=20000&expense_budget=10000",
             headers={"Authorization": "Bearer fake-token"}

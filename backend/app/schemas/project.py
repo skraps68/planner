@@ -8,7 +8,6 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from app.models.project import PhaseType
 from .base import BaseSchema, TimestampMixin, PaginatedResponse
 
 
@@ -63,13 +62,24 @@ class ProjectUpdate(BaseSchema):
 
 
 class ProjectPhaseBase(BaseSchema):
-    """Base project phase schema with common fields."""
+    """Base project phase schema with common fields (deprecated - use PhaseBase instead)."""
     
     project_id: UUID = Field(description="Project ID this phase belongs to")
-    phase_type: PhaseType = Field(description="Phase type (planning or execution)")
-    capital_budget: Decimal = Field(ge=0, description="Capital budget amount")
-    expense_budget: Decimal = Field(ge=0, description="Expense budget amount")
-    total_budget: Decimal = Field(ge=0, description="Total budget amount")
+    name: str = Field(min_length=1, max_length=100, description="Phase name")
+    start_date: date = Field(description="Phase start date")
+    end_date: date = Field(description="Phase end date")
+    description: Optional[str] = Field(default=None, max_length=500, description="Phase description")
+    capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Capital budget amount")
+    expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Expense budget amount")
+    total_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Total budget amount")
+    
+    @field_validator('end_date')
+    @classmethod
+    def validate_end_date(cls, v, info):
+        """Validate that end_date is after or equal to start_date."""
+        if 'start_date' in info.data and v < info.data['start_date']:
+            raise ValueError('End date must be on or after start date')
+        return v
     
     @field_validator('total_budget')
     @classmethod
@@ -83,14 +93,17 @@ class ProjectPhaseBase(BaseSchema):
 
 
 class ProjectPhaseCreate(ProjectPhaseBase):
-    """Schema for creating a new project phase."""
+    """Schema for creating a new project phase (deprecated - use PhaseCreate instead)."""
     pass
 
 
 class ProjectPhaseUpdate(BaseSchema):
-    """Schema for updating an existing project phase."""
+    """Schema for updating an existing project phase (deprecated - use PhaseUpdate instead)."""
     
-    phase_type: Optional[PhaseType] = Field(default=None, description="Phase type (planning or execution)")
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100, description="Phase name")
+    start_date: Optional[date] = Field(default=None, description="Phase start date")
+    end_date: Optional[date] = Field(default=None, description="Phase end date")
+    description: Optional[str] = Field(default=None, max_length=500, description="Phase description")
     capital_budget: Optional[Decimal] = Field(default=None, ge=0, description="Capital budget amount")
     expense_budget: Optional[Decimal] = Field(default=None, ge=0, description="Expense budget amount")
     total_budget: Optional[Decimal] = Field(default=None, ge=0, description="Total budget amount")
@@ -108,8 +121,9 @@ class ProjectPhaseUpdate(BaseSchema):
 
 
 class ProjectPhaseResponse(ProjectPhaseBase, TimestampMixin):
-    """Schema for project phase response."""
-    pass
+    """Schema for project phase response (deprecated - use PhaseResponse instead)."""
+    id: UUID
+    assignment_count: Optional[int] = Field(default=0, description="Number of assignments in this phase")
 
 
 class ProjectResponse(ProjectBase, TimestampMixin):

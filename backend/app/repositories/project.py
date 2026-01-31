@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.repositories.base import BaseRepository
 
 
@@ -69,27 +69,31 @@ class ProjectPhaseRepository(BaseRepository[ProjectPhase]):
         """Get all phases for a project."""
         return db.query(ProjectPhase).filter(ProjectPhase.project_id == project_id).all()
     
-    def get_by_project_and_type(
-        self,
-        db: Session,
-        project_id: UUID,
-        phase_type: PhaseType
-    ) -> Optional[ProjectPhase]:
-        """Get a specific phase for a project."""
-        return db.query(ProjectPhase).filter(
-            and_(
-                ProjectPhase.project_id == project_id,
-                ProjectPhase.phase_type == phase_type
-            )
-        ).first()
+    # NOTE: The following methods were removed as part of the phase migration
+    # from enum-based to user-definable phases. They are commented out to allow
+    # the validation service tests to run.
     
-    def get_execution_phase(self, db: Session, project_id: UUID) -> Optional[ProjectPhase]:
-        """Get the execution phase for a project."""
-        return self.get_by_project_and_type(db, project_id, PhaseType.EXECUTION)
+    # def get_by_project_and_type(
+    #     self,
+    #     db: Session,
+    #     project_id: UUID,
+    #     phase_type: PhaseType
+    # ) -> Optional[ProjectPhase]:
+    #     """Get a specific phase for a project."""
+    #     return db.query(ProjectPhase).filter(
+    #         and_(
+    #             ProjectPhase.project_id == project_id,
+    #             ProjectPhase.phase_type == phase_type
+    #         )
+    #     ).first()
     
-    def get_planning_phase(self, db: Session, project_id: UUID) -> Optional[ProjectPhase]:
-        """Get the planning phase for a project."""
-        return self.get_by_project_and_type(db, project_id, PhaseType.PLANNING)
+    # def get_execution_phase(self, db: Session, project_id: UUID) -> Optional[ProjectPhase]:
+    #     """Get the execution phase for a project."""
+    #     return self.get_by_project_and_type(db, project_id, PhaseType.EXECUTION)
+    
+    # def get_planning_phase(self, db: Session, project_id: UUID) -> Optional[ProjectPhase]:
+    #     """Get the planning phase for a project."""
+    #     return self.get_by_project_and_type(db, project_id, PhaseType.PLANNING)
     
     def calculate_total_budget(self, capital_budget: Decimal, expense_budget: Decimal) -> Decimal:
         """Calculate total budget from components."""

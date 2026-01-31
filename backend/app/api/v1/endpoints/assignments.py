@@ -20,8 +20,26 @@ from app.schemas.assignment import (
 )
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.assignment import assignment_service
+from app.services.phase_service import PhaseService
 
 router = APIRouter()
+
+
+def _get_phase_name_for_assignment(db: Session, assignment) -> Optional[str]:
+    """Helper function to get phase name for an assignment based on date."""
+    if not assignment.project_id or not assignment.assignment_date:
+        return None
+    
+    try:
+        phase_service = PhaseService()
+        phase = phase_service.get_phase_for_date(
+            db=db,
+            project_id=assignment.project_id,
+            target_date=assignment.assignment_date
+        )
+        return phase.name if phase else None
+    except Exception:
+        return None
 
 
 @router.post(
@@ -42,7 +60,6 @@ async def create_assignment(
     Required fields:
     - resource_id: Resource ID to assign
     - project_id: Project ID to assign to
-    - project_phase_id: Project phase ID
     - assignment_date: Date of assignment
     - allocation_percentage: Allocation percentage (0-100)
     - capital_percentage: Capital accounting percentage (0-100)
@@ -58,7 +75,6 @@ async def create_assignment(
             db=db,
             resource_id=assignment_in.resource_id,
             project_id=assignment_in.project_id,
-            project_phase_id=assignment_in.project_phase_id,
             assignment_date=assignment_in.assignment_date,
             allocation_percentage=assignment_in.allocation_percentage,
             capital_percentage=assignment_in.capital_percentage,
@@ -71,7 +87,7 @@ async def create_assignment(
         response.resource_name = assignment.resource.name if assignment.resource else None
         response.project_name = assignment.project.name if assignment.project else None
         response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-        response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+        response.phase_name = _get_phase_name_for_assignment(db, assignment)
         
         return response
         
@@ -136,7 +152,7 @@ async def list_assignments(
             response.resource_name = assignment.resource.name if assignment.resource else None
             response.project_name = assignment.project.name if assignment.project else None
             response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-            response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+            response.phase_name = _get_phase_name_for_assignment(db, assignment)
             assignment_responses.append(response)
         
         return ResourceAssignmentListResponse(
@@ -200,7 +216,7 @@ async def get_assignment(
     response.resource_name = assignment.resource.name if assignment.resource else None
     response.project_name = assignment.project.name if assignment.project else None
     response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-    response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+    response.phase_name = _get_phase_name_for_assignment(db, assignment)
     
     return response
 
@@ -241,7 +257,7 @@ async def update_assignment(
         response.resource_name = assignment.resource.name if assignment.resource else None
         response.project_name = assignment.project.name if assignment.project else None
         response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-        response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+        response.phase_name = _get_phase_name_for_assignment(db, assignment)
         
         return response
         
@@ -321,7 +337,7 @@ async def get_assignments_by_project(
             response.resource_name = assignment.resource.name if assignment.resource else None
             response.project_name = assignment.project.name if assignment.project else None
             response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-            response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+            response.phase_name = _get_phase_name_for_assignment(db, assignment)
             assignment_responses.append(response)
         
         return assignment_responses
@@ -366,7 +382,7 @@ async def get_assignments_by_resource(
             response.resource_name = assignment.resource.name if assignment.resource else None
             response.project_name = assignment.project.name if assignment.project else None
             response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-            response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+            response.phase_name = _get_phase_name_for_assignment(db, assignment)
             assignment_responses.append(response)
         
         return assignment_responses
@@ -407,7 +423,7 @@ async def get_assignments_by_date(
             response.resource_name = assignment.resource.name if assignment.resource else None
             response.project_name = assignment.project.name if assignment.project else None
             response.program_name = assignment.project.program.name if assignment.project and assignment.project.program else None
-            response.phase_type = assignment.project_phase.phase_type.value if assignment.project_phase else None
+            response.phase_name = _get_phase_name_for_assignment(db, assignment)
             assignment_responses.append(response)
         
         return assignment_responses

@@ -8,9 +8,10 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.repositories.project import project_repository, project_phase_repository
 from app.repositories.program import program_repository
+from app.services.phase_service import phase_service
 
 
 class ProjectService:
@@ -39,7 +40,7 @@ class ProjectService:
         planning_expense_budget: Optional[Decimal] = None
     ) -> Project:
         """
-        Create a new project with validation and mandatory execution phase.
+        Create a new project with validation and automatic default phase creation.
         
         Args:
             db: Database session
@@ -52,13 +53,13 @@ class ProjectService:
             end_date: Project end date
             cost_center_code: Unique cost center code
             description: Optional project description
-            execution_capital_budget: Capital budget for execution phase
-            execution_expense_budget: Expense budget for execution phase
-            planning_capital_budget: Optional capital budget for planning phase
-            planning_expense_budget: Optional expense budget for planning phase
+            execution_capital_budget: Deprecated - ignored
+            execution_expense_budget: Deprecated - ignored
+            planning_capital_budget: Deprecated - ignored
+            planning_expense_budget: Deprecated - ignored
             
         Returns:
-            Created project with phases
+            Created project with default phase
             
         Raises:
             ValueError: If validation fails
@@ -92,34 +93,13 @@ class ProjectService:
         
         project = self.repository.create(db, obj_in=project_data)
         
-        # Create mandatory execution phase
-        exec_capital = execution_capital_budget or Decimal("0")
-        exec_expense = execution_expense_budget or Decimal("0")
-        exec_total = exec_capital + exec_expense
-        
-        execution_phase_data = {
-            "project_id": project.id,
-            "phase_type": PhaseType.EXECUTION,
-            "capital_budget": exec_capital,
-            "expense_budget": exec_expense,
-            "total_budget": exec_total
-        }
-        self.phase_repository.create(db, obj_in=execution_phase_data)
-        
-        # Create optional planning phase if budgets provided
-        if planning_capital_budget is not None or planning_expense_budget is not None:
-            plan_capital = planning_capital_budget or Decimal("0")
-            plan_expense = planning_expense_budget or Decimal("0")
-            plan_total = plan_capital + plan_expense
-            
-            planning_phase_data = {
-                "project_id": project.id,
-                "phase_type": PhaseType.PLANNING,
-                "capital_budget": plan_capital,
-                "expense_budget": plan_expense,
-                "total_budget": plan_total
-            }
-            self.phase_repository.create(db, obj_in=planning_phase_data)
+        # Create default phase automatically
+        phase_service.create_default_phase(
+            db=db,
+            project_id=project.id,
+            project_start=start_date,
+            project_end=end_date
+        )
         
         # Refresh to get phases
         db.refresh(project)
@@ -182,7 +162,7 @@ class ProjectService:
         description: Optional[str] = None
     ) -> Project:
         """
-        Update project with validation.
+        Update project with validation and automatic default phase date synchronization.
         
         Args:
             db: Database session
@@ -244,8 +224,20 @@ class ProjectService:
                 update_data["start_date"] = start_date
             if end_date is not None:
                 update_data["end_date"] = end_date
+            
+            # Sync default phase dates if only default phase exists
+            phases = self.phase_repository.get_by_project(db, project_id)
+            if len(phases) == 1 and phases[0].name == "Default Phase":
+                default_phase = phases[0]
+                phase_update_data = {
+                    "start_date": new_start,
+                    "end_date": new_end
+                }
+                self.phase_repository.update(db, db_obj=default_phase, obj_in=phase_update_data)
         
-        return self.repository.update(db, db_obj=project, obj_in=update_data)
+        updated_project = self.repository.update(db, db_obj=project, obj_in=update_data)
+        db.refresh(updated_project)
+        return updated_project
     
     def delete_project(self, db: Session, project_id: UUID) -> bool:
         """
@@ -282,144 +274,5 @@ class ProjectService:
         return self.repository.get_by_program(db, program_id)
 
 
-class PhaseService:
-    """Service for project phase business logic."""
-    
-    def __init__(self):
-        self.repository = project_phase_repository
-        self.project_repository = project_repository
-    
-    def get_phase(self, db: Session, phase_id: UUID) -> Optional[ProjectPhase]:
-        """Get phase by ID."""
-        return self.repository.get(db, phase_id)
-    
-    def get_project_phases(self, db: Session, project_id: UUID) -> List[ProjectPhase]:
-        """Get all phases for a project."""
-        return self.repository.get_by_project(db, project_id)
-    
-    def get_execution_phase(self, db: Session, project_id: UUID) -> Optional[ProjectPhase]:
-        """Get the execution phase for a project."""
-        return self.repository.get_execution_phase(db, project_id)
-    
-    def get_planning_phase(self, db: Session, project_id: UUID) -> Optional[ProjectPhase]:
-        """Get the planning phase for a project."""
-        return self.repository.get_planning_phase(db, project_id)
-    
-    def create_planning_phase(
-        self,
-        db: Session,
-        project_id: UUID,
-        capital_budget: Decimal,
-        expense_budget: Decimal
-    ) -> ProjectPhase:
-        """
-        Create a planning phase for a project.
-        
-        Args:
-            db: Database session
-            project_id: Project ID
-            capital_budget: Capital budget for planning phase
-            expense_budget: Expense budget for planning phase
-            
-        Returns:
-            Created planning phase
-            
-        Raises:
-            ValueError: If validation fails
-        """
-        # Validate project exists
-        project = self.project_repository.get(db, project_id)
-        if not project:
-            raise ValueError(f"Project with ID {project_id} not found")
-        
-        # Check if planning phase already exists
-        existing = self.repository.get_planning_phase(db, project_id)
-        if existing:
-            raise ValueError(f"Planning phase already exists for project {project_id}")
-        
-        # Calculate total budget
-        total_budget = capital_budget + expense_budget
-        
-        # Create planning phase
-        phase_data = {
-            "project_id": project_id,
-            "phase_type": PhaseType.PLANNING,
-            "capital_budget": capital_budget,
-            "expense_budget": expense_budget,
-            "total_budget": total_budget
-        }
-        
-        return self.repository.create(db, obj_in=phase_data)
-    
-    def update_phase_budget(
-        self,
-        db: Session,
-        phase_id: UUID,
-        capital_budget: Optional[Decimal] = None,
-        expense_budget: Optional[Decimal] = None
-    ) -> ProjectPhase:
-        """
-        Update phase budget with validation.
-        
-        Args:
-            db: Database session
-            phase_id: Phase ID to update
-            capital_budget: Optional new capital budget
-            expense_budget: Optional new expense budget
-            
-        Returns:
-            Updated phase
-            
-        Raises:
-            ValueError: If validation fails or phase not found
-        """
-        # Get existing phase
-        phase = self.repository.get(db, phase_id)
-        if not phase:
-            raise ValueError(f"Phase with ID {phase_id} not found")
-        
-        # Build update data
-        update_data = {}
-        
-        new_capital = capital_budget if capital_budget is not None else phase.capital_budget
-        new_expense = expense_budget if expense_budget is not None else phase.expense_budget
-        
-        if capital_budget is not None:
-            update_data["capital_budget"] = capital_budget
-        
-        if expense_budget is not None:
-            update_data["expense_budget"] = expense_budget
-        
-        # Always recalculate total budget
-        update_data["total_budget"] = new_capital + new_expense
-        
-        return self.repository.update(db, db_obj=phase, obj_in=update_data)
-    
-    def delete_planning_phase(self, db: Session, phase_id: UUID) -> bool:
-        """
-        Delete a planning phase (execution phases cannot be deleted).
-        
-        Args:
-            db: Database session
-            phase_id: Phase ID to delete
-            
-        Returns:
-            True if deleted successfully
-            
-        Raises:
-            ValueError: If phase not found or is execution phase
-        """
-        phase = self.repository.get(db, phase_id)
-        if not phase:
-            raise ValueError(f"Phase with ID {phase_id} not found")
-        
-        if phase.phase_type == PhaseType.EXECUTION:
-            raise ValueError("Cannot delete execution phase - it is mandatory")
-        
-        self.repository.remove(db, id=phase_id)
-        return True
-
-
-# Create service instances
+# Create service instance
 project_service = ProjectService()
-phase_service = PhaseService()

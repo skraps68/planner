@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from app.models.base import Base
 from app.models.user import User, UserRole, ScopeAssignment, RoleType, ScopeType
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
 from app.models.resource_assignment import ResourceAssignment
 from app.services.resource import resource_service, worker_service
@@ -97,7 +97,9 @@ class TestResourceScopeFiltering:
         
         phase = ProjectPhase(
             project_id=project.id,
-            phase_type=PhaseType.EXECUTION,
+            name="Execution Phase",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
             capital_budget=Decimal("100000"),
             expense_budget=Decimal("50000"),
             total_budget=Decimal("150000")
@@ -135,7 +137,6 @@ class TestResourceScopeFiltering:
         assignment = ResourceAssignment(
             resource_id=resource1.id,
             project_id=project.id,
-            project_phase_id=phase.id,
             assignment_date=date(2024, 6, 1),
             allocation_percentage=Decimal("50"),
             capital_percentage=Decimal("70"),

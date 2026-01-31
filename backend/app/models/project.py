@@ -3,11 +3,10 @@ Project and ProjectPhase models for managing projects.
 """
 from datetime import date
 from decimal import Decimal
-from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    Column, Date, String, Numeric, ForeignKey, Enum as SQLEnum,
+    Column, Date, String, Numeric, ForeignKey,
     CheckConstraint
 )
 from sqlalchemy.orm import relationship
@@ -18,12 +17,6 @@ if TYPE_CHECKING:
     from app.models.program import Program
     from app.models.resource_assignment import ResourceAssignment
     from app.models.actual import Actual
-
-
-class PhaseType(str, Enum):
-    """Project phase types."""
-    PLANNING = "planning"
-    EXECUTION = "execution"
 
 
 class Project(BaseModel):
@@ -62,7 +55,7 @@ class Project(BaseModel):
 
 
 class ProjectPhase(BaseModel):
-    """Project phase model for planning and execution phases."""
+    """Project phase model with user-definable date ranges."""
     
     __tablename__ = "project_phases"
     
@@ -70,17 +63,23 @@ class ProjectPhase(BaseModel):
     project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
     
     # Required fields
-    phase_type = Column(SQLEnum(PhaseType), nullable=False)
+    name = Column(String(100), nullable=False)
+    start_date = Column(Date, nullable=False, index=True)
+    end_date = Column(Date, nullable=False, index=True)
     capital_budget = Column(Numeric(15, 2), nullable=False, default=0)
     expense_budget = Column(Numeric(15, 2), nullable=False, default=0)
     total_budget = Column(Numeric(15, 2), nullable=False, default=0)
     
+    # Optional fields
+    description = Column(String(500), nullable=True)
+    
     # Relationships
     project = relationship("Project", back_populates="phases")
-    resource_assignments = relationship("ResourceAssignment", back_populates="project_phase", cascade="all, delete-orphan")
+    # Note: resource_assignments relationship removed (now implicit via dates)
     
     # Constraints
     __table_args__ = (
+        CheckConstraint('start_date <= end_date', name='check_phase_dates'),
         CheckConstraint('capital_budget >= 0', name='check_capital_budget_positive'),
         CheckConstraint('expense_budget >= 0', name='check_expense_budget_positive'),
         CheckConstraint('total_budget >= 0', name='check_total_budget_positive'),
@@ -88,4 +87,4 @@ class ProjectPhase(BaseModel):
     )
     
     def __repr__(self) -> str:
-        return f"<ProjectPhase(id={self.id}, project_id={self.project_id}, phase_type={self.phase_type})>"
+        return f"<ProjectPhase(id={self.id}, project_id={self.project_id}, name='{self.name}')>"

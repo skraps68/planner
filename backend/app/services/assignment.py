@@ -35,7 +35,6 @@ class AssignmentService:
         db: Session,
         resource_id: UUID,
         project_id: UUID,
-        project_phase_id: UUID,
         assignment_date: date,
         allocation_percentage: Decimal,
         capital_percentage: Decimal,
@@ -49,11 +48,10 @@ class AssignmentService:
             db: Database session
             resource_id: Resource ID to assign
             project_id: Project ID to assign to
-            project_phase_id: Project phase ID
             assignment_date: Date of assignment
             allocation_percentage: Allocation percentage (0-100)
             capital_percentage: Capital accounting percentage (0-100)
-            expense_percentage: Expense accounting percentage (0-100)
+            expense_percentage: Expense percentage (0-100)
             user_id: Optional user ID for scope validation
             
         Returns:
@@ -72,12 +70,12 @@ class AssignmentService:
         if not project:
             raise ValueError(f"Project with ID {project_id} not found")
         
-        # Validate project phase exists and belongs to project
-        phase = self.phase_repository.get(db, project_phase_id)
-        if not phase:
-            raise ValueError(f"Project phase with ID {project_phase_id} not found")
-        if phase.project_id != project_id:
-            raise ValueError(f"Project phase {project_phase_id} does not belong to project {project_id}")
+        # Validate that assignment date falls within project dates
+        if assignment_date < project.start_date or assignment_date > project.end_date:
+            raise ValueError(
+                f"Assignment date {assignment_date} must be between project start "
+                f"({project.start_date}) and end ({project.end_date})"
+            )
         
         # Validate scope access if user_id provided
         if user_id:
@@ -108,7 +106,6 @@ class AssignmentService:
         assignment_data = {
             "resource_id": resource_id,
             "project_id": project_id,
-            "project_phase_id": project_phase_id,
             "assignment_date": assignment_date,
             "allocation_percentage": allocation_percentage,
             "capital_percentage": capital_percentage,
@@ -377,7 +374,7 @@ class AssignmentService:
         Import resource assignments from CSV with validation.
         
         CSV Format:
-        resource_id,project_id,project_phase_id,assignment_date,allocation_percentage,capital_percentage,expense_percentage
+        resource_id,project_id,assignment_date,allocation_percentage,capital_percentage,expense_percentage
         
         Args:
             db: Database session
@@ -411,7 +408,6 @@ class AssignmentService:
                 # Parse row data
                 resource_id = UUID(row["resource_id"])
                 project_id = UUID(row["project_id"])
-                project_phase_id = UUID(row["project_phase_id"])
                 assignment_date = date.fromisoformat(row["assignment_date"])
                 allocation_percentage = Decimal(row["allocation_percentage"])
                 capital_percentage = Decimal(row["capital_percentage"])
@@ -422,7 +418,6 @@ class AssignmentService:
                     db,
                     resource_id=resource_id,
                     project_id=project_id,
-                    project_phase_id=project_phase_id,
                     assignment_date=assignment_date,
                     allocation_percentage=allocation_percentage,
                     capital_percentage=capital_percentage,

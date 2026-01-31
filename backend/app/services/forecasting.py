@@ -498,6 +498,153 @@ class ForecastingService:
             },
             "daily_projections": projections
         }
+    
+    def calculate_phase_cost(
+        self,
+        db: Session,
+        phase_id: UUID,
+        as_of_date: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """
+        Calculate actual cost for a phase based on assignments within its date range.
+        
+        Args:
+            db: Database session
+            phase_id: Phase ID
+            as_of_date: Date to calculate cost as of (default: today)
+            
+        Returns:
+            Dictionary with phase cost information
+            
+        Raises:
+            ValueError: If phase not found
+        """
+        if as_of_date is None:
+            as_of_date = date.today()
+        
+        # Get phase
+        phase = project_phase_repository.get(db, phase_id)
+        if not phase:
+            raise ValueError(f"Phase with ID {phase_id} does not exist")
+        
+        # Get actuals for the phase date range up to as_of_date
+        end_date = min(phase.end_date, as_of_date)
+        
+        actuals = actual_repository.get_by_date_range(
+            db=db,
+            project_id=phase.project_id,
+            start_date=phase.start_date,
+            end_date=end_date
+        )
+        
+        # Calculate totals
+        total_actual = sum(a.actual_cost for a in actuals)
+        capital_actual = sum(a.capital_amount for a in actuals)
+        expense_actual = sum(a.expense_amount for a in actuals)
+        
+        return {
+            "phase_id": str(phase_id),
+            "phase_name": phase.name,
+            "date_range": {
+                "start_date": phase.start_date.isoformat(),
+                "end_date": phase.end_date.isoformat()
+            },
+            "budget": {
+                "total": float(phase.total_budget),
+                "capital": float(phase.capital_budget),
+                "expense": float(phase.expense_budget)
+            },
+            "actual": {
+                "total": float(total_actual),
+                "capital": float(capital_actual),
+                "expense": float(expense_actual)
+            },
+            "variance": {
+                "total": float(phase.total_budget - total_actual),
+                "capital": float(phase.capital_budget - capital_actual),
+                "expense": float(phase.expense_budget - expense_actual)
+            }
+        }
+    
+    def calculate_phase_forecast(
+        self,
+        db: Session,
+        phase_id: UUID,
+        as_of_date: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """
+        Calculate forecast cost for a phase based on future assignments within its date range.
+        
+        Args:
+            db: Database session
+            phase_id: Phase ID
+            as_of_date: Date to calculate forecast from (default: today)
+            
+        Returns:
+            Dictionary with phase forecast information
+            
+        Raises:
+            ValueError: If phase not found
+        """
+        if as_of_date is None:
+            as_of_date = date.today()
+        
+        # Get phase
+        phase = project_phase_repository.get(db, phase_id)
+        if not phase:
+            raise ValueError(f"Phase with ID {phase_id} does not exist")
+        
+        # Get assignments for the phase date range
+        assignments = resource_assignment_repository.get_by_project(db, phase.project_id)
+        
+        # Filter assignments that fall within phase date range and are after as_of_date
+        future_assignments = [
+            a for a in assignments
+            if phase.start_date <= a.assignment_date <= phase.end_date
+            and a.assignment_date > as_of_date
+        ]
+        
+        # Calculate forecast cost from future assignments
+        forecast_cost = Decimal('0.00')
+        forecast_capital = Decimal('0.00')
+        forecast_expense = Decimal('0.00')
+        
+        for assignment in future_assignments:
+            assignment_cost = self._calculate_assignment_cost(db, assignment)
+            
+            if assignment_cost:
+                forecast_cost += assignment_cost
+                
+                # Apply capital/expense split from assignment
+                capital_portion = (assignment_cost * assignment.capital_percentage) / Decimal('100.00')
+                expense_portion = (assignment_cost * assignment.expense_percentage) / Decimal('100.00')
+                
+                forecast_capital += capital_portion
+                forecast_expense += expense_portion
+        
+        return {
+            "phase_id": str(phase_id),
+            "phase_name": phase.name,
+            "date_range": {
+                "start_date": phase.start_date.isoformat(),
+                "end_date": phase.end_date.isoformat()
+            },
+            "budget": {
+                "total": float(phase.total_budget),
+                "capital": float(phase.capital_budget),
+                "expense": float(phase.expense_budget)
+            },
+            "forecast": {
+                "total": float(forecast_cost),
+                "capital": float(forecast_capital),
+                "expense": float(forecast_expense)
+            },
+            "forecast_variance": {
+                "total": float(forecast_cost - phase.total_budget),
+                "capital": float(forecast_capital - phase.capital_budget),
+                "expense": float(forecast_expense - phase.expense_budget)
+            }
+        }
 
 
 # Create service instance

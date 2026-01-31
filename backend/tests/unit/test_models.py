@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
@@ -125,7 +125,9 @@ class TestProjectModel:
         # Create phase
         phase = ProjectPhase(
             project_id=project.id,
-            phase_type=PhaseType.EXECUTION,
+            name="Execution Phase",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
             capital_budget=Decimal("50000.00"),
             expense_budget=Decimal("50000.00"),
             total_budget=Decimal("100000.00")
@@ -136,7 +138,7 @@ class TestProjectModel:
         
         assert phase.id is not None
         assert phase.project_id == project.id
-        assert phase.phase_type == PhaseType.EXECUTION
+        assert phase.name == "Execution Phase"
         assert phase.total_budget == Decimal("100000.00")
 
 

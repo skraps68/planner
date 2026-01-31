@@ -4,6 +4,7 @@ Pydantic schemas for request/response validation.
 from .base import *
 from .program import *
 from .project import *
+from .phase import *
 from .resource import *
 from .user import *
 from .assignment import *
@@ -38,6 +39,15 @@ __all__ = [
     "ProjectPhaseCreate",
     "ProjectPhaseUpdate",
     "ProjectPhaseResponse",
+    
+    # Phase schemas
+    "PhaseBase",
+    "PhaseCreate",
+    "PhaseUpdate",
+    "PhaseResponse",
+    "PhaseValidationRequest",
+    "PhaseValidationError",
+    "PhaseValidationResult",
     
     # Resource schemas
     "ResourceBase",

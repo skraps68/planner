@@ -29,12 +29,27 @@ export interface Project {
 export interface ProjectPhase {
   id: string
   project_id: string
-  phase_type: 'PLANNING' | 'EXECUTION'
+  name: string
+  start_date: string
+  end_date: string
+  description?: string
   capital_budget: number
   expense_budget: number
   total_budget: number
   created_at: string
   updated_at: string
+  assignment_count?: number
+}
+
+export interface PhaseValidationError {
+  field: string
+  message: string
+  phase_id?: string
+}
+
+export interface PhaseValidationResult {
+  is_valid: boolean
+  errors: PhaseValidationError[]
 }
 
 export interface Resource {

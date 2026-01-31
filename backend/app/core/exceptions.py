@@ -114,13 +114,16 @@ class ValidationError(AppException):
     def __init__(
         self,
         message: str = "Validation failed",
+        code: Optional[str] = None,
         field_errors: Optional[List[Dict[str, Any]]] = None,
         details: Optional[Dict[str, Any]] = None
     ):
         error_details = details or {}
         if field_errors:
             error_details["field_errors"] = field_errors
-        super().__init__(message, status_code=422, error_code="VALIDATION_ERROR", details=error_details)
+        # Store code as instance attribute for easy access
+        self.code = code or "VALIDATION_ERROR"
+        super().__init__(message, status_code=422, error_code=self.code, details=error_details)
 
 
 class InvalidInputError(ValidationError):

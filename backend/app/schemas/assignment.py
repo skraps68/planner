@@ -16,7 +16,6 @@ class ResourceAssignmentBase(BaseSchema):
     
     resource_id: UUID = Field(description="Resource ID")
     project_id: UUID = Field(description="Project ID")
-    project_phase_id: UUID = Field(description="Project phase ID")
     assignment_date: date = Field(description="Assignment date")
     allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage (0-100)")
     capital_percentage: Decimal = Field(ge=0, le=100, description="Capital percentage (0-100)")
@@ -43,7 +42,6 @@ class ResourceAssignmentUpdate(BaseSchema):
     
     resource_id: Optional[UUID] = Field(default=None, description="Resource ID")
     project_id: Optional[UUID] = Field(default=None, description="Project ID")
-    project_phase_id: Optional[UUID] = Field(default=None, description="Project phase ID")
     assignment_date: Optional[date] = Field(default=None, description="Assignment date")
     allocation_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Allocation percentage (0-100)")
     capital_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Capital percentage (0-100)")
@@ -66,7 +64,7 @@ class ResourceAssignmentResponse(ResourceAssignmentBase, TimestampMixin):
     resource_name: Optional[str] = Field(default=None, description="Resource name")
     project_name: Optional[str] = Field(default=None, description="Project name")
     program_name: Optional[str] = Field(default=None, description="Program name")
-    phase_type: Optional[str] = Field(default=None, description="Project phase type")
+    phase_name: Optional[str] = Field(default=None, description="Project phase name")
 
 
 class ResourceAssignmentListResponse(PaginatedResponse[ResourceAssignmentResponse]):
@@ -79,7 +77,7 @@ class AssignmentImportRow(BaseSchema):
     
     resource_name: str = Field(description="Resource name")
     project_cost_center: str = Field(description="Project cost center code")
-    phase_type: str = Field(description="Project phase type (planning/execution)")
+    phase_name: str = Field(description="Project phase name")
     assignment_date: date = Field(description="Assignment date")
     allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage")
     capital_percentage: Decimal = Field(ge=0, le=100, description="Capital percentage")

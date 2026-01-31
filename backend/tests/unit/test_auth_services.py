@@ -14,7 +14,7 @@ from app.services.role_management import role_management_service
 from app.services.audit import audit_service
 from app.models.user import User, UserRole, ScopeAssignment, RoleType, ScopeType
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.base import Base
 from decimal import Decimal
 

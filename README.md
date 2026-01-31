@@ -5,6 +5,7 @@ A comprehensive enterprise application for managing hierarchical programs and pr
 ## Features
 
 - **Hierarchical Program/Project Management**: Organize projects under programs with complete lifecycle tracking
+- **User-Definable Project Phases**: Flexible timeline management with continuous, non-overlapping phases (replaces fixed Planning/Execution)
 - **Resource Allocation**: Manage both labor and non-labor resources with conflict detection
 - **Budget Tracking**: Capital/expense splits with real-time budget vs actual reporting
 - **Actuals Import**: CSV-based import with allocation validation and variance analysis
@@ -62,6 +63,7 @@ A comprehensive enterprise application for managing hierarchical programs and pr
 4. **Access the application**
    - API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
+   - API Documentation (ReDoc): http://localhost:8000/redoc
    - Frontend: http://localhost:3000 (when implemented)
 
 5. **Run tests**
@@ -89,10 +91,10 @@ See the deployment documentation for detailed setup instructions.
 
 ```
 planner/
-├── .kiro/specs/planner/          # Project specifications
-│   ├── requirements.md           # Business requirements
-│   ├── design.md                # Technical design
-│   └── tasks.md                 # Implementation plan
+├── .kiro/specs/                 # Project specifications
+│   ├── planner/                 # Original planner spec
+│   ├── user-definable-phases/   # Phase system redesign spec
+│   └── portfolio-dashboard/     # Portfolio dashboard spec
 ├── backend/                     # FastAPI application
 │   ├── app/                     # Application code
 │   │   ├── api/                 # API endpoints
@@ -102,13 +104,17 @@ planner/
 │   │   ├── services/            # Business logic
 │   │   ├── repositories/        # Data access layer
 │   │   └── main.py             # FastAPI app entry point
+│   ├── docs/                    # API documentation
+│   │   ├── README.md           # Documentation index
+│   │   ├── PHASE_API.md        # Phase management API
+│   │   └── ...                 # Other documentation
 │   ├── tests/                   # Test suite
 │   ├── alembic/                 # Database migrations
 │   ├── requirements.txt         # Python dependencies
 │   └── pytest.ini             # Test configuration
+├── frontend/                    # React application
 ├── scripts/                     # Development scripts
-├── frontend/                    # React application (to be created)
-├── infrastructure/              # AWS deployment configs (to be created)
+├── infrastructure/              # AWS deployment configs
 ├── docker-compose.yml           # Local development setup
 ├── Dockerfile                   # Container configuration
 ├── Makefile                     # Development commands
@@ -135,8 +141,17 @@ This project follows a spec-driven development approach:
 
 ### Project Management
 - Comprehensive project attributes and lifecycle management
-- Planning and execution phases with separate budgets
+- **User-definable phases** with flexible timeline management
+- Date-based phase relationships with resource assignments
 - Project-specific resource assignments and cost tracking
+
+### Phase Management (NEW)
+- **Flexible Phase Definition**: Create custom phases with any names and date ranges
+- **Timeline Continuity**: Automatic validation ensures phases cover entire project timeline
+- **No Gaps or Overlaps**: System enforces continuous, non-overlapping phase timelines
+- **Date-Based Relationships**: Assignments implicitly associated with phases by date
+- **Batch Operations**: Atomic updates for all phases in a project
+- **Default Phase**: Automatically created for new projects, syncs with project dates
 
 ### Resource Management
 - Worker management with types and historical rates
@@ -163,10 +178,29 @@ This project follows a spec-driven development approach:
 
 ## Contributing
 
-1. Review the specifications in `.kiro/specs/planner/`
-2. Follow the implementation tasks in `tasks.md`
-3. Ensure all tests pass before submitting changes
-4. Follow the established coding standards and patterns
+1. Review the specifications in `.kiro/specs/`
+2. Check the API documentation in `backend/docs/`
+3. Follow the implementation tasks in the relevant `tasks.md`
+4. Ensure all tests pass before submitting changes
+5. Follow the established coding standards and patterns
+
+## Documentation
+
+### API Documentation
+- **Interactive Swagger UI**: http://localhost:8000/docs
+- **ReDoc Format**: http://localhost:8000/redoc
+- **Documentation Index**: [backend/docs/API_DOCUMENTATION_INDEX.md](backend/docs/API_DOCUMENTATION_INDEX.md)
+- **Phase Management API**: [backend/docs/PHASE_API.md](backend/docs/PHASE_API.md)
+- **Quick Reference**: [backend/docs/PHASE_API_QUICK_REFERENCE.md](backend/docs/PHASE_API_QUICK_REFERENCE.md)
+
+### Migration Guides
+- **Phase Migration**: [backend/docs/PHASE_MIGRATION_RUNBOOK.md](backend/docs/PHASE_MIGRATION_RUNBOOK.md)
+- **Database Migrations**: [docs/deployment/DATABASE_MIGRATIONS.md](docs/deployment/DATABASE_MIGRATIONS.md)
+
+### Development Guides
+- **Local Development**: [LOCAL_DEVELOPMENT_GUIDE.md](LOCAL_DEVELOPMENT_GUIDE.md)
+- **Deployment**: [docs/deployment/](docs/deployment/)
+- **Error Handling**: [backend/docs/ERROR_HANDLING_GUIDE.md](backend/docs/ERROR_HANDLING_GUIDE.md)
 
 ## License
 

@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, ResourceType, Worker, WorkerType
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
@@ -73,7 +73,9 @@ def sample_project(db, sample_program):
     # Add execution phase with budget
     execution_phase = ProjectPhase(
         project_id=project.id,
-        phase_type=PhaseType.EXECUTION,
+        name="Execution Phase",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
         capital_budget=Decimal('100000.00'),
         expense_budget=Decimal('50000.00'),
         total_budget=Decimal('150000.00')

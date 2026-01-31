@@ -358,9 +358,11 @@ async def get_project_phases(
     """
     Get all phases for a project.
     
-    Returns both planning and execution phases if they exist.
+    Returns all phases in chronological order.
     """
-    project = project_service.get_project(db, project_id)
+    from app.repositories.project import project_repository, project_phase_repository
+    
+    project = project_repository.get(db, project_id)
     
     if not project:
         raise HTTPException(
@@ -368,9 +370,10 @@ async def get_project_phases(
             detail=f"Project with ID {project_id} not found"
         )
     
-    phases = phase_service.get_project_phases(db, project_id)
+    phases = project_phase_repository.get_by_project(db, project_id)
+    phases_sorted = sorted(phases, key=lambda p: p.start_date)
     
-    return [ProjectPhaseResponse.model_validate(phase) for phase in phases]
+    return [ProjectPhaseResponse.model_validate(phase) for phase in phases_sorted]
 
 
 @router.get(

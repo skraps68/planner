@@ -16,7 +16,6 @@ from app.schemas.assignment import ResourceAssignmentCreate, AssignmentImportRow
 from app.schemas.actual import ActualCreate, ActualBase, ActualImportRow
 from app.schemas.rate import RateCreate
 from app.schemas.auth import LoginRequest, RoleSwitchRequest
-from app.models.project import PhaseType
 from app.models.resource import ResourceType
 from app.models.user import RoleType, ScopeType
 
@@ -122,29 +121,35 @@ class TestProjectSchemas:
     
     def test_project_phase_create_valid(self):
         """Test valid project phase creation."""
+        from datetime import date
         phase_data = {
             "project_id": uuid4(),
-            "phase_type": PhaseType.PLANNING,
+            "name": "Planning Phase",
+            "start_date": date(2024, 1, 1),
+            "end_date": date(2024, 6, 30),
             "capital_budget": Decimal("50000.00"),
             "expense_budget": Decimal("30000.00"),
             "total_budget": Decimal("80000.00")
         }
         phase = ProjectPhaseCreate(**phase_data)
-        assert phase.phase_type == PhaseType.PLANNING
+        assert phase.name == "Planning Phase"
         assert phase.total_budget == Decimal("80000.00")
     
     def test_project_phase_invalid_budget_sum(self):
         """Test project phase with invalid budget sum."""
+        from datetime import date
         phase_data = {
             "project_id": uuid4(),
-            "phase_type": PhaseType.PLANNING,
+            "name": "Planning Phase",
+            "start_date": date(2024, 1, 1),
+            "end_date": date(2024, 6, 30),
             "capital_budget": Decimal("50000.00"),
             "expense_budget": Decimal("30000.00"),
             "total_budget": Decimal("90000.00")  # Wrong total
         }
         with pytest.raises(ValidationError) as exc_info:
             ProjectPhaseCreate(**phase_data)
-        assert "Total budget must equal capital budget + expense budget" in str(exc_info.value)
+        assert "Total budget must equal capital" in str(exc_info.value)
 
 
 class TestResourceSchemas:
@@ -268,7 +273,7 @@ class TestAssignmentSchemas:
         import_data = {
             "resource_name": "Senior Developer",
             "project_cost_center": "CC001",
-            "phase_type": "planning",
+            "phase_name": "Planning Phase",
             "assignment_date": date(2024, 1, 15),
             "allocation_percentage": Decimal("50.00"),
             "capital_percentage": Decimal("70.00"),

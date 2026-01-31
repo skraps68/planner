@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Worker, WorkerType
 from app.models.rate import Rate
 from app.repositories.program import program_repository

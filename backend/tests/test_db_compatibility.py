@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
@@ -135,7 +135,9 @@ class TestDatabaseCompatibility:
         # Create project phase with decimal budget values
         phase = ProjectPhase(
             project_id=project.id,
-            phase_type=PhaseType.PLANNING,
+            name="Planning Phase",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
             total_budget=Decimal("1000000.50"),
             capital_budget=Decimal("600000.25"),
             expense_budget=Decimal("400000.25")

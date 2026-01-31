@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 from sqlalchemy.orm import Session
 
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
 from app.models.resource_assignment import ResourceAssignment
 from app.models.actual import Actual
@@ -117,7 +117,9 @@ def sample_project(db_session, sample_program):
     # Add execution phase
     execution_phase = ProjectPhase(
         project_id=project.id,
-        phase_type=PhaseType.EXECUTION,
+        name="Execution Phase",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
         capital_budget=Decimal("50000.00"),
         expense_budget=Decimal("30000.00"),
         total_budget=Decimal("80000.00")
@@ -188,12 +190,11 @@ def sample_resource(db_session, sample_worker):
 def sample_assignment(db_session, sample_project, sample_resource):
     """Create a sample resource assignment."""
     phases = db_session.query(ProjectPhase).filter(ProjectPhase.project_id == sample_project.id).all()
-    execution_phase = next((p for p in phases if p.phase_type == PhaseType.EXECUTION), None)
+    execution_phase = phases[0] if phases else None
     
     assignment = ResourceAssignment(
         resource_id=sample_resource.id,
         project_id=sample_project.id,
-        project_phase_id=execution_phase.id if execution_phase else None,
         assignment_date=date(2024, 6, 15),
         allocation_percentage=Decimal("75.0"),
         capital_percentage=Decimal("60.0"),

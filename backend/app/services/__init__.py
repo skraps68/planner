@@ -2,7 +2,8 @@
 Business services for the application.
 """
 from app.services.program import program_service, ProgramService
-from app.services.project import project_service, phase_service, ProjectService, PhaseService
+from app.services.project import project_service, ProjectService
+from app.services.phase_service import phase_service, PhaseService
 from app.services.resource import (
     resource_service,
     worker_service,

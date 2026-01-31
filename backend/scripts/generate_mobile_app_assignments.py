@@ -70,8 +70,12 @@ def generate_assignments():
         
         print(f"Using {num_resources} resources for assignments")
         
-        # Use execution phase (typically the larger phase)
-        execution_phase = next((p for p in phases if p.phase_type == 'EXECUTION'), phases[0])
+        # Use the first phase (or any phase that covers the project dates)
+        # With user-defined phases, we just pick the first phase
+        execution_phase = phases[0] if phases else None
+        if not execution_phase:
+            print("Error: No phases found for project")
+            return
         
         assignments_created = 0
         current_date = start_date
@@ -93,7 +97,6 @@ def generate_assignments():
                         id=uuid4(),
                         resource_id=resource.id,
                         project_id=project.id,
-                        project_phase_id=execution_phase.id,
                         assignment_date=current_date,
                         allocation_percentage=allocation,
                         capital_percentage=capital_pct,

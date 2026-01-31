@@ -12,19 +12,24 @@ from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.resource import Resource
-    from app.models.project import Project, ProjectPhase
+    from app.models.project import Project
     from app.models.actual import Actual
 
 
 class ResourceAssignment(BaseModel):
-    """Resource assignment model for allocating resources to projects."""
+    """
+    Resource assignment model for allocating resources to projects.
+    
+    Phase association is now implicit based on assignment_date falling within
+    a phase's date range, rather than an explicit foreign key relationship.
+    """
     
     __tablename__ = "resource_assignments"
     
     # Foreign keys
     resource_id = Column(GUID(), ForeignKey("resources.id"), nullable=False, index=True)
     project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
-    project_phase_id = Column(GUID(), ForeignKey("project_phases.id"), nullable=False, index=True)
+    # Note: project_phase_id removed - phase association now determined by date
     
     # Required fields
     assignment_date = Column(Date, nullable=False, index=True)
@@ -35,7 +40,7 @@ class ResourceAssignment(BaseModel):
     # Relationships
     resource = relationship("Resource", back_populates="resource_assignments")
     project = relationship("Project", back_populates="resource_assignments")
-    project_phase = relationship("ProjectPhase", back_populates="resource_assignments")
+    # Note: project_phase relationship removed (now implicit via dates)
     actuals = relationship("Actual", back_populates="resource_assignment", cascade="all, delete-orphan")
     
     # Constraints

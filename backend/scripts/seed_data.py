@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.program import Program
-from app.models.project import Project, ProjectPhase, PhaseType
+from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
@@ -164,30 +164,19 @@ def create_projects(db: Session, programs: dict) -> dict:
     phases = {}
     
     for key, project in projects.items():
-        # Planning phase (optional for some projects)
-        if key in ["mobile_app", "cloud_migration", "crm_upgrade"]:
-            planning_phase = ProjectPhase(
-                id=uuid4(),
-                project_id=project.id,
-                phase_type=PhaseType.PLANNING,
-                capital_budget=Decimal("50000.00"),
-                expense_budget=Decimal("50000.00"),
-                total_budget=Decimal("100000.00")
-            )
-            db.add(planning_phase)
-            phases[f"{key}_planning"] = planning_phase
-        
-        # Execution phase (mandatory)
-        execution_phase = ProjectPhase(
+        # Create a default phase covering the entire project duration
+        default_phase = ProjectPhase(
             id=uuid4(),
             project_id=project.id,
-            phase_type=PhaseType.EXECUTION,
-            capital_budget=Decimal("300000.00"),
-            expense_budget=Decimal("200000.00"),
-            total_budget=Decimal("500000.00")
+            name="Default Phase",
+            start_date=project.start_date,
+            end_date=project.end_date,
+            capital_budget=Decimal("350000.00"),
+            expense_budget=Decimal("250000.00"),
+            total_budget=Decimal("600000.00")
         )
-        db.add(execution_phase)
-        phases[f"{key}_execution"] = execution_phase
+        db.add(default_phase)
+        phases[f"{key}_default"] = default_phase
     
     db.commit()
     print(f"Created {len(projects)} projects with {len(phases)} phases.")
@@ -399,7 +388,7 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
     assignments = []
     
     # Mobile app project assignments
-    mobile_exec = phases["mobile_app_execution"]
+    mobile_phase = phases["mobile_app_default"]
     start_date = date(2024, 2, 1)
     
     for i in range(90):  # 90 days of assignments
@@ -410,7 +399,6 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
             id=uuid4(),
             resource_id=labor_resources["john_smith"].id,
             project_id=projects["mobile_app"].id,
-            project_phase_id=mobile_exec.id,
             assignment_date=assignment_date,
             allocation_percentage=Decimal("75.00"),
             capital_percentage=Decimal("60.00"),
@@ -422,7 +410,6 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
             id=uuid4(),
             resource_id=labor_resources["bob_johnson"].id,
             project_id=projects["mobile_app"].id,
-            project_phase_id=mobile_exec.id,
             assignment_date=assignment_date,
             allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("70.00"),
@@ -430,7 +417,7 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
         ))
     
     # Web portal project assignments
-    web_exec = phases["web_portal_execution"]
+    web_phase = phases["web_portal_default"]
     start_date = date(2024, 4, 1)
     
     for i in range(60):  # 60 days of assignments
@@ -441,7 +428,6 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
             id=uuid4(),
             resource_id=labor_resources["alice_williams"].id,
             project_id=projects["web_portal"].id,
-            project_phase_id=web_exec.id,
             assignment_date=assignment_date,
             allocation_percentage=Decimal("100.00"),
             capital_percentage=Decimal("50.00"),
@@ -453,7 +439,6 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
             id=uuid4(),
             resource_id=labor_resources["charlie_brown"].id,
             project_id=projects["web_portal"].id,
-            project_phase_id=web_exec.id,
             assignment_date=assignment_date,
             allocation_percentage=Decimal("25.00"),
             capital_percentage=Decimal("80.00"),
@@ -461,7 +446,7 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
         ))
     
     # Cloud migration project assignments
-    cloud_exec = phases["cloud_migration_execution"]
+    cloud_phase = phases["cloud_migration_default"]
     start_date = date(2024, 7, 1)
     
     for i in range(120):  # 120 days of assignments
@@ -472,7 +457,6 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
             id=uuid4(),
             resource_id=labor_resources["jane_doe"].id,
             project_id=projects["cloud_migration"].id,
-            project_phase_id=cloud_exec.id,
             assignment_date=assignment_date,
             allocation_percentage=Decimal("80.00"),
             capital_percentage=Decimal("90.00"),
