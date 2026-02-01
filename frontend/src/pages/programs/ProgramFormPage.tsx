@@ -18,7 +18,7 @@ const ProgramFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const isEdit = id !== 'new'
+  const isEdit = id !== undefined && id !== 'new'
 
   const [formData, setFormData] = useState<ProgramCreateRequest>({
     name: '',
@@ -30,7 +30,7 @@ const ProgramFormPage: React.FC = () => {
   })
   const [error, setError] = useState('')
 
-  const { data: program } = useQuery({
+  const { data: program, isLoading } = useQuery({
     queryKey: ['program', id],
     queryFn: () => programsApi.get(id!),
     enabled: isEdit,
