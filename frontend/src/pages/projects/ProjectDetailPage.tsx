@@ -92,9 +92,9 @@ const ProjectDetailPage: React.FC = () => {
     return sum + Number(phase.expense_budget || 0)
   }, 0)
 
-  // Handle tab change - navigate to Financials when tab 3 is clicked
+  // Handle tab change - navigate to Financials when tab 2 is clicked
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    if (newValue === 3 && project) {
+    if (newValue === 2 && project) {
       // Navigate to Financials with program and project pre-selected and remember current tab
       navigate(`/portfolio?programId=${project.program_id}&projectId=${id}&returnTo=project&returnId=${id}&returnTab=${tabValue}`)
     } else {
@@ -238,7 +238,6 @@ const ProjectDetailPage: React.FC = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
-          <Tab label="Phases" />
           <Tab label="Assignments" />
           <Tab 
             label={
@@ -395,17 +394,6 @@ const ProjectDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <PhaseEditor
-          projectId={id!}
-          projectStartDate={project.start_date}
-          projectEndDate={project.end_date}
-          onSaveSuccess={handlePhaseSaveSuccess}
-          onSaveError={handlePhaseSaveError}
-          onProjectDateChange={handleProjectDateChange}
-        />
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={2}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
             Resource Assignments
@@ -414,7 +402,7 @@ const ProjectDetailPage: React.FC = () => {
         </Paper>
       </TabPanel>
 
-      <TabPanel value={tabValue} index={3}>
+      <TabPanel value={tabValue} index={2}>
         {/* This tab navigates to Financials page - content not needed */}
       </TabPanel>
 
