@@ -133,6 +133,7 @@ class ProjectResponse(ProjectBase, TimestampMixin):
     phases: Optional[List[ProjectPhaseResponse]] = Field(default=None, description="Project phases")
     assignment_count: Optional[int] = Field(default=0, description="Number of resource assignments")
     actual_count: Optional[int] = Field(default=0, description="Number of actual records")
+    phase_adjustments: Optional[List[dict]] = Field(default=None, description="Phase date adjustments made during project update")
 
 
 class ProjectListResponse(PaginatedResponse[ProjectResponse]):

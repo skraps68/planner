@@ -54,3 +54,5 @@
 - program editing screen should not allows dates to be changed. rather it should set start/end based on contained projects. sort of like projects and phases, but without the contiguous requirement
 
 - make the header rows in the Programs list and Projects list bolded
+
+- collapse project overview and phases tab together. there is no need to keep these separate. need to make sure project fields are still editable, maybe on screen without jumping to a new screen.

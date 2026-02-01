@@ -16,6 +16,7 @@ interface PhaseEditorProps {
   onCancel?: () => void
   onSaveSuccess?: () => void
   onSaveError?: (error: string) => void
+  onProjectDateChange?: (startDate: string, endDate: string) => void
 }
 
 const PhaseEditor: React.FC<PhaseEditorProps> = ({
@@ -26,6 +27,7 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   onCancel,
   onSaveSuccess,
   onSaveError,
+  onProjectDateChange,
 }) => {
   const [phases, setPhases] = useState<Partial<ProjectPhase>[]>([])
   const [originalPhases, setOriginalPhases] = useState<Partial<ProjectPhase>[]>([])
@@ -35,6 +37,13 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+
+  // Helper function to safely convert budget values to numbers
+  const toNumber = (value: string | number | undefined): number => {
+    if (value === undefined || value === null) return 0
+    if (typeof value === 'string') return parseFloat(value) || 0
+    return value
+  }
 
   // Load phases on mount
   useEffect(() => {
@@ -245,6 +254,31 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     })
   }
 
+  const handleBoundaryDateChange = (phaseId: string, field: 'start_date' | 'end_date', newDate: string) => {
+    // Update the phase date
+    handleUpdatePhase(phaseId, { [field]: newDate })
+    
+    // Notify parent component to update project dates
+    if (onProjectDateChange) {
+      // Sort phases to determine if this is first or last
+      const sortedPhases = [...phases].sort((a, b) => {
+        if (!a.start_date || !b.start_date) return 0
+        return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+      })
+      
+      const isFirstPhase = sortedPhases[0]?.id === phaseId
+      const isLastPhase = sortedPhases[sortedPhases.length - 1]?.id === phaseId
+      
+      if (isFirstPhase && field === 'start_date') {
+        // Update project start date
+        onProjectDateChange(newDate, projectEndDate)
+      } else if (isLastPhase && field === 'end_date') {
+        // Update project end date
+        onProjectDateChange(projectStartDate, newDate)
+      }
+    }
+  }
+
   const handleDeletePhase = (phaseId: string) => {
     // Count active (non-deleted) phases
     const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
@@ -338,15 +372,16 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
       setIsSaving(true)
 
       // Use batch update endpoint - send only active (non-deleted) phases
+      // Convert string budgets to numbers and calculate total_budget
       const phasesData = activePhases.map((phase) => ({
         id: phase.id?.startsWith('temp-') ? null : phase.id,
         name: phase.name!,
         start_date: phase.start_date!,
         end_date: phase.end_date!,
         description: phase.description || '',
-        capital_budget: phase.capital_budget || 0,
-        expense_budget: phase.expense_budget || 0,
-        total_budget: phase.total_budget || 0,
+        capital_budget: toNumber(phase.capital_budget),
+        expense_budget: toNumber(phase.expense_budget),
+        total_budget: toNumber(phase.capital_budget) + toNumber(phase.expense_budget),
       }))
 
       await phasesApi.batchUpdate(projectId, { phases: phasesData })
@@ -417,6 +452,7 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         onAdd={handleAddPhase}
         onUpdate={handleUpdatePhase}
         onDelete={handleDeletePhase}
+        onBoundaryDateChange={handleBoundaryDateChange}
         changedFields={changedFields}
         deletedPhaseIds={deletedPhaseIds}
       />

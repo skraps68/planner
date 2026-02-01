@@ -15,9 +15,13 @@ import {
   Tab,
   Alert,
   Snackbar,
+  TextField,
+  IconButton,
+  CircularProgress,
 } from '@mui/material'
-import { Edit, ArrowBack, OpenInNew } from '@mui/icons-material'
+import { Edit, ArrowBack, OpenInNew, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
+import { programsApi } from '../../api/programs'
 import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
 
@@ -54,11 +58,25 @@ const ProjectDetailPage: React.FC = () => {
     message: '',
     severity: 'success',
   })
+  const [isEditingInfo, setIsEditingInfo] = useState(false)
+  const [editValues, setEditValues] = useState({
+    name: '',
+    project_manager: '',
+    cost_center_code: '',
+    start_date: '',
+    end_date: '',
+  })
 
   const { data: project, isLoading, refetch } = useQuery({
     queryKey: ['project', id],
     queryFn: () => projectsApi.get(id!),
     enabled: !!id,
+  })
+
+  const { data: program } = useQuery({
+    queryKey: ['program', project?.program_id],
+    queryFn: () => programsApi.get(project!.program_id),
+    enabled: !!project?.program_id,
   })
 
   // Calculate budget statistics from phases
@@ -105,6 +123,83 @@ const ProjectDetailPage: React.FC = () => {
     })
   }
 
+  const handleProjectDateChange = async (startDate: string, endDate: string) => {
+    try {
+      const response = await projectsApi.update(id!, {
+        start_date: startDate,
+        end_date: endDate,
+      })
+      
+      // Check if phase adjustments were made
+      if (response.phase_adjustments && response.phase_adjustments.length > 0) {
+        // Build notification message
+        const adjustmentMessages = response.phase_adjustments.map((adj: any) => {
+          if (adj.field === 'start_date and end_date') {
+            return `"${adj.phase_name}" dates updated to match project dates`
+          } else if (adj.field === 'start_date') {
+            return `"${adj.phase_name}" start date updated to ${new Date(adj.new_value).toLocaleDateString()}`
+          } else if (adj.field === 'end_date') {
+            return `"${adj.phase_name}" end date updated to ${new Date(adj.new_value).toLocaleDateString()}`
+          }
+          return ''
+        }).filter(Boolean).join('; ')
+        
+        setSnackbar({
+          open: true,
+          message: `Project dates updated. Phase adjustments: ${adjustmentMessages}`,
+          severity: 'success',
+        })
+      }
+      
+      // Refetch project to get updated dates
+      refetch()
+    } catch (error) {
+      console.error('Failed to update project dates:', error)
+      setSnackbar({
+        open: true,
+        message: 'Failed to update project dates',
+        severity: 'error',
+      })
+    }
+  }
+
+  const handleEditInfo = () => {
+    if (project) {
+      setEditValues({
+        name: project.name,
+        project_manager: project.project_manager,
+        cost_center_code: project.cost_center_code,
+        start_date: project.start_date,
+        end_date: project.end_date,
+      })
+      setIsEditingInfo(true)
+    }
+  }
+
+  const handleSaveInfo = async () => {
+    try {
+      await projectsApi.update(id!, editValues)
+      setSnackbar({
+        open: true,
+        message: 'Project information updated successfully',
+        severity: 'success',
+      })
+      setIsEditingInfo(false)
+      refetch()
+    } catch (error) {
+      console.error('Failed to update project:', error)
+      setSnackbar({
+        open: true,
+        message: 'Failed to update project information',
+        severity: 'error',
+      })
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingInfo(false)
+  }
+
   if (isLoading) {
     return <Typography>Loading...</Typography>
   }
@@ -137,15 +232,12 @@ const ProjectDetailPage: React.FC = () => {
         <Typography variant="h4" sx={{ flexGrow: 1 }}>
           {project.name}
         </Typography>
-        <Chip label={status} color={statusColor} sx={{ mr: 2 }} />
-        <Button variant="contained" startIcon={<Edit />} onClick={() => navigate(`/projects/${id}/edit`)}>
-          Edit
-        </Button>
+        <Chip label={status} color={statusColor} />
       </Box>
 
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab label="Overview" />
+          <Tab label="Details" />
           <Tab label="Phases" />
           <Tab label="Assignments" />
           <Tab 
@@ -161,90 +253,143 @@ const ProjectDetailPage: React.FC = () => {
 
       <TabPanel value={tabValue} index={0}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Project Information
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                {!isEditingInfo ? (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Edit />}
+                    onClick={handleEditInfo}
+                  >
+                    Edit
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<CancelIcon />}
+                      onClick={handleCancelEdit}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<SaveIcon />}
+                      onClick={handleSaveInfo}
+                    >
+                      Save
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Typography variant="caption" color="text.secondary">
                     Project Name
                   </Typography>
-                  <Typography variant="body1">{project.name}</Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.name}
+                      onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.name}</Typography>
+                  )}
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Typography variant="caption" color="text.secondary">
                     Project Manager
                   </Typography>
-                  <Typography variant="body1">{project.project_manager}</Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.project_manager}
+                      onChange={(e) => setEditValues({ ...editValues, project_manager: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.project_manager}</Typography>
+                  )}
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Typography variant="caption" color="text.secondary">
                     Cost Center
                   </Typography>
-                  <Typography variant="body1">{project.cost_center_code}</Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.cost_center_code}
+                      onChange={(e) => setEditValues({ ...editValues, cost_center_code: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.cost_center_code}</Typography>
+                  )}
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Typography variant="caption" color="text.secondary">
                     Program
                   </Typography>
-                  <Typography variant="body1">{project.program_id || 'N/A'}</Typography>
+                  <Typography variant="body1">{program?.name || 'Loading...'}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Typography variant="caption" color="text.secondary">
                     Start Date
                   </Typography>
-                  <Typography variant="body1">
-                    {format(new Date(project.start_date), 'MMMM dd, yyyy')}
-                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={editValues.start_date}
+                      onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">
+                      {format(new Date(project.start_date), 'MMMM dd, yyyy')}
+                    </Typography>
+                  )}
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6} md={4}>
                   <Typography variant="caption" color="text.secondary">
                     End Date
                   </Typography>
-                  <Typography variant="body1">
-                    {format(new Date(project.end_date), 'MMMM dd, yyyy')}
-                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={editValues.end_date}
+                      onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">
+                      {format(new Date(project.end_date), 'MMMM dd, yyyy')}
+                    </Typography>
+                  )}
                 </Grid>
               </Grid>
             </Paper>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Quick Stats
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Total Budget
-                  </Typography>
-                  <Typography variant="h4">
-                    ${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Typography>
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Capital Budget
-                  </Typography>
-                  <Typography variant="h5">
-                    ${capitalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Expense Budget
-                  </Typography>
-                  <Typography variant="h5">
-                    ${expenseBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
+            
+            <PhaseEditor
+              projectId={id!}
+              projectStartDate={project.start_date}
+              projectEndDate={project.end_date}
+              onSaveSuccess={handlePhaseSaveSuccess}
+              onSaveError={handlePhaseSaveError}
+              onProjectDateChange={handleProjectDateChange}
+            />
           </Grid>
         </Grid>
       </TabPanel>
@@ -256,6 +401,7 @@ const ProjectDetailPage: React.FC = () => {
           projectEndDate={project.end_date}
           onSaveSuccess={handlePhaseSaveSuccess}
           onSaveError={handlePhaseSaveError}
+          onProjectDateChange={handleProjectDateChange}
         />
       </TabPanel>
 

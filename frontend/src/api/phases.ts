@@ -30,7 +30,7 @@ export interface PhaseBatchItem {
   description?: string
   capital_budget: number
   expense_budget: number
-  total_budget: number
+  total_budget?: number  // Optional - backend calculates if not provided
 }
 
 export interface PhaseBatchUpdateRequest {

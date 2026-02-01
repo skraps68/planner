@@ -21,12 +21,13 @@ interface PhaseListProps {
   onAdd: () => void
   onUpdate: (phaseId: string, updates: Partial<ProjectPhase>) => void
   onDelete: (phaseId: string) => void
+  onBoundaryDateChange?: (phaseId: string, field: 'start_date' | 'end_date', newDate: string) => void
   readOnly?: boolean
   changedFields?: Record<string, Set<string>>
   deletedPhaseIds?: Set<string>
 }
 
-const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete, readOnly = false, changedFields = {}, deletedPhaseIds = new Set() }) => {
+const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete, onBoundaryDateChange, readOnly = false, changedFields = {}, deletedPhaseIds = new Set() }) => {
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<Partial<ProjectPhase>>({})
 
@@ -39,15 +40,106 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
   // Count active (non-deleted) phases
   const activePhaseCount = phases.filter(p => !deletedPhaseIds.has(p.id || '')).length
 
+  // Helper function to safely convert budget values to numbers
+  const toNumber = (value: string | number | undefined): number => {
+    if (value === undefined || value === null) return 0
+    if (typeof value === 'string') return parseFloat(value) || 0
+    return value
+  }
+
+  // Calculate totals for active (non-deleted) phases
+  const totals = phases
+    .filter(p => !deletedPhaseIds.has(p.id || ''))
+    .reduce(
+      (acc, phase) => ({
+        capital: acc.capital + toNumber(phase.capital_budget),
+        expense: acc.expense + toNumber(phase.expense_budget),
+        total: acc.total + toNumber(phase.total_budget),
+      }),
+      { capital: 0, expense: 0, total: 0 }
+    )
+
   const handleEdit = (phase: Partial<ProjectPhase>) => {
     if (!phase.id) return
     setEditingPhaseId(phase.id)
-    setEditValues(phase)
+    
+    // Store original values without type conversion to avoid false change detection
+    // Only convert strings to numbers for display/calculation purposes
+    setEditValues({
+      ...phase,
+    })
   }
 
   const handleSave = () => {
     if (!editingPhaseId) return
-    onUpdate(editingPhaseId, editValues)
+    
+    // Check if this is a boundary phase and if boundary dates changed
+    const sortedPhases = [...phases].sort((a, b) => {
+      if (!a.start_date || !b.start_date) return 0
+      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+    })
+    const isFirstPhase = sortedPhases[0]?.id === editingPhaseId
+    const isLastPhase = sortedPhases[sortedPhases.length - 1]?.id === editingPhaseId
+    const originalPhase = phases.find(p => p.id === editingPhaseId)
+    
+    // Call onBoundaryDateChange if boundary dates changed
+    if (onBoundaryDateChange && originalPhase) {
+      if (isFirstPhase && editValues.start_date && editValues.start_date !== originalPhase.start_date) {
+        onBoundaryDateChange(editingPhaseId, 'start_date', editValues.start_date)
+      }
+      if (isLastPhase && editValues.end_date && editValues.end_date !== originalPhase.end_date) {
+        onBoundaryDateChange(editingPhaseId, 'end_date', editValues.end_date)
+      }
+    }
+    
+    // Only send fields that actually changed to avoid false change detection
+    const updateData: Partial<ProjectPhase> = {}
+    
+    if (originalPhase) {
+      // Check each field for actual changes
+      if (editValues.name !== undefined && editValues.name !== originalPhase.name) {
+        updateData.name = editValues.name
+      }
+      if (editValues.description !== undefined && editValues.description !== originalPhase.description) {
+        updateData.description = editValues.description
+      }
+      if (editValues.start_date !== undefined && editValues.start_date !== originalPhase.start_date) {
+        updateData.start_date = editValues.start_date
+      }
+      if (editValues.end_date !== undefined && editValues.end_date !== originalPhase.end_date) {
+        updateData.end_date = editValues.end_date
+      }
+      
+      // For budgets, compare numeric values but only include if changed
+      const originalCapital = toNumber(originalPhase.capital_budget)
+      const editCapital = toNumber(editValues.capital_budget)
+      const originalExpense = toNumber(originalPhase.expense_budget)
+      const editExpense = toNumber(editValues.expense_budget)
+      
+      if (editCapital !== originalCapital) {
+        updateData.capital_budget = editCapital
+      }
+      if (editExpense !== originalExpense) {
+        updateData.expense_budget = editExpense
+      }
+      
+      // Only include total_budget if either capital or expense changed
+      if (updateData.capital_budget !== undefined || updateData.expense_budget !== undefined) {
+        updateData.total_budget = editCapital + editExpense
+      }
+    }
+    
+    console.log('[PhaseList v9.0] Saving only changed fields:', {
+      editingPhaseId,
+      updateData,
+      hasChanges: Object.keys(updateData).length > 0
+    })
+    
+    // Only call onUpdate if there are actual changes
+    if (Object.keys(updateData).length > 0) {
+      onUpdate(editingPhaseId, updateData)
+    }
+    
     setEditingPhaseId(null)
     setEditValues({})
   }
@@ -66,8 +158,8 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
       
       // Auto-calculate total_budget when capital or expense changes
       if (field === 'capital_budget' || field === 'expense_budget') {
-        const capital = field === 'capital_budget' ? (typeof value === 'number' ? value : parseFloat(value as string) || 0) : (prev.capital_budget || 0)
-        const expense = field === 'expense_budget' ? (typeof value === 'number' ? value : parseFloat(value as string) || 0) : (prev.expense_budget || 0)
+        const capital = field === 'capital_budget' ? toNumber(value) : toNumber(prev.capital_budget)
+        const expense = field === 'expense_budget' ? toNumber(value) : toNumber(prev.expense_budget)
         updated.total_budget = capital + expense
       }
       
@@ -120,6 +212,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
 
   return (
     <Paper sx={{ p: 3 }}>
+      {/* BUGFIX MARKER: v8.0 - Calculates and sends total_budget to satisfy backend validation */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Project Phases</Typography>
         {!readOnly && (
@@ -153,10 +246,12 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 </TableCell>
               </TableRow>
             ) : (
-              sortedPhases.map((phase) => {
+              sortedPhases.map((phase, index) => {
                 const isEditing = editingPhaseId === phase.id
                 const rowHasChanges = hasAnyChanges(phase.id)
                 const isDeleted = isPhaseDeleted(phase.id)
+                const isFirstPhase = index === 0
+                const isLastPhase = index === sortedPhases.length - 1
 
                 return (
                   <TableRow 
@@ -180,6 +275,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                           onChange={(e) => handleChange('name', e.target.value)}
                           fullWidth
                           required
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
                         />
                       ) : (
                         phase.name || '-'
@@ -197,6 +293,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                           fullWidth
                           multiline
                           rows={1}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
                         />
                       ) : (
                         phase.description || '-'
@@ -206,13 +303,37 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'start_date')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {phase.start_date ? formatDate(phase.start_date) : '-'}
+                      {isEditing && isFirstPhase ? (
+                        <TextField
+                          size="small"
+                          type="date"
+                          value={editValues.start_date || ''}
+                          onChange={(e) => handleChange('start_date', e.target.value)}
+                          fullWidth
+                          required
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                        />
+                      ) : (
+                        phase.start_date ? formatDate(phase.start_date) : '-'
+                      )}
                     </TableCell>
                     <TableCell sx={{ 
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'end_date')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {phase.end_date ? formatDate(phase.end_date) : '-'}
+                      {isEditing && isLastPhase ? (
+                        <TextField
+                          size="small"
+                          type="date"
+                          value={editValues.end_date || ''}
+                          onChange={(e) => handleChange('end_date', e.target.value)}
+                          fullWidth
+                          required
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                        />
+                      ) : (
+                        phase.end_date ? formatDate(phase.end_date) : '-'
+                      )}
                     </TableCell>
                     <TableCell align="right" sx={{ 
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'capital_budget')),
@@ -222,10 +343,11 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         <TextField
                           size="small"
                           type="number"
-                          value={editValues.capital_budget ?? 0}
+                          value={toNumber(editValues.capital_budget)}
                           onChange={(e) => handleChange('capital_budget', parseFloat(e.target.value) || 0)}
                           fullWidth
                           inputProps={{ min: 0, step: 0.01 }}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
                         formatCurrency(phase.capital_budget || 0)
@@ -239,10 +361,11 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         <TextField
                           size="small"
                           type="number"
-                          value={editValues.expense_budget ?? 0}
+                          value={toNumber(editValues.expense_budget)}
                           onChange={(e) => handleChange('expense_budget', parseFloat(e.target.value) || 0)}
                           fullWidth
                           inputProps={{ min: 0, step: 0.01 }}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
                         formatCurrency(phase.expense_budget || 0)
@@ -253,7 +376,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
                       {isEditing ? (
-                        formatCurrency((editValues.capital_budget || 0) + (editValues.expense_budget || 0))
+                        formatCurrency(toNumber(editValues.capital_budget) + toNumber(editValues.expense_budget))
                       ) : (
                         formatCurrency(phase.total_budget || 0)
                       )}
@@ -296,6 +419,31 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                   </TableRow>
                 )
               })
+            )}
+            {/* Totals Row */}
+            {sortedPhases.length > 0 && (
+              <TableRow sx={{ 
+                backgroundColor: 'grey.50',
+                borderTop: '2px solid',
+                borderTopColor: 'grey.300',
+              }}>
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  Totals
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(totals.capital)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(totals.expense)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(totals.total)}
+                </TableCell>
+                {!readOnly && <TableCell />}
+              </TableRow>
             )}
           </TableBody>
         </Table>

@@ -216,6 +216,8 @@ class ProjectService:
         new_start = start_date if start_date is not None else project.start_date
         new_end = end_date if end_date is not None else project.end_date
         
+        phase_adjustments = []  # Track phase adjustments for user notification
+        
         if start_date is not None or end_date is not None:
             if new_start >= new_end:
                 raise ValueError("Start date must be before end date")
@@ -225,18 +227,63 @@ class ProjectService:
             if end_date is not None:
                 update_data["end_date"] = end_date
             
-            # Sync default phase dates if only default phase exists
+            # Get all phases for this project
             phases = self.phase_repository.get_by_project(db, project_id)
+            
             if len(phases) == 1 and phases[0].name == "Default Phase":
+                # Sync default phase dates if only default phase exists
                 default_phase = phases[0]
                 phase_update_data = {
                     "start_date": new_start,
                     "end_date": new_end
                 }
                 self.phase_repository.update(db, db_obj=default_phase, obj_in=phase_update_data)
+                phase_adjustments.append({
+                    "phase_name": "Default Phase",
+                    "field": "start_date and end_date",
+                    "old_start": str(default_phase.start_date),
+                    "new_start": str(new_start),
+                    "old_end": str(default_phase.end_date),
+                    "new_end": str(new_end)
+                })
+            elif len(phases) > 0:
+                # For user-definable phases, adjust boundary phases
+                # Sort phases by start date to identify first and last
+                sorted_phases = sorted(phases, key=lambda p: p.start_date)
+                first_phase = sorted_phases[0]
+                last_phase = sorted_phases[-1]
+                
+                # Adjust first phase start date if project start date changed
+                if start_date is not None and first_phase.start_date != new_start:
+                    old_start = first_phase.start_date
+                    phase_update_data = {"start_date": new_start}
+                    self.phase_repository.update(db, db_obj=first_phase, obj_in=phase_update_data)
+                    phase_adjustments.append({
+                        "phase_name": first_phase.name,
+                        "field": "start_date",
+                        "old_value": str(old_start),
+                        "new_value": str(new_start)
+                    })
+                
+                # Adjust last phase end date if project end date changed
+                if end_date is not None and last_phase.end_date != new_end:
+                    old_end = last_phase.end_date
+                    phase_update_data = {"end_date": new_end}
+                    self.phase_repository.update(db, db_obj=last_phase, obj_in=phase_update_data)
+                    phase_adjustments.append({
+                        "phase_name": last_phase.name,
+                        "field": "end_date",
+                        "old_value": str(old_end),
+                        "new_value": str(new_end)
+                    })
         
         updated_project = self.repository.update(db, db_obj=project, obj_in=update_data)
         db.refresh(updated_project)
+        
+        # Store phase adjustments in project metadata for API response
+        if phase_adjustments:
+            updated_project._phase_adjustments = phase_adjustments
+        
         return updated_project
     
     def delete_project(self, db: Session, project_id: UUID) -> bool:

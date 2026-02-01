@@ -271,6 +271,10 @@ async def update_project(
     
     All fields are optional. Only provided fields will be updated.
     Date validation is applied if dates are updated.
+    
+    When project start/end dates are modified, boundary phase dates are automatically adjusted:
+    - First phase start date is updated to match project start date
+    - Last phase end date is updated to match project end date
     """
     try:
         project = project_service.update_project(
@@ -291,6 +295,10 @@ async def update_project(
         response.phases = [ProjectPhaseResponse.model_validate(phase) for phase in project.phases]
         response.assignment_count = len(project.resource_assignments) if project.resource_assignments else 0
         response.actual_count = len(project.actuals) if project.actuals else 0
+        
+        # Add phase adjustment information if available
+        if hasattr(project, '_phase_adjustments') and project._phase_adjustments:
+            response.phase_adjustments = project._phase_adjustments
         
         return response
         
