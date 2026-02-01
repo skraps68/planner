@@ -21,7 +21,7 @@ import {
   BarChart,
   AdminPanelSettings,
   Lock,
-  AccountBalance,
+  AttachMoney,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -36,14 +36,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { text: 'Portfolio', icon: <AccountBalance />, path: '/portfolio' },
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Financials', icon: <AttachMoney />, path: '/portfolio' },
   { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs' },
   { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects' },
   { text: 'Resources', icon: <People />, path: '/resources', requiredPermission: 'view_resources' },
   { text: 'Workers', icon: <Work />, path: '/workers', requiredPermission: 'view_workers' },
   { text: 'Actuals', icon: <Assessment />, path: '/actuals', requiredPermission: 'view_actuals' },
   { text: 'Reports', icon: <BarChart />, path: '/reports', requiredPermission: 'view_reports' },
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
 ]
 
 const adminItems: NavItem[] = [

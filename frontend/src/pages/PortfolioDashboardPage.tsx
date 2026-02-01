@@ -1,9 +1,12 @@
-import React, { useState, useMemo } from 'react'
-import { Box, Container, Typography, Alert, CircularProgress, Grid } from '@mui/material'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Box, Container, Alert, CircularProgress, Grid, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { ArrowBack } from '@mui/icons-material'
 import { AxiosError } from 'axios'
 import { programsApi } from '../api/programs'
 import { projectsApi } from '../api/projects'
+import { phasesApi } from '../api/phases'
 import { getProgramForecast, getProjectForecast } from '../api/forecast'
 import { transformForecastData } from '../utils/forecastTransform'
 import FilterSection from '../components/portfolio/FilterSection'
@@ -19,15 +22,59 @@ import ChartSection from '../components/portfolio/ChartSection'
  * Requirements: 2.4, 2.5, 2.6, 2.7, 4.6, 4.7, 4.8, 6.5
  */
 const PortfolioDashboardPage: React.FC = () => {
+  // Get URL search params for pre-selection
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  
   // State management for program and project selection (Requirement 2.4, 2.5)
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
 
   // Get today's date in ISO format for as_of_date parameter (Requirement 4.6)
   const today = useMemo(() => {
     const date = new Date()
     return date.toISOString().split('T')[0] // YYYY-MM-DD format
   }, [])
+
+  // Check if we came from a detail page (has programId or projectId in URL)
+  const cameFromDetailPage = searchParams.get('programId') || searchParams.get('projectId')
+  
+  // Determine back navigation path
+  const getBackPath = () => {
+    const projectId = searchParams.get('projectId')
+    const programId = searchParams.get('programId')
+    const returnTo = searchParams.get('returnTo')
+    const returnId = searchParams.get('returnId')
+    const returnTab = searchParams.get('returnTab')
+    
+    // Use returnTo and returnId if available (more reliable)
+    if (returnTo && returnId) {
+      const basePath = returnTo === 'project' ? `/projects/${returnId}` : `/programs/${returnId}`
+      return returnTab ? `${basePath}?tab=${returnTab}` : basePath
+    }
+    
+    // Fallback to projectId/programId from filters
+    if (projectId) {
+      return `/projects/${projectId}`
+    } else if (programId) {
+      return `/programs/${programId}`
+    }
+    return null
+  }
+
+  // Pre-select program and project from URL params
+  useEffect(() => {
+    const programId = searchParams.get('programId')
+    const projectId = searchParams.get('projectId')
+    
+    if (programId) {
+      setSelectedProgramId(programId)
+    }
+    if (projectId) {
+      setSelectedProjectId(projectId)
+    }
+  }, [searchParams])
 
   /**
    * Helper function to format API errors into user-friendly messages
@@ -86,17 +133,29 @@ const PortfolioDashboardPage: React.FC = () => {
 
   const projects = projectsData?.items || []
 
+  // Fetch phases for selected project
+  const { 
+    data: phasesData, 
+    isLoading: phasesLoading
+  } = useQuery({
+    queryKey: ['phases', selectedProjectId],
+    queryFn: () => phasesApi.list(selectedProjectId!),
+    enabled: !!selectedProjectId // Only fetch when project is selected
+  })
+
+  const phases = phasesData || []
+
   // Fetch forecast data based on selection (Requirements 2.6, 2.7, 4.7, 4.8)
   const { 
     data: forecastData, 
     isLoading: forecastLoading,
     error: forecastError 
   } = useQuery({
-    queryKey: ['forecast', selectedProgramId, selectedProjectId, today],
+    queryKey: ['forecast', selectedProgramId, selectedProjectId, selectedPhaseId, today],
     queryFn: async () => {
       // If project is selected, fetch project-level forecast (Requirement 2.7)
       if (selectedProjectId) {
-        return await getProjectForecast(selectedProjectId, today)
+        return await getProjectForecast(selectedProjectId, today, selectedPhaseId)
       }
       // If only program is selected, fetch program-level forecast (Requirement 2.6)
       // This will aggregate data for all projects in the program
@@ -115,23 +174,20 @@ const PortfolioDashboardPage: React.FC = () => {
   const handleProgramChange = (programId: string | null) => {
     setSelectedProgramId(programId)
     setSelectedProjectId(null) // Reset project when program changes
+    setSelectedPhaseId(null) // Reset phase when program changes
   }
 
   const handleProjectChange = (projectId: string | null) => {
     setSelectedProjectId(projectId)
+    setSelectedPhaseId(null) // Reset phase when project changes
+  }
+
+  const handlePhaseChange = (phaseId: string | null) => {
+    setSelectedPhaseId(phaseId)
   }
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Portfolio Dashboard
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Financial overview of programs and projects
-        </Typography>
-      </Box>
-
       {/* Display error for programs loading failure (Requirement 6.5) */}
       {programsError && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -161,12 +217,29 @@ const PortfolioDashboardPage: React.FC = () => {
             <FilterSection
               programs={programs}
               projects={projects}
+              phases={phases}
               selectedProgramId={selectedProgramId}
               selectedProjectId={selectedProjectId}
+              selectedPhaseId={selectedPhaseId}
               onProgramChange={handleProgramChange}
               onProjectChange={handleProjectChange}
+              onPhaseChange={handlePhaseChange}
               programsLoading={programsLoading}
               projectsLoading={projectsLoading}
+              phasesLoading={phasesLoading}
+              backButton={
+                cameFromDetailPage ? (
+                  <Button 
+                    startIcon={<ArrowBack />} 
+                    onClick={() => {
+                      const backPath = getBackPath()
+                      if (backPath) navigate(backPath)
+                    }}
+                  >
+                    Back
+                  </Button>
+                ) : undefined
+              }
             />
           </Grid>
 

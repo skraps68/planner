@@ -52,14 +52,21 @@ export const getProgramForecast = async (
  * Get project-level forecast data
  * @param projectId - The ID of the project
  * @param asOfDate - The date to use for splitting actuals from forecast (ISO format: YYYY-MM-DD)
+ * @param phaseId - Optional phase ID to filter forecast by specific phase
  * @returns Promise with forecast data for the project
  */
 export const getProjectForecast = async (
   projectId: string,
-  asOfDate: string
+  asOfDate: string,
+  phaseId?: string | null
 ): Promise<ForecastApiResponse> => {
+  const params: Record<string, string> = { as_of_date: asOfDate }
+  if (phaseId) {
+    params.phase_id = phaseId
+  }
+  
   const response = await apiClient.get(`/reports/forecast/project/${projectId}`, {
-    params: { as_of_date: asOfDate }
+    params
   })
   return response.data
 }

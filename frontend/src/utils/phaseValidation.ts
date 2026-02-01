@@ -141,15 +141,18 @@ export const validatePhases = (
   }
 
   if (sortedPhases.length > 0 && sortedPhases[sortedPhases.length - 1].end_date) {
-    const lastPhaseEnd = new Date(sortedPhases[sortedPhases.length - 1].end_date)
-    const projectEnd = new Date(projectEndDate)
+    const lastPhaseEndDate = sortedPhases[sortedPhases.length - 1].end_date
+    if (lastPhaseEndDate) {
+      const lastPhaseEnd = new Date(lastPhaseEndDate)
+      const projectEnd = new Date(projectEndDate)
 
-    if (lastPhaseEnd.getTime() !== projectEnd.getTime()) {
-      errors.push({
-        field: 'end_date',
-        message: `Last phase must end at project end date (${projectEndDate})`,
-        phase_id: sortedPhases[sortedPhases.length - 1].id,
-      })
+      if (lastPhaseEnd.getTime() !== projectEnd.getTime()) {
+        errors.push({
+          field: 'end_date',
+          message: `Last phase must end at project end date (${projectEndDate})`,
+          phase_id: sortedPhases[sortedPhases.length - 1].id,
+        })
+      }
     }
   }
 
@@ -196,7 +199,7 @@ export const validatePhases = (
  * Calculate the next day after a given date
  */
 export const getNextDay = (dateString: string): string => {
-  const date = new Date(dateString)
+  const date = new Date(dateString + 'T00:00:00')
   date.setDate(date.getDate() + 1)
   return date.toISOString().split('T')[0]
 }
@@ -205,7 +208,7 @@ export const getNextDay = (dateString: string): string => {
  * Calculate the previous day before a given date
  */
 export const getPreviousDay = (dateString: string): string => {
-  const date = new Date(dateString)
+  const date = new Date(dateString + 'T00:00:00')
   date.setDate(date.getDate() - 1)
   return date.toISOString().split('T')[0]
 }
@@ -223,11 +226,169 @@ export const formatDate = (dateString: string): string => {
 }
 
 /**
- * Calculate days between two dates
+ * Calculate days between two dates (inclusive)
  */
 export const calculateDaysBetween = (startDate: string, endDate: string): number => {
   const start = new Date(startDate)
   const end = new Date(endDate)
   const diffTime = Math.abs(end.getTime() - start.getTime())
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
+
+/**
+ * Calculate the duration of a phase in days (inclusive)
+ */
+export const calculatePhaseDuration = (phase: Partial<ProjectPhase>): number => {
+  if (!phase.start_date || !phase.end_date) return 0
+  const start = new Date(phase.start_date + 'T00:00:00')
+  const end = new Date(phase.end_date + 'T00:00:00')
+  const diffTime = end.getTime() - start.getTime()
+  const days = diffTime / (1000 * 60 * 60 * 24)
+  return Math.round(days) + 1 // +1 for inclusive
+}
+
+/**
+ * Add days to a date string
+ */
+export const addDays = (dateString: string, days: number): string => {
+  const date = new Date(dateString + 'T00:00:00')
+  date.setDate(date.getDate() + days)
+  return date.toISOString().split('T')[0]
+}
+
+/**
+ * Reorders phases by moving a phase from one index to another
+ * @param phases - Current phase array
+ * @param fromIndex - Current index of phase to move
+ * @param toIndex - Target index for insertion
+ * @returns Reordered phase array
+ */
+export const reorderPhases = (
+  phases: Partial<ProjectPhase>[],
+  fromIndex: number,
+  toIndex: number
+): Partial<ProjectPhase>[] => {
+  // Validate indices
+  if (fromIndex < 0 || fromIndex >= phases.length || toIndex < 0 || toIndex >= phases.length) {
+    return phases
+  }
+
+  // No-op if same position
+  if (fromIndex === toIndex) {
+    return phases
+  }
+
+  const result = [...phases]
+  const [movedPhase] = result.splice(fromIndex, 1)
+  result.splice(toIndex, 0, movedPhase)
+
+  return result
+}
+
+/**
+ * Recalculates phase dates after reordering to maintain continuity
+ * @param phases - Reordered phase array
+ * @param projectStartDate - Project start date
+ * @param projectEndDate - Project end date
+ * @returns Phases with recalculated dates
+ */
+export const recalculatePhaseDates = (
+  phases: Partial<ProjectPhase>[],
+  projectStartDate: string,
+  projectEndDate: string
+): Partial<ProjectPhase>[] => {
+  if (phases.length === 0) return phases
+
+  // Step 1: Preserve durations
+  const durations = phases.map(phase => calculatePhaseDuration(phase))
+
+  // Step 2: Create new phases array with recalculated dates
+  const result = phases.map(phase => ({ ...phase }))
+
+  // Step 3: Set first phase
+  result[0].start_date = projectStartDate
+  result[0].end_date = addDays(projectStartDate, durations[0] - 1)
+
+  // Step 4: Calculate subsequent phases
+  for (let i = 1; i < result.length; i++) {
+    const prevEndDate = result[i - 1].end_date
+    if (!prevEndDate) continue
+    
+    const startDate = getNextDay(prevEndDate)
+    result[i].start_date = startDate
+    result[i].end_date = addDays(startDate, durations[i] - 1)
+  }
+
+  // Step 5: Only adjust last phase if there's a mismatch with project end date
+  // This handles edge cases where durations don't perfectly fit due to rounding
+  const lastIndex = result.length - 1
+  if (result[lastIndex].end_date !== projectEndDate) {
+    result[lastIndex].end_date = projectEndDate
+  }
+
+  return result
+}
+
+/**
+ * Validates that a reordering operation is valid
+ * @param phases - Phases after reordering and date recalculation
+ * @param projectStartDate - Project start date
+ * @param projectEndDate - Project end date
+ * @returns Validation result
+ */
+export const validateReordering = (
+  phases: Partial<ProjectPhase>[],
+  projectStartDate: string,
+  projectEndDate: string
+): { isValid: boolean; error?: string } => {
+  if (phases.length === 0) {
+    return { isValid: false, error: 'No phases to validate' }
+  }
+
+  // Check that all phases have required date fields
+  for (const phase of phases) {
+    if (!phase.start_date || !phase.end_date) {
+      return { isValid: false, error: 'All phases must have start and end dates' }
+    }
+  }
+
+  // Check first phase starts at project start
+  if (phases[0].start_date !== projectStartDate) {
+    return { isValid: false, error: 'First phase must start at project start date' }
+  }
+
+  // Check last phase ends at project end
+  if (phases[phases.length - 1].end_date !== projectEndDate) {
+    return { isValid: false, error: 'Last phase must end at project end date' }
+  }
+
+  // Check contiguity
+  for (let i = 0; i < phases.length - 1; i++) {
+    const current = phases[i]
+    const next = phases[i + 1]
+    
+    const expectedNextStart = getNextDay(current.end_date!)
+    if (next.start_date !== expectedNextStart) {
+      return { isValid: false, error: 'Phases must be contiguous with no gaps or overlaps' }
+    }
+  }
+
+  // Check that all phases are within project boundaries
+  const projectStart = new Date(projectStartDate)
+  const projectEnd = new Date(projectEndDate)
+
+  for (const phase of phases) {
+    const phaseStart = new Date(phase.start_date!)
+    const phaseEnd = new Date(phase.end_date!)
+
+    if (phaseStart < projectStart || phaseEnd > projectEnd) {
+      return { isValid: false, error: 'All phases must be within project boundaries' }
+    }
+
+    if (phaseStart > phaseEnd) {
+      return { isValid: false, error: 'Phase start date must be on or before end date' }
+    }
+  }
+
+  return { isValid: true }
 }

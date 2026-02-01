@@ -345,7 +345,12 @@ describe('Phase Editor - Property-Based Tests', () => {
             }
 
             phases.push(phase)
-            currentTime = phaseEndTime + (24 * 60 * 60 * 1000) // Next day
+            
+            // Calculate next phase start as the day after this phase ends
+            // Use date arithmetic to avoid DST issues
+            const nextStart = new Date(phaseEndDate)
+            nextStart.setDate(nextStart.getDate() + 1)
+            currentTime = nextStart.getTime()
           }
 
           return fc.constant({

@@ -48,3 +48,9 @@
 - for editing phases add a widget that allows sliding of a "divider" between phases. you can right-click and "add" a phase, then adjust the dates simply by sliding.
 
 - probably need to create requirement that all workers, whether labor resources, project managers, business sponsors, or technical leads, are loaded into the worker table.
+
+- on the phase editing screen, need a way to indicate modified fields and modified rows so that the user knows what the change set is
+
+- program editing screen should not allows dates to be changed. rather it should set start/end based on contained projects. sort of like projects and phases, but without the contiguous requirement
+
+- make the header rows in the Programs list and Projects list bolded

@@ -22,9 +22,11 @@ interface PhaseListProps {
   onUpdate: (phaseId: string, updates: Partial<ProjectPhase>) => void
   onDelete: (phaseId: string) => void
   readOnly?: boolean
+  changedFields?: Record<string, Set<string>>
+  deletedPhaseIds?: Set<string>
 }
 
-const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete, readOnly = false }) => {
+const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete, readOnly = false, changedFields = {}, deletedPhaseIds = new Set() }) => {
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<Partial<ProjectPhase>>({})
 
@@ -33,6 +35,9 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
     if (!a.start_date || !b.start_date) return 0
     return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
   })
+
+  // Count active (non-deleted) phases
+  const activePhaseCount = phases.filter(p => !deletedPhaseIds.has(p.id || '')).length
 
   const handleEdit = (phase: Partial<ProjectPhase>) => {
     if (!phase.id) return
@@ -53,10 +58,21 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
   }
 
   const handleChange = (field: keyof ProjectPhase, value: string | number) => {
-    setEditValues((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+    setEditValues((prev) => {
+      const updated = {
+        ...prev,
+        [field]: value,
+      }
+      
+      // Auto-calculate total_budget when capital or expense changes
+      if (field === 'capital_budget' || field === 'expense_budget') {
+        const capital = field === 'capital_budget' ? (typeof value === 'number' ? value : parseFloat(value as string) || 0) : (prev.capital_budget || 0)
+        const expense = field === 'expense_budget' ? (typeof value === 'number' ? value : parseFloat(value as string) || 0) : (prev.expense_budget || 0)
+        updated.total_budget = capital + expense
+      }
+      
+      return updated
+    })
   }
 
   const formatCurrency = (value: number): string => {
@@ -75,6 +91,32 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
       day: 'numeric',
     })
   }
+
+  // Check if a phase is marked for deletion
+  const isPhaseDeleted = (phaseId: string | undefined): boolean => {
+    if (!phaseId) return false
+    return deletedPhaseIds.has(phaseId)
+  }
+
+  // Check if a specific field has changed for a phase
+  const isFieldChanged = (phaseId: string | undefined, fieldName: string): boolean => {
+    if (!phaseId || !changedFields[phaseId]) return false
+    return changedFields[phaseId].has(fieldName)
+  }
+
+  // Check if any field has changed for a phase (row-level indicator)
+  const hasAnyChanges = (phaseId: string | undefined): boolean => {
+    if (!phaseId || !changedFields[phaseId]) return false
+    return changedFields[phaseId].size > 0
+  }
+
+  // Style for changed cells
+  const getChangedCellStyle = (isChanged: boolean) => ({
+    backgroundColor: isChanged ? 'warning.light' : 'inherit',
+    borderLeft: isChanged ? '3px solid' : 'none',
+    borderLeftColor: isChanged ? 'warning.main' : 'transparent',
+    transition: 'all 0.2s ease',
+  })
 
   return (
     <Paper sx={{ p: 3 }}>
@@ -113,10 +155,24 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
             ) : (
               sortedPhases.map((phase) => {
                 const isEditing = editingPhaseId === phase.id
+                const rowHasChanges = hasAnyChanges(phase.id)
+                const isDeleted = isPhaseDeleted(phase.id)
 
                 return (
-                  <TableRow key={phase.id || 'new'} hover>
-                    <TableCell>
+                  <TableRow 
+                    key={phase.id || 'new'} 
+                    hover={!isDeleted}
+                    sx={{
+                      borderLeft: rowHasChanges ? '4px solid' : isDeleted ? '4px solid' : 'none',
+                      borderLeftColor: rowHasChanges ? 'warning.main' : isDeleted ? 'error.main' : 'transparent',
+                      opacity: isDeleted ? 0.6 : 1,
+                      backgroundColor: isDeleted ? 'error.lighter' : 'inherit',
+                    }}
+                  >
+                    <TableCell sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'name')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
                       {isEditing ? (
                         <TextField
                           size="small"
@@ -129,7 +185,10 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         phase.name || '-'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'description')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
                       {isEditing ? (
                         <TextField
                           size="small"
@@ -143,39 +202,22 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         phase.description || '-'
                       )}
                     </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <TextField
-                          size="small"
-                          type="date"
-                          value={editValues.start_date || ''}
-                          onChange={(e) => handleChange('start_date', e.target.value)}
-                          fullWidth
-                          required
-                        />
-                      ) : phase.start_date ? (
-                        formatDate(phase.start_date)
-                      ) : (
-                        '-'
-                      )}
+                    <TableCell sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'start_date')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
+                      {phase.start_date ? formatDate(phase.start_date) : '-'}
                     </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <TextField
-                          size="small"
-                          type="date"
-                          value={editValues.end_date || ''}
-                          onChange={(e) => handleChange('end_date', e.target.value)}
-                          fullWidth
-                          required
-                        />
-                      ) : phase.end_date ? (
-                        formatDate(phase.end_date)
-                      ) : (
-                        '-'
-                      )}
+                    <TableCell sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'end_date')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
+                      {phase.end_date ? formatDate(phase.end_date) : '-'}
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'capital_budget')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
                       {isEditing ? (
                         <TextField
                           size="small"
@@ -189,7 +231,10 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         formatCurrency(phase.capital_budget || 0)
                       )}
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'expense_budget')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
                       {isEditing ? (
                         <TextField
                           size="small"
@@ -203,16 +248,12 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         formatCurrency(phase.expense_budget || 0)
                       )}
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" sx={{ 
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'total_budget')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
                       {isEditing ? (
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={editValues.total_budget ?? 0}
-                          onChange={(e) => handleChange('total_budget', parseFloat(e.target.value) || 0)}
-                          fullWidth
-                          inputProps={{ min: 0, step: 0.01 }}
-                        />
+                        formatCurrency((editValues.capital_budget || 0) + (editValues.expense_budget || 0))
                       ) : (
                         formatCurrency(phase.total_budget || 0)
                       )}
@@ -230,14 +271,20 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                           </Box>
                         ) : (
                           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                            <IconButton size="small" color="primary" onClick={() => handleEdit(phase)} aria-label="edit">
+                            <IconButton 
+                              size="small" 
+                              color="primary" 
+                              onClick={() => handleEdit(phase)} 
+                              aria-label="edit"
+                              disabled={isDeleted}
+                            >
                               <EditIcon fontSize="small" />
                             </IconButton>
                             <IconButton
                               size="small"
                               color="error"
                               onClick={() => phase.id && onDelete(phase.id)}
-                              disabled={phases.length === 1}
+                              disabled={activePhaseCount === 1 || isDeleted}
                               aria-label="delete"
                             >
                               <DeleteIcon fontSize="small" />

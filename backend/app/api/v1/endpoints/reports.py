@@ -25,6 +25,7 @@ router = APIRouter()
 async def get_project_forecast(
     project_id: UUID,
     as_of_date: Optional[date] = Query(default=None, description="Date to calculate forecast as of (default: today)"),
+    phase_id: Optional[UUID] = Query(default=None, description="Optional phase ID to filter forecast by specific phase"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -32,12 +33,14 @@ async def get_project_forecast(
     Calculate forecast for a project.
     
     Returns budget vs actual vs forecast data with analysis metrics.
+    If phase_id is provided, filters data to only that phase.
     """
     try:
         forecast_data = forecasting_service.calculate_project_forecast(
             db=db,
             project_id=project_id,
-            as_of_date=as_of_date
+            as_of_date=as_of_date,
+            phase_id=phase_id
         )
         return forecast_data.to_dict()
     except ValueError as e:

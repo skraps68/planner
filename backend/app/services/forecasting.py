@@ -111,7 +111,8 @@ class ForecastingService:
         self,
         db: Session,
         project_id: UUID,
-        as_of_date: Optional[date] = None
+        as_of_date: Optional[date] = None,
+        phase_id: Optional[UUID] = None
     ) -> ForecastData:
         """
         Calculate forecast for a project based on resource assignments and actuals.
@@ -120,12 +121,13 @@ class ForecastingService:
             db: Database session
             project_id: Project ID
             as_of_date: Date to calculate forecast as of (default: today)
+            phase_id: Optional phase ID to filter by specific phase
             
         Returns:
             ForecastData object with complete forecast information
             
         Raises:
-            ValueError: If project not found
+            ValueError: If project or phase not found
         """
         if as_of_date is None:
             as_of_date = date.today()
@@ -135,18 +137,42 @@ class ForecastingService:
         if not project:
             raise ValueError(f"Project with ID {project_id} does not exist")
         
-        # Get project phases to calculate total budget
-        phases = project_phase_repository.get_by_project(db, project_id)
-        total_budget = sum(phase.total_budget for phase in phases)
-        capital_budget = sum(phase.capital_budget for phase in phases)
-        expense_budget = sum(phase.expense_budget for phase in phases)
+        # Determine date range for filtering
+        phase_start_date = None
+        phase_end_date = None
+        
+        if phase_id:
+            # Get specific phase
+            phase = project_phase_repository.get(db, phase_id)
+            if not phase:
+                raise ValueError(f"Phase with ID {phase_id} does not exist")
+            if phase.project_id != project_id:
+                raise ValueError(f"Phase {phase_id} does not belong to project {project_id}")
+            
+            phase_start_date = phase.start_date
+            phase_end_date = phase.end_date
+            
+            # Calculate budget from single phase
+            total_budget = phase.total_budget
+            capital_budget = phase.capital_budget
+            expense_budget = phase.expense_budget
+        else:
+            # Get all project phases to calculate total budget
+            phases = project_phase_repository.get_by_project(db, project_id)
+            total_budget = sum(phase.total_budget for phase in phases)
+            capital_budget = sum(phase.capital_budget for phase in phases)
+            expense_budget = sum(phase.expense_budget for phase in phases)
         
         # Calculate actuals (historical data up to as_of_date)
+        # Filter by phase date range if phase_id is provided
+        actuals_start_date = phase_start_date if phase_start_date else project.start_date
+        actuals_end_date = min(phase_end_date, as_of_date) if phase_end_date else as_of_date
+        
         actuals = actual_repository.get_by_date_range(
             db=db,
             project_id=project_id,
-            start_date=project.start_date,
-            end_date=as_of_date
+            start_date=actuals_start_date,
+            end_date=actuals_end_date
         )
         
         total_actual = sum(a.actual_cost for a in actuals)
@@ -157,7 +183,15 @@ class ForecastingService:
         assignments = resource_assignment_repository.get_by_project(db, project_id)
         
         # Filter assignments for future dates (after as_of_date)
-        future_assignments = [a for a in assignments if a.assignment_date > as_of_date]
+        # Also filter by phase date range if phase_id is provided
+        if phase_id:
+            future_assignments = [
+                a for a in assignments 
+                if a.assignment_date > as_of_date 
+                and phase_start_date <= a.assignment_date <= phase_end_date
+            ]
+        else:
+            future_assignments = [a for a in assignments if a.assignment_date > as_of_date]
         
         # Calculate forecast cost from future assignments
         forecast_cost = Decimal('0.00')

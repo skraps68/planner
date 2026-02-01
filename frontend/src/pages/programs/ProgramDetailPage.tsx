@@ -1,5 +1,5 @@
 import React from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
@@ -13,10 +13,15 @@ import {
   CardContent,
   Tabs,
   Tab,
+  CircularProgress,
 } from '@mui/material'
-import { Edit, ArrowBack } from '@mui/icons-material'
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
+import { Edit, ArrowBack, OpenInNew } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
+import { projectsApi } from '../../api/projects'
+import { Project } from '../../types'
 import { format } from 'date-fns'
+import { usePermissions } from '../../hooks/usePermissions'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -35,7 +40,14 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const ProgramDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [tabValue, setTabValue] = React.useState(0)
+  const location = useLocation()
+  const [tabValue, setTabValue] = React.useState(() => {
+    // Check if there's a tab parameter in the URL
+    const params = new URLSearchParams(location.search)
+    const tabParam = params.get('tab')
+    return tabParam ? parseInt(tabParam, 10) : 0
+  })
+  const { canAccessProject } = usePermissions()
 
   const { data: program, isLoading } = useQuery({
     queryKey: ['program', id],
@@ -43,15 +55,119 @@ const ProgramDetailPage: React.FC = () => {
     enabled: !!id,
   })
 
-  if (isLoading) {
-    return <Typography>Loading...</Typography>
+  // Fetch projects for this program
+  const { data: projectsData, isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects', 'program', id],
+    queryFn: () => projectsApi.list({ program_id: id!, limit: 1000 }),
+    enabled: !!id,
+  })
+
+  const projects = projectsData?.items || []
+
+  // Handle tab change - navigate to Financials when tab 2 is clicked
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    if (newValue === 2) {
+      // Navigate to Financials with program pre-selected and remember current tab
+      navigate(`/portfolio?programId=${id}&returnTo=program&returnId=${id}&returnTab=${tabValue}`)
+    } else {
+      setTabValue(newValue)
+    }
+  }
+
+  // Calculate statistics
+  const totalProjects = projects.length
+  const now = new Date()
+  const activeProjects = projects.filter(project => {
+    const start = new Date(project.start_date)
+    const end = new Date(project.end_date)
+    return now >= start && now <= end
+  }).length
+
+  // Calculate total budget from all project phases
+  const totalBudget = projects.reduce((sum, project) => {
+    // Sum up all phases for each project
+    const projectBudget = (project.phases || []).reduce((phaseSum, phase) => {
+      // Ensure we're adding numbers, not concatenating strings
+      return phaseSum + Number(phase.total_budget || 0)
+    }, 0)
+    return sum + projectBudget
+  }, 0)
+
+  // Define columns for projects DataGrid
+  const projectColumns: GridColDef<Project>[] = [
+    {
+      field: 'name',
+      headerName: 'Project Name',
+      flex: 1,
+      minWidth: 200,
+    },
+    {
+      field: 'project_manager',
+      headerName: 'Project Manager',
+      flex: 1,
+      minWidth: 150,
+    },
+    {
+      field: 'cost_center_code',
+      headerName: 'Cost Center',
+      width: 120,
+    },
+    {
+      field: 'start_date',
+      headerName: 'Start Date',
+      width: 120,
+      valueFormatter: (params) => format(new Date(params.value), 'MMM dd, yyyy'),
+    },
+    {
+      field: 'end_date',
+      headerName: 'End Date',
+      width: 120,
+      valueFormatter: (params) => format(new Date(params.value), 'MMM dd, yyyy'),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      renderCell: (params: GridRenderCellParams<Project>) => {
+        const now = new Date()
+        const startDate = new Date(params.row.start_date)
+        const endDate = new Date(params.row.end_date)
+
+        let status = 'Active'
+        let color: 'success' | 'warning' | 'default' = 'success'
+
+        if (now < startDate) {
+          status = 'Planned'
+          color = 'warning'
+        } else if (now > endDate) {
+          status = 'Completed'
+          color = 'default'
+        }
+
+        return <Chip label={status} color={color} size="small" />
+      },
+    },
+  ]
+
+  const handleProjectRowClick = (params: any) => {
+    const projectAccess = canAccessProject(params.row.id, params.row.program_id)
+    if (projectAccess.hasPermission) {
+      navigate(`/projects/${params.row.id}`)
+    }
+  }
+
+  if (isLoading || projectsLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
+        <CircularProgress />
+      </Box>
+    )
   }
 
   if (!program) {
     return <Typography>Program not found</Typography>
   }
 
-  const now = new Date()
   const startDate = new Date(program.start_date)
   const endDate = new Date(program.end_date)
 
@@ -82,10 +198,17 @@ const ProgramDetailPage: React.FC = () => {
       </Box>
 
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Overview" />
           <Tab label="Projects" />
-          <Tab label="Budget Summary" />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                Financials
+                <OpenInNew sx={{ fontSize: 16 }} />
+              </Box>
+            } 
+          />
         </Tabs>
       </Paper>
 
@@ -153,19 +276,21 @@ const ProgramDetailPage: React.FC = () => {
                   <Typography variant="caption" color="text.secondary">
                     Total Projects
                   </Typography>
-                  <Typography variant="h4">0</Typography>
+                  <Typography variant="h4">{totalProjects}</Typography>
                 </Box>
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="caption" color="text.secondary">
                     Active Projects
                   </Typography>
-                  <Typography variant="h4">0</Typography>
+                  <Typography variant="h4">{activeProjects}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
                     Total Budget
                   </Typography>
-                  <Typography variant="h4">$0</Typography>
+                  <Typography variant="h4">
+                    ${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Typography>
                 </Box>
               </CardContent>
             </Card>
@@ -174,21 +299,37 @@ const ProgramDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Associated Projects
-          </Typography>
-          <Typography color="text.secondary">No projects found</Typography>
+        <Paper sx={{ height: 600, width: '100%' }}>
+          <DataGrid
+            rows={projects}
+            columns={projectColumns}
+            loading={projectsLoading}
+            pageSizeOptions={[10, 25, 50, 100]}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 25 },
+              },
+            }}
+            paginationMode="client"
+            disableRowSelectionOnClick
+            onRowClick={handleProjectRowClick}
+            sx={{
+              '& .MuiDataGrid-row': {
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                },
+              },
+            }}
+          />
         </Paper>
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Budget Summary
-          </Typography>
-          <Typography color="text.secondary">Budget data will be displayed here</Typography>
-        </Paper>
+        {/* This tab navigates to Financials page - content not needed */}
       </TabPanel>
     </Box>
   )

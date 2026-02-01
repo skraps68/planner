@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material'
+import { Box, Button, CircularProgress } from '@mui/material'
 import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { ProjectPhase, PhaseValidationError } from '../../types'
 import { phasesApi } from '../../api/phases'
@@ -29,6 +29,8 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
 }) => {
   const [phases, setPhases] = useState<Partial<ProjectPhase>[]>([])
   const [originalPhases, setOriginalPhases] = useState<Partial<ProjectPhase>[]>([])
+  const [changedFields, setChangedFields] = useState<Record<string, Set<string>>>({}) // Track which fields changed per phase
+  const [deletedPhaseIds, setDeletedPhaseIds] = useState<Set<string>>(new Set()) // Track phases marked for deletion
   const [validationErrors, setValidationErrors] = useState<PhaseValidationError[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -42,10 +44,26 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   // Validate phases whenever they change
   useEffect(() => {
     if (phases.length > 0) {
-      const result = validatePhases(phases, projectStartDate, projectEndDate)
+      // Filter out deleted phases for validation
+      const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
+      const result = validatePhases(activePhases, projectStartDate, projectEndDate)
       setValidationErrors(result.errors)
     }
-  }, [phases, projectStartDate, projectEndDate])
+  }, [phases, deletedPhaseIds, projectStartDate, projectEndDate])
+
+  // Detect changes automatically
+  useEffect(() => {
+    // Check if there are any deleted phases
+    const hasDeletions = deletedPhaseIds.size > 0
+    
+    // Check if there are any field changes
+    const hasFieldChanges = Object.keys(changedFields).length > 0
+    
+    // Check if phases array length changed (new phases added)
+    const hasNewPhases = phases.some(p => p.id?.startsWith('temp-'))
+    
+    setHasChanges(hasDeletions || hasFieldChanges || hasNewPhases)
+  }, [phases, changedFields, deletedPhaseIds])
 
   const loadPhases = async () => {
     try {
@@ -53,6 +71,8 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
       const data = await phasesApi.list(projectId)
       setPhases(data)
       setOriginalPhases(data)
+      setChangedFields({})
+      setDeletedPhaseIds(new Set())
       setHasChanges(false)
     } catch (error) {
       console.error('Error loading phases:', error)
@@ -123,15 +143,56 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         },
       ])
     }
-
-    setHasChanges(true)
   }
 
   const handleUpdatePhase = (phaseId: string, updates: Partial<ProjectPhase>) => {
     setPhases((prev) =>
       prev.map((phase) => (phase.id === phaseId ? { ...phase, ...updates } : phase))
     )
-    setHasChanges(true)
+    
+    // Track which fields changed
+    setChangedFields((prev) => {
+      const newChangedFields = { ...prev }
+      const originalPhase = originalPhases.find(p => p.id === phaseId)
+      const updatedPhase = phases.find(p => p.id === phaseId)
+      
+      if (!originalPhase || !updatedPhase) {
+        // New phase - mark all fields as changed
+        newChangedFields[phaseId] = new Set(Object.keys(updates))
+      } else {
+        // Existing phase - check which fields actually changed
+        const changedFieldsSet = new Set<string>()
+        Object.keys(updates).forEach(key => {
+          const originalValue = originalPhase[key as keyof ProjectPhase]
+          const newValue = { ...updatedPhase, ...updates }[key as keyof ProjectPhase]
+          if (originalValue !== newValue) {
+            changedFieldsSet.add(key)
+          }
+        })
+        
+        // Merge with existing changed fields
+        if (prev[phaseId]) {
+          prev[phaseId].forEach(field => changedFieldsSet.add(field))
+        }
+        
+        // Remove fields that match original value
+        Object.keys(updates).forEach(key => {
+          const originalValue = originalPhase[key as keyof ProjectPhase]
+          const newValue = { ...updatedPhase, ...updates }[key as keyof ProjectPhase]
+          if (originalValue === newValue) {
+            changedFieldsSet.delete(key)
+          }
+        })
+        
+        if (changedFieldsSet.size > 0) {
+          newChangedFields[phaseId] = changedFieldsSet
+        } else {
+          delete newChangedFields[phaseId]
+        }
+      }
+      
+      return newChangedFields
+    })
   }
 
   const handlePhaseResize = (phaseId: string, newStartDate: string, newEndDate: string) => {
@@ -141,9 +202,54 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     })
   }
 
+  const handlePhaseReorder = (reorderedPhases: Partial<ProjectPhase>[]) => {
+    // Update phases with the reordered list
+    setPhases(reorderedPhases)
+    
+    // Track which fields changed for each phase
+    setChangedFields((prev) => {
+      const newChangedFields = { ...prev }
+      
+      reorderedPhases.forEach((reorderedPhase) => {
+        const originalPhase = originalPhases.find(p => p.id === reorderedPhase.id)
+        
+        if (!originalPhase || !reorderedPhase.id) return
+        
+        // Check which fields actually changed
+        const changedFieldsSet = new Set<string>(prev[reorderedPhase.id] || [])
+        
+        // Check if dates changed
+        if (originalPhase.start_date !== reorderedPhase.start_date) {
+          changedFieldsSet.add('start_date')
+        }
+        if (originalPhase.end_date !== reorderedPhase.end_date) {
+          changedFieldsSet.add('end_date')
+        }
+        
+        // Remove fields that match original value
+        if (originalPhase.start_date === reorderedPhase.start_date) {
+          changedFieldsSet.delete('start_date')
+        }
+        if (originalPhase.end_date === reorderedPhase.end_date) {
+          changedFieldsSet.delete('end_date')
+        }
+        
+        if (changedFieldsSet.size > 0) {
+          newChangedFields[reorderedPhase.id] = changedFieldsSet
+        } else {
+          delete newChangedFields[reorderedPhase.id]
+        }
+      })
+      
+      return newChangedFields
+    })
+  }
+
   const handleDeletePhase = (phaseId: string) => {
-    if (phases.length === 1) {
-      return // Cannot delete last phase
+    // Count active (non-deleted) phases
+    const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
+    if (activePhases.length === 1) {
+      return // Cannot delete last active phase
     }
 
     // Find the phase to delete and its neighbors
@@ -159,28 +265,70 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     const previousPhase = phaseIndex > 0 ? sortedPhases[phaseIndex - 1] : null
     const nextPhase = phaseIndex < sortedPhases.length - 1 ? sortedPhases[phaseIndex + 1] : null
 
-    // Extend adjacent phase to cover the deleted phase's range
-    let updatedPhases = phases.filter((p) => p.id !== phaseId)
+    // Mark phase for deletion
+    setDeletedPhaseIds(prev => new Set([...prev, phaseId]))
 
-    if (previousPhase && phaseToDelete.end_date) {
-      // Extend previous phase to cover deleted phase
-      updatedPhases = updatedPhases.map((p) =>
-        p.id === previousPhase.id ? { ...p, end_date: phaseToDelete.end_date } : p
+    // Adjust adjacent phases to cover the deleted phase's date range
+    // Also shrink the deleted phase to a single day to avoid overlap errors during pending state
+    if (previousPhase && nextPhase && !deletedPhaseIds.has(previousPhase.id || '') && !deletedPhaseIds.has(nextPhase.id || '')) {
+      // Phase is between two other phases - split the difference
+      const deletedStart = new Date(phaseToDelete.start_date!)
+      const deletedEnd = new Date(phaseToDelete.end_date!)
+      const midpoint = new Date(
+        deletedStart.getTime() + (deletedEnd.getTime() - deletedStart.getTime()) / 2
       )
-    } else if (nextPhase && phaseToDelete.start_date) {
-      // Extend next phase to cover deleted phase
-      updatedPhases = updatedPhases.map((p) =>
-        p.id === nextPhase.id ? { ...p, start_date: phaseToDelete.start_date } : p
-      )
+      
+      // Extend previous phase to midpoint
+      const prevEnd = midpoint.toISOString().split('T')[0]
+      handleUpdatePhase(previousPhase.id!, { 
+        end_date: prevEnd
+      })
+      
+      // Extend next phase from day after midpoint
+      const nextStart = getNextDay(midpoint.toISOString().split('T')[0])
+      handleUpdatePhase(nextPhase.id!, { 
+        start_date: nextStart
+      })
+      
+      // Shrink deleted phase to avoid overlap - make it the day before next phase starts
+      const deletedDay = getPreviousDay(nextStart)
+      handleUpdatePhase(phaseId, {
+        start_date: deletedDay,
+        end_date: deletedDay
+      })
+    } else if (previousPhase && !deletedPhaseIds.has(previousPhase.id || '')) {
+      // Extend previous phase to cover deleted phase (last phase being deleted)
+      handleUpdatePhase(previousPhase.id!, { 
+        end_date: phaseToDelete.end_date 
+      })
+      
+      // Shrink deleted phase to a single day after the previous phase
+      const deletedDay = getNextDay(phaseToDelete.end_date!)
+      handleUpdatePhase(phaseId, {
+        start_date: deletedDay,
+        end_date: deletedDay
+      })
+    } else if (nextPhase && !deletedPhaseIds.has(nextPhase.id || '')) {
+      // Extend next phase to cover deleted phase (first phase being deleted)
+      handleUpdatePhase(nextPhase.id!, { 
+        start_date: phaseToDelete.start_date 
+      })
+      
+      // Shrink deleted phase to a single day before the next phase
+      const deletedDay = getPreviousDay(phaseToDelete.start_date!)
+      handleUpdatePhase(phaseId, {
+        start_date: deletedDay,
+        end_date: deletedDay
+      })
     }
-
-    setPhases(updatedPhases)
-    setHasChanges(true)
   }
 
   const handleSave = async () => {
+    // Filter out deleted phases for validation
+    const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
+    
     // Validate before saving
-    const result = validatePhases(phases, projectStartDate, projectEndDate)
+    const result = validatePhases(activePhases, projectStartDate, projectEndDate)
     if (!result.is_valid) {
       setValidationErrors(result.errors)
       return
@@ -189,8 +337,8 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     try {
       setIsSaving(true)
 
-      // Use batch update endpoint - send all phases at once
-      const phasesData = phases.map((phase) => ({
+      // Use batch update endpoint - send only active (non-deleted) phases
+      const phasesData = activePhases.map((phase) => ({
         id: phase.id?.startsWith('temp-') ? null : phase.id,
         name: phase.name!,
         start_date: phase.start_date!,
@@ -226,6 +374,8 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
 
   const handleCancel = () => {
     setPhases(originalPhases)
+    setChangedFields({})
+    setDeletedPhaseIds(new Set())
     setHasChanges(false)
     setValidationErrors([])
 
@@ -244,27 +394,22 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
 
   const hasValidationErrors = validationErrors.length > 0
 
+  // Filter out deleted phases for timeline display
+  const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
+
   return (
     <Box>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Phase Editor
-        </Typography>
-        <Typography variant="body2" color="text.secondary" paragraph>
-          Manage project phases to organize your timeline. Phases must form a continuous timeline from
-          project start to end with no gaps or overlaps.
-        </Typography>
-      </Paper>
-
       <ValidationErrorDisplay errors={validationErrors} />
 
       <PhaseTimeline
-        phases={phases}
+        phases={activePhases}
         projectStartDate={projectStartDate}
         projectEndDate={projectEndDate}
         validationErrors={validationErrors}
         onPhaseResize={handlePhaseResize}
         enableResize={true}
+        onPhaseReorder={handlePhaseReorder}
+        enableReorder={true}
       />
 
       <PhaseList
@@ -272,6 +417,8 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         onAdd={handleAddPhase}
         onUpdate={handleUpdatePhase}
         onDelete={handleDeletePhase}
+        changedFields={changedFields}
+        deletedPhaseIds={deletedPhaseIds}
       />
 
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>

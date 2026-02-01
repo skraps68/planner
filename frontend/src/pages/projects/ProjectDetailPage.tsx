@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
@@ -16,7 +16,7 @@ import {
   Alert,
   Snackbar,
 } from '@mui/material'
-import { Edit, ArrowBack } from '@mui/icons-material'
+import { Edit, ArrowBack, OpenInNew } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
 import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
@@ -38,7 +38,13 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [tabValue, setTabValue] = useState(0)
+  const location = useLocation()
+  const [tabValue, setTabValue] = useState(() => {
+    // Check if there's a tab parameter in the URL
+    const params = new URLSearchParams(location.search)
+    const tabParam = params.get('tab')
+    return tabParam ? parseInt(tabParam, 10) : 0
+  })
   const [snackbar, setSnackbar] = useState<{
     open: boolean
     message: string
@@ -54,6 +60,29 @@ const ProjectDetailPage: React.FC = () => {
     queryFn: () => projectsApi.get(id!),
     enabled: !!id,
   })
+
+  // Calculate budget statistics from phases
+  const totalBudget = (project?.phases || []).reduce((sum, phase) => {
+    return sum + Number(phase.total_budget || 0)
+  }, 0)
+
+  const capitalBudget = (project?.phases || []).reduce((sum, phase) => {
+    return sum + Number(phase.capital_budget || 0)
+  }, 0)
+
+  const expenseBudget = (project?.phases || []).reduce((sum, phase) => {
+    return sum + Number(phase.expense_budget || 0)
+  }, 0)
+
+  // Handle tab change - navigate to Financials when tab 3 is clicked
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    if (newValue === 3 && project) {
+      // Navigate to Financials with program and project pre-selected and remember current tab
+      navigate(`/portfolio?programId=${project.program_id}&projectId=${id}&returnTo=project&returnId=${id}&returnTab=${tabValue}`)
+    } else {
+      setTabValue(newValue)
+    }
+  }
 
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false })
@@ -115,11 +144,18 @@ const ProjectDetailPage: React.FC = () => {
       </Box>
 
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Overview" />
           <Tab label="Phases" />
           <Tab label="Assignments" />
-          <Tab label="Budget Summary" />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                Financials
+                <OpenInNew sx={{ fontSize: 16 }} />
+              </Box>
+            } 
+          />
         </Tabs>
       </Paper>
 
@@ -188,7 +224,7 @@ const ProjectDetailPage: React.FC = () => {
                     Total Budget
                   </Typography>
                   <Typography variant="h4">
-                    ${project.total_budget?.toLocaleString() || '0'}
+                    ${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Typography>
                 </Box>
                 <Box sx={{ mb: 2 }}>
@@ -196,7 +232,7 @@ const ProjectDetailPage: React.FC = () => {
                     Capital Budget
                   </Typography>
                   <Typography variant="h5">
-                    ${project.capital_budget?.toLocaleString() || '0'}
+                    ${capitalBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Typography>
                 </Box>
                 <Box>
@@ -204,7 +240,7 @@ const ProjectDetailPage: React.FC = () => {
                     Expense Budget
                   </Typography>
                   <Typography variant="h5">
-                    ${project.expense_budget?.toLocaleString() || '0'}
+                    ${expenseBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Typography>
                 </Box>
               </CardContent>
@@ -233,12 +269,7 @@ const ProjectDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Budget Summary
-          </Typography>
-          <Typography color="text.secondary">Budget data will be displayed here</Typography>
-        </Paper>
+        {/* This tab navigates to Financials page - content not needed */}
       </TabPanel>
 
       <Snackbar

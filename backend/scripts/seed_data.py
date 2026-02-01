@@ -163,20 +163,60 @@ def create_projects(db: Session, programs: dict) -> dict:
     print("Creating project phases...")
     phases = {}
     
-    for key, project in projects.items():
-        # Create a default phase covering the entire project duration
-        default_phase = ProjectPhase(
+    # Mobile App project - create 3 phases with different budgets
+    mobile_project = projects["mobile_app"]
+    mobile_phases = [
+        ProjectPhase(
             id=uuid4(),
-            project_id=project.id,
-            name="Default Phase",
-            start_date=project.start_date,
-            end_date=project.end_date,
-            capital_budget=Decimal("350000.00"),
-            expense_budget=Decimal("250000.00"),
+            project_id=mobile_project.id,
+            name="Planning & Design",
+            start_date=date(2024, 2, 1),
+            end_date=date(2024, 5, 31),
+            capital_budget=Decimal("150000.00"),
+            expense_budget=Decimal("100000.00"),
+            total_budget=Decimal("250000.00")
+        ),
+        ProjectPhase(
+            id=uuid4(),
+            project_id=mobile_project.id,
+            name="Development",
+            start_date=date(2024, 6, 1),
+            end_date=date(2024, 12, 31),
+            capital_budget=Decimal("400000.00"),
+            expense_budget=Decimal("200000.00"),
             total_budget=Decimal("600000.00")
-        )
-        db.add(default_phase)
-        phases[f"{key}_default"] = default_phase
+        ),
+        ProjectPhase(
+            id=uuid4(),
+            project_id=mobile_project.id,
+            name="Testing & Deployment",
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 6, 30),
+            capital_budget=Decimal("100000.00"),
+            expense_budget=Decimal("150000.00"),
+            total_budget=Decimal("250000.00")
+        ),
+    ]
+    
+    for i, phase in enumerate(mobile_phases):
+        db.add(phase)
+        phases[f"mobile_app_phase_{i+1}"] = phase
+    
+    # Other projects - create default phases
+    for key, project in projects.items():
+        if key != "mobile_app":
+            default_phase = ProjectPhase(
+                id=uuid4(),
+                project_id=project.id,
+                name="Default Phase",
+                start_date=project.start_date,
+                end_date=project.end_date,
+                capital_budget=Decimal("350000.00"),
+                expense_budget=Decimal("250000.00"),
+                total_budget=Decimal("600000.00")
+            )
+            db.add(default_phase)
+            phases[f"{key}_default"] = default_phase
     
     db.commit()
     print(f"Created {len(projects)} projects with {len(phases)} phases.")
@@ -387,37 +427,111 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
     
     assignments = []
     
-    # Mobile app project assignments
-    mobile_phase = phases["mobile_app_default"]
+    # Mobile app project - Phase 1: Planning & Design (Feb-May 2024)
+    # Phase association is implicit based on assignment_date falling within phase date range
     start_date = date(2024, 2, 1)
     
-    for i in range(90):  # 90 days of assignments
+    for i in range(120):  # 120 days (4 months)
         assignment_date = start_date + timedelta(days=i)
+        if assignment_date > date(2024, 5, 31):
+            break
         
-        # John Smith - 75% allocation, 60% capital / 40% expense
+        # John Smith - 50% allocation in planning phase
         assignments.append(ResourceAssignment(
             id=uuid4(),
             resource_id=labor_resources["john_smith"].id,
             project_id=projects["mobile_app"].id,
             assignment_date=assignment_date,
-            allocation_percentage=Decimal("75.00"),
+            allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("60.00"),
             expense_percentage=Decimal("40.00")
         ))
         
-        # Bob Johnson - 50% allocation, 70% capital / 30% expense
+        # Jane Doe - 75% allocation in planning phase (architect)
+        assignments.append(ResourceAssignment(
+            id=uuid4(),
+            resource_id=labor_resources["jane_doe"].id,
+            project_id=projects["mobile_app"].id,
+            assignment_date=assignment_date,
+            allocation_percentage=Decimal("75.00"),
+            capital_percentage=Decimal("70.00"),
+            expense_percentage=Decimal("30.00")
+        ))
+    
+    # Mobile app project - Phase 2: Development (Jun-Dec 2024)
+    # Phase association is implicit based on assignment_date falling within phase date range
+    start_date = date(2024, 6, 1)
+    
+    for i in range(214):  # 214 days (7 months)
+        assignment_date = start_date + timedelta(days=i)
+        if assignment_date > date(2024, 12, 31):
+            break
+        
+        # John Smith - 100% allocation in development phase
+        assignments.append(ResourceAssignment(
+            id=uuid4(),
+            resource_id=labor_resources["john_smith"].id,
+            project_id=projects["mobile_app"].id,
+            assignment_date=assignment_date,
+            allocation_percentage=Decimal("100.00"),
+            capital_percentage=Decimal("80.00"),
+            expense_percentage=Decimal("20.00")
+        ))
+        
+        # Bob Johnson - 100% allocation in development phase
+        assignments.append(ResourceAssignment(
+            id=uuid4(),
+            resource_id=labor_resources["bob_johnson"].id,
+            project_id=projects["mobile_app"].id,
+            assignment_date=assignment_date,
+            allocation_percentage=Decimal("100.00"),
+            capital_percentage=Decimal("85.00"),
+            expense_percentage=Decimal("15.00")
+        ))
+        
+        # Alice Williams - 75% allocation in development phase
+        assignments.append(ResourceAssignment(
+            id=uuid4(),
+            resource_id=labor_resources["alice_williams"].id,
+            project_id=projects["mobile_app"].id,
+            assignment_date=assignment_date,
+            allocation_percentage=Decimal("75.00"),
+            capital_percentage=Decimal("80.00"),
+            expense_percentage=Decimal("20.00")
+        ))
+    
+    # Mobile app project - Phase 3: Testing & Deployment (Jan-Jun 2025)
+    # Phase association is implicit based on assignment_date falling within phase date range
+    start_date = date(2025, 1, 1)
+    
+    for i in range(181):  # 181 days (6 months)
+        assignment_date = start_date + timedelta(days=i)
+        if assignment_date > date(2025, 6, 30):
+            break
+        
+        # Bob Johnson - 50% allocation in testing phase
         assignments.append(ResourceAssignment(
             id=uuid4(),
             resource_id=labor_resources["bob_johnson"].id,
             project_id=projects["mobile_app"].id,
             assignment_date=assignment_date,
             allocation_percentage=Decimal("50.00"),
-            capital_percentage=Decimal("70.00"),
-            expense_percentage=Decimal("30.00")
+            capital_percentage=Decimal("40.00"),
+            expense_percentage=Decimal("60.00")
+        ))
+        
+        # Charlie Brown - 100% allocation in testing phase
+        assignments.append(ResourceAssignment(
+            id=uuid4(),
+            resource_id=labor_resources["charlie_brown"].id,
+            project_id=projects["mobile_app"].id,
+            assignment_date=assignment_date,
+            allocation_percentage=Decimal("100.00"),
+            capital_percentage=Decimal("30.00"),
+            expense_percentage=Decimal("70.00")
         ))
     
     # Web portal project assignments
-    web_phase = phases["web_portal_default"]
     start_date = date(2024, 4, 1)
     
     for i in range(60):  # 60 days of assignments
@@ -446,7 +560,6 @@ def create_resource_assignments(db: Session, labor_resources: dict, projects: di
         ))
     
     # Cloud migration project assignments
-    cloud_phase = phases["cloud_migration_default"]
     start_date = date(2024, 7, 1)
     
     for i in range(120):  # 120 days of assignments
@@ -476,23 +589,91 @@ def create_actuals(db: Session, workers: dict, projects: dict):
     
     actuals = []
     
-    # Mobile app actuals
+    # Mobile app actuals - Phase 1: Planning & Design (Feb-Apr 2024)
     start_date = date(2024, 2, 1)
-    for i in range(30):  # 30 days of actuals
+    for i in range(90):  # 90 days of actuals in phase 1
         actual_date = start_date + timedelta(days=i)
+        if actual_date > date(2024, 5, 31):
+            break
         
-        # John Smith actuals - 75% allocation
+        # John Smith actuals - 50% allocation
         actuals.append(Actual(
             id=uuid4(),
             project_id=projects["mobile_app"].id,
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=actual_date,
-            allocation_percentage=Decimal("75.00"),
-            actual_cost=Decimal("937.50"),  # 1250 * 0.75
-            capital_amount=Decimal("562.50"),  # 60% capital
-            expense_amount=Decimal("375.00")   # 40% expense
+            allocation_percentage=Decimal("50.00"),
+            actual_cost=Decimal("625.00"),  # 1250 * 0.50
+            capital_amount=Decimal("375.00"),  # 60% capital
+            expense_amount=Decimal("250.00")   # 40% expense
         ))
+        
+        # Jane Doe actuals - 75% allocation (architect)
+        actuals.append(Actual(
+            id=uuid4(),
+            project_id=projects["mobile_app"].id,
+            external_worker_id="EMP002",
+            worker_name="Jane Doe",
+            actual_date=actual_date,
+            allocation_percentage=Decimal("75.00"),
+            actual_cost=Decimal("1200.00"),  # 1600 * 0.75
+            capital_amount=Decimal("840.00"),  # 70% capital
+            expense_amount=Decimal("360.00")   # 30% expense
+        ))
+    
+    # Mobile app actuals - Phase 2: Development (Jun-Sep 2024)
+    start_date = date(2024, 6, 1)
+    for i in range(122):  # 122 days of actuals in phase 2
+        actual_date = start_date + timedelta(days=i)
+        if actual_date > date(2024, 9, 30):
+            break
+        
+        # John Smith actuals - 100% allocation
+        actuals.append(Actual(
+            id=uuid4(),
+            project_id=projects["mobile_app"].id,
+            external_worker_id="EMP001",
+            worker_name="John Smith",
+            actual_date=actual_date,
+            allocation_percentage=Decimal("100.00"),
+            actual_cost=Decimal("1250.00"),  # 1250 * 1.00
+            capital_amount=Decimal("1000.00"),  # 80% capital
+            expense_amount=Decimal("250.00")   # 20% expense
+        ))
+        
+        # Bob Johnson actuals - 100% allocation
+        actuals.append(Actual(
+            id=uuid4(),
+            project_id=projects["mobile_app"].id,
+            external_worker_id="EMP003",
+            worker_name="Bob Johnson",
+            actual_date=actual_date,
+            allocation_percentage=Decimal("100.00"),
+            actual_cost=Decimal("950.00"),  # 950 * 1.00
+            capital_amount=Decimal("807.50"),  # 85% capital
+            expense_amount=Decimal("142.50")   # 15% expense
+        ))
+        
+        # Alice Williams actuals - 75% allocation
+        actuals.append(Actual(
+            id=uuid4(),
+            project_id=projects["mobile_app"].id,
+            external_worker_id="EMP004",
+            worker_name="Alice Williams",
+            actual_date=actual_date,
+            allocation_percentage=Decimal("75.00"),
+            actual_cost=Decimal("712.50"),  # 950 * 0.75
+            capital_amount=Decimal("570.00"),  # 80% capital
+            expense_amount=Decimal("142.50")   # 20% expense
+        ))
+    
+    # Mobile app actuals - Phase 3: Testing & Deployment (Jan-Feb 2025)
+    start_date = date(2025, 1, 1)
+    for i in range(60):  # 60 days of actuals in phase 3
+        actual_date = start_date + timedelta(days=i)
+        if actual_date > date(2025, 3, 1):
+            break
         
         # Bob Johnson actuals - 50% allocation
         actuals.append(Actual(
@@ -503,8 +684,21 @@ def create_actuals(db: Session, workers: dict, projects: dict):
             actual_date=actual_date,
             allocation_percentage=Decimal("50.00"),
             actual_cost=Decimal("475.00"),  # 950 * 0.50
-            capital_amount=Decimal("332.50"),  # 70% capital
-            expense_amount=Decimal("142.50")   # 30% expense
+            capital_amount=Decimal("190.00"),  # 40% capital
+            expense_amount=Decimal("285.00")   # 60% expense
+        ))
+        
+        # Charlie Brown actuals - 100% allocation
+        actuals.append(Actual(
+            id=uuid4(),
+            project_id=projects["mobile_app"].id,
+            external_worker_id="EMP005",
+            worker_name="Charlie Brown",
+            actual_date=actual_date,
+            allocation_percentage=Decimal("100.00"),
+            actual_cost=Decimal("650.00"),  # 650 * 1.00
+            capital_amount=Decimal("195.00"),  # 30% capital
+            expense_amount=Decimal("455.00")   # 70% expense
         ))
     
     # Web portal actuals

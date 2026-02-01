@@ -24,6 +24,7 @@ export interface Project {
   cost_center_code: string
   created_at: string
   updated_at: string
+  phases?: ProjectPhase[]
 }
 
 export interface ProjectPhase {

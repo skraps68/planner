@@ -7,11 +7,10 @@ import {
   Paper,
   TextField,
   InputAdornment,
-  IconButton,
   Chip,
 } from '@mui/material'
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
-import { Add, Search, Edit, Delete, Visibility } from '@mui/icons-material'
+import { Add, Search } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
 import { Project } from '../../types'
 import { format } from 'date-fns'
@@ -98,55 +97,6 @@ const ProjectsListPage: React.FC = () => {
         return <Chip label={status} color={color} size="small" />
       },
     },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 150,
-      sortable: false,
-      renderCell: (params: GridRenderCellParams<Project>) => {
-        const projectAccess = canAccessProject(params.row.id, params.row.program_id)
-        const canEdit = hasPermission('edit_projects')
-
-        return (
-          <Box>
-            <IconButton
-              size="small"
-              onClick={() => navigate(`/projects/${params.row.id}`)}
-              disabled={!projectAccess.hasPermission}
-              title={projectAccess.hasPermission ? 'View' : projectAccess.reason}
-            >
-              <Visibility fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={() => navigate(`/projects/${params.row.id}/edit`)}
-              disabled={!projectAccess.hasPermission || !canEdit.hasPermission}
-              title={
-                !projectAccess.hasPermission
-                  ? projectAccess.reason
-                  : !canEdit.hasPermission
-                  ? canEdit.reason
-                  : 'Edit'
-              }
-            >
-              <Edit fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              color="error"
-              disabled={!projectAccess.hasPermission || !hasPermission('delete_projects').hasPermission}
-              title={
-                !projectAccess.hasPermission
-                  ? projectAccess.reason
-                  : 'Delete'
-              }
-            >
-              <Delete fontSize="small" />
-            </IconButton>
-          </Box>
-        )
-      },
-    },
   ]
 
   return (
@@ -201,7 +151,23 @@ const ProjectsListPage: React.FC = () => {
           }}
           rowCount={filteredProjects.length}
           paginationMode="client"
-          disableRowSelectionOnClick
+          onRowClick={(params) => {
+            const projectAccess = canAccessProject(params.row.id, params.row.program_id)
+            if (projectAccess.hasPermission) {
+              navigate(`/projects/${params.row.id}`)
+            }
+          }}
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+                border: '2px solid',
+                borderColor: 'primary.main',
+              },
+            },
+          }}
         />
       </Paper>
     </Box>

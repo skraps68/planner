@@ -7,11 +7,10 @@ import {
   Paper,
   TextField,
   InputAdornment,
-  IconButton,
   Chip,
 } from '@mui/material'
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
-import { Add, Search, Edit, Delete, Visibility } from '@mui/icons-material'
+import { Add, Search } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
 import { Program } from '../../types'
 import { format } from 'date-fns'
@@ -99,56 +98,14 @@ const ProgramsListPage: React.FC = () => {
         return <Chip label={status} color={color} size="small" />
       },
     },
-    {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 150,
-      sortable: false,
-      renderCell: (params: GridRenderCellParams<Program>) => {
-        const programAccess = canAccessProgram(params.row.id)
-        const canEdit = hasPermission('edit_programs')
-
-        return (
-          <Box>
-            <IconButton
-              size="small"
-              onClick={() => navigate(`/programs/${params.row.id}`)}
-              disabled={!programAccess.hasPermission}
-              title={programAccess.hasPermission ? 'View' : programAccess.reason}
-            >
-              <Visibility fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={() => navigate(`/programs/${params.row.id}/edit`)}
-              disabled={!programAccess.hasPermission || !canEdit.hasPermission}
-              title={
-                !programAccess.hasPermission
-                  ? programAccess.reason
-                  : !canEdit.hasPermission
-                  ? canEdit.reason
-                  : 'Edit'
-              }
-            >
-              <Edit fontSize="small" />
-            </IconButton>
-            <IconButton
-              size="small"
-              color="error"
-              disabled={!programAccess.hasPermission || !hasPermission('delete_programs').hasPermission}
-              title={
-                !programAccess.hasPermission
-                  ? programAccess.reason
-                  : 'Delete'
-              }
-            >
-              <Delete fontSize="small" />
-            </IconButton>
-          </Box>
-        )
-      },
-    },
   ]
+
+  const handleRowClick = (params: any) => {
+    const programAccess = canAccessProgram(params.row.id)
+    if (programAccess.hasPermission) {
+      navigate(`/programs/${params.row.id}`)
+    }
+  }
 
   return (
     <Box>
@@ -203,6 +160,18 @@ const ProgramsListPage: React.FC = () => {
           rowCount={filteredPrograms.length}
           paginationMode="client"
           disableRowSelectionOnClick
+          onRowClick={handleRowClick}
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+                border: '2px solid',
+                borderColor: 'primary.main',
+              },
+            },
+          }}
         />
       </Paper>
     </Box>
