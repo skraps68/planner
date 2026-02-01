@@ -427,12 +427,12 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 borderTop: '2px solid',
                 borderTopColor: 'grey.300',
               }}>
-                <TableCell />
-                <TableCell />
-                <TableCell />
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  Totals
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  Total
                 </TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell />
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   {formatCurrency(totals.capital)}
                 </TableCell>

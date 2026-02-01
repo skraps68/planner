@@ -68,12 +68,12 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
         <TableHead>
           <TableRow>
             <TableCell sx={{ fontWeight: 'bold', minWidth: 100 }}>Category</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Budget</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Actuals</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40 }}>+</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Forecast</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40 }}>=</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 140 }}>Current Forecast</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120, backgroundColor: '#BBDEFB' }}>Budget</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120, backgroundColor: '#E8F5E9' }}>Actuals</TableCell>
+            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40, backgroundColor: '#E8F5E9' }}>+</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120, backgroundColor: '#E8F5E9' }}>Forecast</TableCell>
+            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40, backgroundColor: '#E8F5E9' }}>=</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 140, backgroundColor: '#C8E6C9' }}>Current Forecast</TableCell>
             <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Variance</TableCell>
           </TableRow>
         </TableHead>
@@ -81,12 +81,12 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
           {/* Total Row */}
           <TableRow>
             <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.budget.total)}</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.actuals.total)}</TableCell>
-            <TableCell align="center">+</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.forecast.total)}</TableCell>
-            <TableCell align="center">=</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.currentForecast.total)}</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#BBDEFB' }}>{formatCurrency(displayData.budget.total)}</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.actuals.total)}</TableCell>
+            <TableCell align="center" sx={{ backgroundColor: '#E8F5E9' }}>+</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.forecast.total)}</TableCell>
+            <TableCell align="center" sx={{ backgroundColor: '#E8F5E9' }}>=</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#C8E6C9' }}>{formatCurrency(displayData.currentForecast.total)}</TableCell>
             <TableCell 
               align="right"
               sx={{ 
@@ -101,12 +101,12 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
           {/* Capital Row */}
           <TableRow>
             <TableCell sx={{ fontWeight: 'bold' }}>Capital</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.budget.capital)}</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.actuals.capital)}</TableCell>
-            <TableCell align="center">+</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.forecast.capital)}</TableCell>
-            <TableCell align="center">=</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.currentForecast.capital)}</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#BBDEFB' }}>{formatCurrency(displayData.budget.capital)}</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.actuals.capital)}</TableCell>
+            <TableCell align="center" sx={{ backgroundColor: '#E8F5E9' }}>+</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.forecast.capital)}</TableCell>
+            <TableCell align="center" sx={{ backgroundColor: '#E8F5E9' }}>=</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#C8E6C9' }}>{formatCurrency(displayData.currentForecast.capital)}</TableCell>
             <TableCell 
               align="right"
               sx={{ 
@@ -121,12 +121,12 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
           {/* Expense Row */}
           <TableRow>
             <TableCell sx={{ fontWeight: 'bold' }}>Expense</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.budget.expense)}</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.actuals.expense)}</TableCell>
-            <TableCell align="center">+</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.forecast.expense)}</TableCell>
-            <TableCell align="center">=</TableCell>
-            <TableCell align="right">{formatCurrency(displayData.currentForecast.expense)}</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#BBDEFB' }}>{formatCurrency(displayData.budget.expense)}</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.actuals.expense)}</TableCell>
+            <TableCell align="center" sx={{ backgroundColor: '#E8F5E9' }}>+</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.forecast.expense)}</TableCell>
+            <TableCell align="center" sx={{ backgroundColor: '#E8F5E9' }}>=</TableCell>
+            <TableCell align="right" sx={{ backgroundColor: '#C8E6C9' }}>{formatCurrency(displayData.currentForecast.expense)}</TableCell>
             <TableCell 
               align="right"
               sx={{ 

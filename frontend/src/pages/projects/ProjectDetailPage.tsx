@@ -61,7 +61,9 @@ const ProjectDetailPage: React.FC = () => {
   const [isEditingInfo, setIsEditingInfo] = useState(false)
   const [editValues, setEditValues] = useState({
     name: '',
+    business_sponsor: '',
     project_manager: '',
+    technical_lead: '',
     cost_center_code: '',
     start_date: '',
     end_date: '',
@@ -167,7 +169,9 @@ const ProjectDetailPage: React.FC = () => {
     if (project) {
       setEditValues({
         name: project.name,
+        business_sponsor: project.business_sponsor,
         project_manager: project.project_manager,
+        technical_lead: project.technical_lead,
         cost_center_code: project.cost_center_code,
         start_date: project.start_date,
         end_date: project.end_date,
@@ -286,7 +290,7 @@ const ProjectDetailPage: React.FC = () => {
                 )}
               </Box>
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
                     Project Name
                   </Typography>
@@ -302,7 +306,23 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.name}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">
+                    Business Sponsor
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.business_sponsor}
+                      onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.business_sponsor}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
                     Project Manager
                   </Typography>
@@ -318,7 +338,29 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.project_manager}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">
+                    Technical Lead
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.technical_lead}
+                      onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.technical_lead}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">
+                    Program
+                  </Typography>
+                  <Typography variant="body1">{program?.name || 'Loading...'}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
                     Cost Center
                   </Typography>
@@ -334,13 +376,7 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.cost_center_code}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} md={4}>
-                  <Typography variant="caption" color="text.secondary">
-                    Program
-                  </Typography>
-                  <Typography variant="body1">{program?.name || 'Loading...'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
                     Start Date
                   </Typography>
@@ -359,7 +395,7 @@ const ProjectDetailPage: React.FC = () => {
                     </Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
                     End Date
                   </Typography>
