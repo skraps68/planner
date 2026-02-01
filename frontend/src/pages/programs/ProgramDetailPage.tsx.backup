@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -8,6 +8,9 @@ import {
   Grid,
   Button,
   Chip,
+  Divider,
+  Card,
+  CardContent,
   Tabs,
   Tab,
   CircularProgress,
@@ -20,15 +23,11 @@ import {
   TableRow,
   Alert,
   Snackbar,
-  Autocomplete,
 } from '@mui/material'
-import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
+import { Edit, ArrowBack, OpenInNew, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
-import { phasesApi } from '../../api/phases'
-import { getProgramForecast, getProjectForecast } from '../../api/forecast'
-import { transformForecastData } from '../../utils/forecastTransform'
-import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
@@ -51,40 +50,44 @@ const ProgramDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const [tabValue, setTabValue] = React.useState(() => {
-    const params = new URLSearchParams(location.search)
-    const tabParam = params.get('tab')
-    return tabParam ? parseInt(tabParam, 10) : 0
-  })
-  const { canAccessProject } = usePermissions()
-  const [isEditingInfo, setIsEditingInfo] = useState(false)
-  const [editValues, setEditValues] = useState({
-    name: '',
-    business_sponsor: '',
-    program_manager: '',
-    technical_lead: '',
-    start_date: '',
-    end_date: '',
-  })
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean
-    message: string
-    severity: 'success' | 'error'
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
-
-  // Financials tab state
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
-
-  // Get today's date for forecast API
-  const today = useMemo(() => {
-    const date = new Date()
-    return date.toISOString().split('T')[0]
-  }, [])
+import React, { useState, useMemo } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  Button,
+  Chip,
+  Divider,
+  Card,
+  CardContent,
+  Tabs,
+  Tab,
+  CircularProgress,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Alert,
+  Snackbar,
+  Autocomplete,
+} from '@mui/material'
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
+import { Edit, ArrowBack, OpenInNew, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { programsApi } from '../../api/programs'
+import { projectsApi } from '../../api/projects'
+import { phasesApi } from '../../api/phases'
+import { getProgramForecast, getProjectForecast } from '../../api/forecast'
+import { transformForecastData } from '../../utils/forecastTransform'
+import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
+import { Project } from '../../types'
+import { format } from 'date-fns'
+import { usePermissions } from '../../hooks/usePermissions'
 
   const { data: program, isLoading, refetch } = useQuery({
     queryKey: ['program', id],
@@ -101,40 +104,14 @@ const ProgramDetailPage: React.FC = () => {
 
   const projects = projectsData?.items || []
 
-  // Fetch phases for selected project (for Financials tab)
-  const { data: phasesData, isLoading: phasesLoading } = useQuery({
-    queryKey: ['phases', selectedProjectId],
-    queryFn: () => phasesApi.list(selectedProjectId!),
-    enabled: !!selectedProjectId,
-  })
-
-  const phases = phasesData || []
-
-  // Fetch forecast data for Financials tab
-  const { 
-    data: forecastData, 
-    isLoading: forecastLoading,
-    error: forecastError 
-  } = useQuery({
-    queryKey: ['forecast', id, selectedProjectId, selectedPhaseId, today],
-    queryFn: async () => {
-      if (selectedProjectId) {
-        return await getProjectForecast(selectedProjectId, today, selectedPhaseId)
-      }
-      return await getProgramForecast(id!, today)
-    },
-    enabled: !!id && tabValue === 1
-  })
-
-  // Transform forecast data for display
-  const financialTableData = useMemo(() => {
-    if (!forecastData) return null
-    return transformForecastData(forecastData)
-  }, [forecastData])
-
-  // Handle tab change
+  // Handle tab change - navigate to Financials when tab 1 is clicked
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue)
+    if (newValue === 1) {
+      // Navigate to Financials with program pre-selected and remember current tab
+      navigate(`/portfolio?programId=${id}&returnTo=program&returnId=${id}&returnTab=${tabValue}`)
+    } else {
+      setTabValue(newValue)
+    }
   }
 
   const handleSnackbarClose = () => {
@@ -179,15 +156,6 @@ const ProgramDetailPage: React.FC = () => {
     setIsEditingInfo(false)
   }
 
-  const handleProjectChange = (projectId: string | null) => {
-    setSelectedProjectId(projectId)
-    setSelectedPhaseId(null)
-  }
-
-  const handlePhaseChange = (phaseId: string | null) => {
-    setSelectedPhaseId(phaseId)
-  }
-
   // Calculate statistics
   const totalProjects = projects.length
   const now = new Date()
@@ -199,7 +167,9 @@ const ProgramDetailPage: React.FC = () => {
 
   // Calculate total budget from all project phases
   const totalBudget = projects.reduce((sum, project) => {
+    // Sum up all phases for each project
     const projectBudget = (project.phases || []).reduce((phaseSum, phase) => {
+      // Ensure we're adding numbers, not concatenating strings
       return phaseSum + Number(phase.total_budget || 0)
     }, 0)
     return sum + projectBudget
@@ -252,9 +222,6 @@ const ProgramDetailPage: React.FC = () => {
     statusColor = 'default'
   }
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId) || null
-  const selectedPhase = phases.find(p => p.id === selectedPhaseId) || null
-
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -270,7 +237,14 @@ const ProgramDetailPage: React.FC = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
-          <Tab label="Financials" />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                Financials
+                <OpenInNew sx={{ fontSize: 16 }} />
+              </Box>
+            } 
+          />
         </Tabs>
       </Paper>
 
@@ -278,6 +252,37 @@ const ProgramDetailPage: React.FC = () => {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 3, mb: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                {!isEditingInfo ? (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Edit />}
+                    onClick={handleEditInfo}
+                  >
+                    Edit
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<CancelIcon />}
+                      onClick={handleCancelEdit}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<SaveIcon />}
+                      onClick={handleSaveInfo}
+                    >
+                      Save
+                    </Button>
+                  </Box>
+                )}
+              </Box>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
@@ -381,37 +386,6 @@ const ProgramDetailPage: React.FC = () => {
                     </Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} md={6} sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-                  {!isEditingInfo ? (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Edit />}
-                      onClick={handleEditInfo}
-                    >
-                      Edit
-                    </Button>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<CancelIcon />}
-                        onClick={handleCancelEdit}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSaveInfo}
-                      >
-                        Save
-                      </Button>
-                    </Box>
-                  )}
-                </Grid>
               </Grid>
             </Paper>
 
@@ -491,74 +465,7 @@ const ProgramDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Autocomplete
-                    options={projects}
-                    getOptionLabel={(option) => option.name}
-                    value={selectedProject}
-                    onChange={(_, newValue) => handleProjectChange(newValue?.id || null)}
-                    loading={projectsLoading}
-                    disabled={projectsLoading}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Project"
-                        placeholder="All"
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {projectsLoading ? <CircularProgress size={20} /> : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Autocomplete
-                    options={phases}
-                    getOptionLabel={(option) => option.name}
-                    value={selectedPhase}
-                    onChange={(_, newValue) => handlePhaseChange(newValue?.id || null)}
-                    loading={phasesLoading}
-                    disabled={!selectedProjectId || phasesLoading}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Phase"
-                        placeholder="All"
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {phasesLoading ? <CircularProgress size={20} /> : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-          </Grid>
-
-          <Grid item xs={12}>
-            <FinancialSummaryTable
-              data={financialTableData}
-              loading={forecastLoading}
-              error={forecastError ? new Error('Failed to load financial data') : null}
-            />
-          </Grid>
-        </Grid>
+        {/* This tab navigates to Financials page - content not needed */}
       </TabPanel>
 
       <Snackbar

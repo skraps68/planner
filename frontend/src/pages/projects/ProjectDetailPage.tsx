@@ -8,22 +8,22 @@ import {
   Grid,
   Button,
   Chip,
-  Divider,
-  Card,
-  CardContent,
   Tabs,
   Tab,
   Alert,
   Snackbar,
   TextField,
-  IconButton,
-  CircularProgress,
+  Autocomplete,
 } from '@mui/material'
-import { Edit, ArrowBack, OpenInNew, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
 import { programsApi } from '../../api/programs'
+import { phasesApi } from '../../api/phases'
+import { getProjectForecast } from '../../api/forecast'
+import { transformForecastData } from '../../utils/forecastTransform'
 import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
+import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -68,6 +68,7 @@ const ProjectDetailPage: React.FC = () => {
     start_date: '',
     end_date: '',
   })
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
 
   const { data: project, isLoading, refetch } = useQuery({
     queryKey: ['project', id],
@@ -79,6 +80,23 @@ const ProjectDetailPage: React.FC = () => {
     queryKey: ['program', project?.program_id],
     queryFn: () => programsApi.get(project!.program_id),
     enabled: !!project?.program_id,
+  })
+
+  // Fetch phases for the phase dropdown
+  const { data: phases = [] } = useQuery({
+    queryKey: ['phases', id],
+    queryFn: () => phasesApi.list(id!),
+    enabled: !!id && tabValue === 2,
+  })
+
+  // Fetch forecast data based on selection
+  const { data: forecastData } = useQuery({
+    queryKey: ['forecast', 'project', id, selectedPhaseId],
+    queryFn: async () => {
+      const data = await getProjectForecast(id!, selectedPhaseId || undefined)
+      return transformForecastData(data)
+    },
+    enabled: !!id && tabValue === 2,
   })
 
   // Calculate budget statistics from phases
@@ -94,14 +112,9 @@ const ProjectDetailPage: React.FC = () => {
     return sum + Number(phase.expense_budget || 0)
   }, 0)
 
-  // Handle tab change - navigate to Financials when tab 2 is clicked
+  // Handle tab change
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    if (newValue === 2 && project) {
-      // Navigate to Financials with program and project pre-selected and remember current tab
-      navigate(`/portfolio?programId=${project.program_id}&projectId=${id}&returnTo=project&returnId=${id}&returnTab=${tabValue}`)
-    } else {
-      setTabValue(newValue)
-    }
+    setTabValue(newValue)
   }
 
   const handleSnackbarClose = () => {
@@ -243,14 +256,7 @@ const ProjectDetailPage: React.FC = () => {
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
           <Tab label="Assignments" />
-          <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                Financials
-                <OpenInNew sx={{ fontSize: 16 }} />
-              </Box>
-            } 
-          />
+          <Tab label="Financials" />
         </Tabs>
       </Paper>
 
@@ -258,37 +264,6 @@ const ProjectDetailPage: React.FC = () => {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 3, mb: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                {!isEditingInfo ? (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<Edit />}
-                    onClick={handleEditInfo}
-                  >
-                    Edit
-                  </Button>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<CancelIcon />}
-                      onClick={handleCancelEdit}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      startIcon={<SaveIcon />}
-                      onClick={handleSaveInfo}
-                    >
-                      Save
-                    </Button>
-                  </Box>
-                )}
-              </Box>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
@@ -414,6 +389,37 @@ const ProjectDetailPage: React.FC = () => {
                     </Typography>
                   )}
                 </Grid>
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                  {!isEditingInfo ? (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Edit />}
+                      onClick={handleEditInfo}
+                    >
+                      Edit
+                    </Button>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<CancelIcon />}
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<SaveIcon />}
+                        onClick={handleSaveInfo}
+                      >
+                        Save
+                      </Button>
+                    </Box>
+                  )}
+                </Grid>
               </Grid>
             </Paper>
             
@@ -439,7 +445,20 @@ const ProjectDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        {/* This tab navigates to Financials page - content not needed */}
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                options={phases}
+                getOptionLabel={(option: any) => option.name}
+                value={phases.find((p: any) => p.id === selectedPhaseId) || null}
+                onChange={(_, newValue: any) => setSelectedPhaseId(newValue?.id || null)}
+                renderInput={(params) => <TextField {...params} label="Phase" />}
+              />
+            </Grid>
+          </Grid>
+          {forecastData && <FinancialSummaryTable data={forecastData} />}
+        </Paper>
       </TabPanel>
 
       <Snackbar

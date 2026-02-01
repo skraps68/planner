@@ -68,12 +68,12 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
         <TableHead>
           <TableRow>
             <TableCell sx={{ fontWeight: 'bold', minWidth: 100 }}>Category</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120, backgroundColor: '#BBDEFB' }}>Budget</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120, backgroundColor: '#E8F5E9' }}>Actuals</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40, backgroundColor: '#E8F5E9' }}>+</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120, backgroundColor: '#E8F5E9' }}>Forecast</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40, backgroundColor: '#E8F5E9' }}>=</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 140, backgroundColor: '#C8E6C9' }}>Current Forecast</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Budget</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Actuals</TableCell>
+            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40 }}>+</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Forecast</TableCell>
+            <TableCell align="center" sx={{ fontWeight: 'bold', width: 40 }}>=</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 140 }}>Current Forecast</TableCell>
             <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Variance</TableCell>
           </TableRow>
         </TableHead>
