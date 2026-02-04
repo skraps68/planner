@@ -48,7 +48,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
       Budget: capitalBudget,
     },
     {
-      name: 'Actuals + Forecast',
+      name: 'Current Forecast',
       Actuals: parseFloat(data.actuals.capital.toString()),
       Forecast: parseFloat(data.forecast.capital.toString()),
     },
@@ -61,7 +61,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
       Budget: expenseBudget,
     },
     {
-      name: 'Actuals + Forecast',
+      name: 'Current Forecast',
       Actuals: parseFloat(data.actuals.expense.toString()),
       Forecast: parseFloat(data.forecast.expense.toString()),
     },
@@ -74,7 +74,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
       Budget: totalBudget,
     },
     {
-      name: 'Actuals + Forecast',
+      name: 'Current Forecast',
       Actuals: parseFloat(data.actuals.total.toString()),
       Forecast: parseFloat(data.forecast.total.toString()),
     },
@@ -192,7 +192,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
   return (
     <Paper elevation={2} sx={{ p: 3, mt: 3 }}>
       <Typography variant="h6" sx={{ mb: 3 }}>
-        Budget vs Actuals + Forecast
+        Budget vs Current Forecast
       </Typography>
       <Grid container spacing={3}>
         {/* Total Chart */}
