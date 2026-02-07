@@ -104,11 +104,11 @@ const AllocationConflictView = ({ resourceId }: AllocationConflictViewProps) => 
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Resource</TableCell>
-                    <TableCell align="right">Total Allocation</TableCell>
-                    <TableCell>Conflict Type</TableCell>
+                  <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Resource</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Allocation</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Conflict Type</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

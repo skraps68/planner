@@ -245,12 +245,12 @@ const ResourceDetailPage = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Project</TableCell>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Allocation %</TableCell>
-                      <TableCell>Capital %</TableCell>
-                      <TableCell>Expense %</TableCell>
+                    <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Project</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Allocation %</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Capital %</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Expense %</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

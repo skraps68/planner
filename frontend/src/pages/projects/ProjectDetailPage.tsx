@@ -24,6 +24,7 @@ import { transformForecastData } from '../../utils/forecastTransform'
 import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
+import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -43,6 +44,15 @@ const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  
+  // Get program and portfolio context from navigation state
+  const navigationState = location.state as { 
+    programId?: string
+    programName?: string
+    portfolioId?: string
+    portfolioName?: string
+  } | null
+  
   const [tabValue, setTabValue] = useState(() => {
     // Check if there's a tab parameter in the URL
     const params = new URLSearchParams(location.search)
@@ -240,12 +250,46 @@ const ProjectDetailPage: React.FC = () => {
     statusColor = 'default'
   }
 
+  // Build breadcrumbs based on navigation context
+  const breadcrumbItems = [
+    { label: 'Home', path: '/dashboard' },
+    { label: 'Portfolios', path: '/portfolios' },
+  ]
+
+  // If we have portfolio context, show specific portfolio
+  if (navigationState?.portfolioId && navigationState?.portfolioName) {
+    breadcrumbItems.push({
+      label: navigationState.portfolioName,
+      path: `/portfolios/${navigationState.portfolioId}`,
+    })
+  } else {
+    // Otherwise show generic Programs
+    breadcrumbItems.push({ label: 'Programs', path: '/programs' })
+  }
+
+  // If we have program context from navigation, show specific program
+  if (navigationState?.programId && navigationState?.programName) {
+    breadcrumbItems.push({
+      label: navigationState.programName,
+      path: `/programs/${navigationState.programId}`,
+      // Pass portfolio context when clicking on program breadcrumb
+      state: navigationState?.portfolioId && navigationState?.portfolioName ? {
+        portfolioId: navigationState.portfolioId,
+        portfolioName: navigationState.portfolioName,
+      } : undefined,
+    })
+  } else {
+    // Otherwise show generic Projects
+    breadcrumbItems.push({ label: 'Projects', path: '/projects' })
+  }
+
+  breadcrumbItems.push({ label: project.name })
+
   return (
     <Box>
+      <ScopeBreadcrumbs items={breadcrumbItems} />
+
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/projects')} sx={{ mr: 2 }}>
-          Back
-        </Button>
         <Typography variant="h4" sx={{ flexGrow: 1 }}>
           {project.name}
         </Typography>

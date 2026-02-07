@@ -5,10 +5,11 @@ from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.program import Program
 from app.repositories.program import program_repository
+from app.repositories.portfolio import portfolio_repository
 
 
 class ProgramService:
@@ -20,6 +21,7 @@ class ProgramService:
     def create_program(
         self,
         db: Session,
+        portfolio_id: UUID,
         name: str,
         business_sponsor: str,
         program_manager: str,
@@ -33,6 +35,7 @@ class ProgramService:
         
         Args:
             db: Database session
+            portfolio_id: Portfolio ID that this program belongs to
             name: Program name
             business_sponsor: Business sponsor name
             program_manager: Program manager name
@@ -45,8 +48,13 @@ class ProgramService:
             Created program
             
         Raises:
-            ValueError: If validation fails
+            ValueError: If validation fails or portfolio doesn't exist
         """
+        # Validate portfolio exists
+        portfolio = portfolio_repository.get(db, portfolio_id)
+        if not portfolio:
+            raise ValueError(f"Portfolio with ID {portfolio_id} does not exist")
+        
         # Validate date constraints
         if not self.repository.validate_date_constraints(start_date, end_date):
             raise ValueError("Start date must be before end date")
@@ -58,6 +66,7 @@ class ProgramService:
         
         # Create program
         program_data = {
+            "portfolio_id": portfolio_id,
             "name": name,
             "business_sponsor": business_sponsor,
             "program_manager": program_manager,
@@ -70,7 +79,7 @@ class ProgramService:
         return self.repository.create(db, obj_in=program_data)
     
     def get_program(self, db: Session, program_id: UUID) -> Optional[Program]:
-        """Get program by ID."""
+        """Get program by ID with portfolio relationship loaded."""
         return self.repository.get(db, program_id)
     
     def get_program_by_name(self, db: Session, name: str) -> Optional[Program]:
@@ -113,7 +122,8 @@ class ProgramService:
         technical_lead: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        portfolio_id: Optional[UUID] = None
     ) -> Program:
         """
         Update program with validation.
@@ -128,6 +138,7 @@ class ProgramService:
             start_date: Optional new start date
             end_date: Optional new end date
             description: Optional new description
+            portfolio_id: Optional new portfolio ID
             
         Returns:
             Updated program
@@ -142,6 +153,13 @@ class ProgramService:
         
         # Build update data
         update_data = {}
+        
+        if portfolio_id is not None:
+            # Validate portfolio exists
+            portfolio = portfolio_repository.get(db, portfolio_id)
+            if not portfolio:
+                raise ValueError(f"Portfolio with ID {portfolio_id} does not exist")
+            update_data["portfolio_id"] = portfolio_id
         
         if name is not None:
             # Check for duplicate name (excluding current program)

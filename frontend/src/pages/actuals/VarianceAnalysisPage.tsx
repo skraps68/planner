@@ -342,14 +342,14 @@ const VarianceAnalysisPage = () => {
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell width={50}></TableCell>
-              <TableCell>Worker</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell align="right">Forecast %</TableCell>
-              <TableCell align="right">Actual %</TableCell>
-              <TableCell align="right">Variance</TableCell>
-              <TableCell>Type</TableCell>
+            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableCell width={50} sx={{ fontWeight: 'bold' }}></TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Worker</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Forecast %</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actual %</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Variance</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

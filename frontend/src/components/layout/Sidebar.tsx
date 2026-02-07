@@ -22,6 +22,7 @@ import {
   AdminPanelSettings,
   Lock,
   AttachMoney,
+  BusinessCenter,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -37,6 +38,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { text: 'Financials', icon: <AttachMoney />, path: '/portfolio' },
+  { text: 'Portfolios', icon: <BusinessCenter />, path: '/portfolios', requiredPermission: 'view_portfolios' },
   { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs' },
   { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects' },
   { text: 'Resources', icon: <People />, path: '/resources', requiredPermission: 'view_resources' },

@@ -10,6 +10,12 @@ interface BreadcrumbItem {
   label: string
   path?: string
   isScope?: boolean
+  state?: {
+    portfolioId?: string
+    portfolioName?: string
+    programId?: string
+    programName?: string
+  }
 }
 
 interface ScopeBreadcrumbsProps {
@@ -74,7 +80,7 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
               key={index}
               underline="hover"
               color="inherit"
-              onClick={() => navigate(item.path!)}
+              onClick={() => navigate(item.path!, { state: item.state })}
               sx={{
                 cursor: 'pointer',
                 display: 'flex',

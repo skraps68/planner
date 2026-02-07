@@ -192,6 +192,38 @@ def check_all_permissions(*permissions: Permission):
     return permission_checker
 
 
+def check_portfolio_access(
+    portfolio_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Dependency for checking portfolio-level access.
+    
+    Args:
+        portfolio_id: Portfolio ID to check access for
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Current user if has access
+        
+    Raises:
+        InvalidUUIDError: If portfolio ID format is invalid
+        ScopeAccessDeniedError: If user doesn't have access
+    """
+    from app.services.scope_validator import scope_validator_service
+    
+    # Validate UUID format
+    portfolio_uuid = input_validator.validate_uuid(portfolio_id, "portfolio_id")
+    
+    # Check scope access
+    if not scope_validator_service.can_access_portfolio(db, current_user.id, portfolio_uuid):
+        raise ScopeAccessDeniedError("Portfolio", portfolio_uuid)
+    
+    return current_user
+
+
 def check_program_access(
     program_id: str,
     current_user: User = Depends(get_current_active_user),
@@ -254,6 +286,25 @@ def check_project_access(
         raise ScopeAccessDeniedError("Project", project_uuid)
     
     return current_user
+
+
+def get_accessible_portfolios(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+) -> List[UUID]:
+    """
+    Dependency for getting list of accessible portfolio IDs for current user.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        List of accessible portfolio IDs
+    """
+    from app.services.scope_validator import scope_validator_service
+    
+    return scope_validator_service.get_user_accessible_portfolios(db, current_user.id)
 
 
 def get_accessible_programs(

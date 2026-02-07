@@ -24,6 +24,7 @@ import {
 } from '@mui/material'
 import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
+import { portfoliosApi } from '../../api/portfolios'
 import { projectsApi } from '../../api/projects'
 import { phasesApi } from '../../api/phases'
 import { getProgramForecast, getProjectForecast } from '../../api/forecast'
@@ -32,6 +33,7 @@ import { FinancialSummaryTable } from '../../components/portfolio/FinancialSumma
 import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
+import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -51,6 +53,10 @@ const ProgramDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  
+  // Get portfolio context from navigation state
+  const navigationState = location.state as { portfolioId?: string; portfolioName?: string } | null
+  
   const [tabValue, setTabValue] = React.useState(() => {
     const params = new URLSearchParams(location.search)
     const tabParam = params.get('tab')
@@ -65,6 +71,7 @@ const ProgramDetailPage: React.FC = () => {
     technical_lead: '',
     start_date: '',
     end_date: '',
+    portfolio_id: '',
   })
   const [snackbar, setSnackbar] = useState<{
     open: boolean
@@ -92,11 +99,22 @@ const ProgramDetailPage: React.FC = () => {
     enabled: !!id,
   })
 
+  // Fetch all portfolios for the dropdown
+  const { data: portfoliosData } = useQuery({
+    queryKey: ['portfolios'],
+    queryFn: () => portfoliosApi.list({ limit: 1000 }),
+    enabled: isEditingInfo,
+  })
+
+  const portfolios = portfoliosData?.items || []
+
   // Fetch projects for this program
   const { data: projectsData, isLoading: projectsLoading } = useQuery({
     queryKey: ['projects', 'program', id],
     queryFn: () => projectsApi.list({ program_id: id!, limit: 1000 }),
     enabled: !!id,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 
   const projects = projectsData?.items || []
@@ -150,6 +168,7 @@ const ProgramDetailPage: React.FC = () => {
         technical_lead: program.technical_lead,
         start_date: program.start_date,
         end_date: program.end_date,
+        portfolio_id: program.portfolio?.id || '',
       })
       setIsEditingInfo(true)
     }
@@ -222,7 +241,14 @@ const ProgramDetailPage: React.FC = () => {
   const handleProjectRowClick = (project: Project) => {
     const projectAccess = canAccessProject(project.id, project.program_id)
     if (projectAccess.hasPermission) {
-      navigate(`/projects/${project.id}`)
+      navigate(`/projects/${project.id}`, {
+        state: {
+          portfolioId: navigationState?.portfolioId || program?.portfolio?.id,
+          portfolioName: navigationState?.portfolioName || program?.portfolio?.name,
+          programId: program?.id,
+          programName: program?.name,
+        },
+      })
     }
   }
 
@@ -255,12 +281,30 @@ const ProgramDetailPage: React.FC = () => {
   const selectedProject = projects.find(p => p.id === selectedProjectId) || null
   const selectedPhase = phases.find(p => p.id === selectedPhaseId) || null
 
+  // Build breadcrumbs based on navigation context
+  const breadcrumbItems = [
+    { label: 'Home', path: '/dashboard' },
+    { label: 'Portfolios', path: '/portfolios' },
+  ]
+
+  // If we have portfolio context from navigation, show specific portfolio
+  if (navigationState?.portfolioId && navigationState?.portfolioName) {
+    breadcrumbItems.push({
+      label: navigationState.portfolioName,
+      path: `/portfolios/${navigationState.portfolioId}`,
+    })
+  } else {
+    // Otherwise show generic Programs
+    breadcrumbItems.push({ label: 'Programs', path: '/programs' })
+  }
+
+  breadcrumbItems.push({ label: program.name })
+
   return (
     <Box>
+      <ScopeBreadcrumbs items={breadcrumbItems} />
+
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/programs')} sx={{ mr: 2 }}>
-          Back
-        </Button>
         <Typography variant="h4" sx={{ flexGrow: 1 }}>
           {program.name}
         </Typography>
@@ -345,6 +389,31 @@ const ProgramDetailPage: React.FC = () => {
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
+                    Portfolio
+                  </Typography>
+                  {isEditingInfo ? (
+                    <Autocomplete
+                      options={portfolios}
+                      getOptionLabel={(option) => option.name}
+                      value={portfolios.find((p) => p.id === editValues.portfolio_id) || null}
+                      onChange={(_, newValue) =>
+                        setEditValues({ ...editValues, portfolio_id: newValue?.id || '' })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          size="small"
+                          placeholder="Select Portfolio"
+                          sx={{ mt: 0.5 }}
+                        />
+                      )}
+                    />
+                  ) : (
+                    <Typography variant="body1">{program.portfolio?.name || 'N/A'}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">
                     Start Date
                   </Typography>
                   {isEditingInfo ? (
@@ -422,13 +491,13 @@ const ProgramDetailPage: React.FC = () => {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Project Name</TableCell>
-                      <TableCell>Start Date</TableCell>
-                      <TableCell>End Date</TableCell>
-                      <TableCell align="right">Capital Budget</TableCell>
-                      <TableCell align="right">Expense Budget</TableCell>
-                      <TableCell align="right">Total Budget</TableCell>
+                    <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Project Name</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>End Date</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital Budget</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense Budget</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

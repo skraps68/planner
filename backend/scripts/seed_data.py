@@ -10,6 +10,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
+from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
@@ -37,18 +38,39 @@ def clear_database(db: Session):
     db.query(ProjectPhase).delete()
     db.query(Project).delete()
     db.query(Program).delete()
+    db.query(Portfolio).delete()
     
     db.commit()
     print("Database cleared.")
 
 
-def create_programs(db: Session) -> dict:
+def create_portfolio(db: Session) -> Portfolio:
+    """Create default portfolio."""
+    print("Creating default portfolio...")
+    
+    portfolio = Portfolio(
+        id=uuid4(),
+        name="Default Portfolio",
+        description="Default portfolio for all programs",
+        owner="System Administrator",
+        reporting_start_date=date(2024, 1, 1),
+        reporting_end_date=date(2026, 12, 31)
+    )
+    
+    db.add(portfolio)
+    db.commit()
+    print(f"Created portfolio: {portfolio.name}")
+    return portfolio
+
+
+def create_programs(db: Session, portfolio: Portfolio) -> dict:
     """Create sample programs."""
     print("Creating programs...")
     
     programs = {
         "digital_transformation": Program(
             id=uuid4(),
+            portfolio_id=portfolio.id,
             name="Digital Transformation Initiative",
             business_sponsor="Jane Smith",
             program_manager="John Doe",
@@ -59,6 +81,7 @@ def create_programs(db: Session) -> dict:
         ),
         "infrastructure_modernization": Program(
             id=uuid4(),
+            portfolio_id=portfolio.id,
             name="Infrastructure Modernization",
             business_sponsor="Bob Wilson",
             program_manager="Carol Davis",
@@ -69,6 +92,7 @@ def create_programs(db: Session) -> dict:
         ),
         "customer_experience": Program(
             id=uuid4(),
+            portfolio_id=portfolio.id,
             name="Customer Experience Enhancement",
             business_sponsor="Emily Taylor",
             program_manager="Frank Miller",
@@ -996,7 +1020,8 @@ def main():
         clear_database(db)
         
         # Create all seed data
-        programs = create_programs(db)
+        portfolio = create_portfolio(db)
+        programs = create_programs(db, portfolio)
         projects, phases = create_projects(db, programs)
         worker_types = create_worker_types_and_rates(db)
         workers = create_workers(db, worker_types)

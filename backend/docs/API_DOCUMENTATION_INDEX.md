@@ -27,7 +27,14 @@ The API provides interactive documentation through FastAPI's built-in tools:
 
 ### Core Resources
 
-- **[Phase Management API](./PHASE_API.md)** ⭐ NEW
+- **[Portfolio Management API](./PORTFOLIO_API.md)** ⭐ NEW
+  - Portfolio CRUD operations
+  - Portfolio-Program relationship management
+  - Scope-based access control
+  - Default portfolio migration
+  - Audit logging integration
+
+- **[Phase Management API](./PHASE_API.md)**
   - User-definable project phases
   - Timeline continuity validation
   - Batch operations
@@ -46,6 +53,7 @@ Other endpoints are documented through the interactive Swagger UI at `/docs`. Na
 - **authentication** - User authentication and JWT tokens
 - **users** - User management and role assignment
 - **audit** - Audit log queries
+- **portfolios** - Portfolio management (see [Portfolio API](./PORTFOLIO_API.md))
 - **programs** - Program management
 - **projects** - Project management
 - **resources** - Resource management
@@ -190,7 +198,22 @@ For questions or issues:
 
 ## Recent Updates
 
-### Phase Management API (Latest)
+### Portfolio Management API (Latest)
+
+The Portfolio Management API introduces a new top-level organizational entity:
+
+- **New Feature**: Portfolio entity sits above Programs in the hierarchy (Portfolio → Program → Project)
+- **New Endpoints**: Full CRUD operations for portfolios
+- **Migration Required**: Automatic creation of default portfolio and program reassignment
+- **Key Features**:
+  - Portfolio-Program one-to-many relationship
+  - Deletion protection for portfolios with programs
+  - Scope-based access control integration
+  - Comprehensive audit logging
+
+For complete details, see [PORTFOLIO_API.md](./PORTFOLIO_API.md).
+
+### Phase Management API
 
 The Phase Management API has been completely redesigned to support user-definable phases:
 

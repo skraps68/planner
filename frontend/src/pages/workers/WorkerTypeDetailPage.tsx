@@ -252,11 +252,11 @@ const WorkerTypeDetailPage = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Rate Amount</TableCell>
-                      <TableCell>Start Date</TableCell>
-                      <TableCell>End Date</TableCell>
-                      <TableCell>Status</TableCell>
+                    <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Rate Amount</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>End Date</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

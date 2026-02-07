@@ -48,13 +48,13 @@ const AllocationConflictDialog = ({
         <TableContainer>
           <Table size="small">
             <TableHead>
-              <TableRow>
-                <TableCell>Worker</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Existing Allocation</TableCell>
-                <TableCell align="right">New Allocation</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell>Status</TableCell>
+              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                <TableCell sx={{ fontWeight: 'bold' }}>Worker</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Existing Allocation</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>New Allocation</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

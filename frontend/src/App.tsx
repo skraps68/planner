@@ -31,6 +31,9 @@ import UserFormPage from './pages/admin/UserFormPage'
 import UserRolesPage from './pages/admin/UserRolesPage'
 import RoleScopesPage from './pages/admin/RoleScopesPage'
 import UserAuditPage from './pages/admin/UserAuditPage'
+import PortfoliosListPage from './pages/portfolios/PortfoliosListPage'
+import PortfolioDetailPage from './pages/portfolios/PortfolioDetailPage'
+import PortfolioFormPage from './pages/portfolios/PortfolioFormPage'
 
 function App() {
   return (
@@ -47,7 +50,11 @@ function App() {
                     <Route path="/" element={<Navigate to="/portfolio" replace />} />
                     <Route path="/portfolio" element={<PortfolioDashboardPage />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/portfolios" element={<PortfoliosListPage />} />
+                    <Route path="/portfolios/new" element={<PortfolioFormPage />} />
+                    <Route path="/portfolios/:id" element={<PortfolioDetailPage />} />
                     <Route path="/programs" element={<ProgramsListPage />} />
+                    <Route path="/programs/new" element={<ProgramFormPage />} />
                     <Route path="/programs/:id" element={<ProgramDetailPage />} />
                     <Route path="/programs/:id/edit" element={<ProgramFormPage />} />
                     <Route path="/projects" element={<ProjectsListPage />} />

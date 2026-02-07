@@ -8,6 +8,7 @@ export interface ProgramCreateRequest {
   technical_lead: string
   start_date: string
   end_date: string
+  portfolio_id: string
 }
 
 export interface ProgramUpdateRequest extends Partial<ProgramCreateRequest> {}

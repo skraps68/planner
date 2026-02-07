@@ -9,9 +9,15 @@ import {
   Button,
   Grid,
   Alert,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  FormHelperText,
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
 import { programsApi, ProgramCreateRequest } from '../../api/programs'
+import { portfoliosApi } from '../../api/portfolios'
 import { format } from 'date-fns'
 
 const ProgramFormPage: React.FC = () => {
@@ -27,13 +33,20 @@ const ProgramFormPage: React.FC = () => {
     technical_lead: '',
     start_date: format(new Date(), 'yyyy-MM-dd'),
     end_date: format(new Date(), 'yyyy-MM-dd'),
+    portfolio_id: '',
   })
   const [error, setError] = useState('')
+  const [portfolioError, setPortfolioError] = useState('')
 
   const { data: program, isLoading } = useQuery({
     queryKey: ['program', id],
     queryFn: () => programsApi.get(id!),
     enabled: isEdit,
+  })
+
+  const { data: portfoliosData, isLoading: isLoadingPortfolios } = useQuery({
+    queryKey: ['portfolios'],
+    queryFn: () => portfoliosApi.list({ limit: 1000 }),
   })
 
   useEffect(() => {
@@ -45,6 +58,7 @@ const ProgramFormPage: React.FC = () => {
         technical_lead: program.technical_lead,
         start_date: program.start_date,
         end_date: program.end_date,
+        portfolio_id: program.portfolio_id,
       })
     }
   }, [program])
@@ -75,6 +89,12 @@ const ProgramFormPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setPortfolioError('')
+
+    if (!formData.portfolio_id) {
+      setPortfolioError('Portfolio selection is required')
+      return
+    }
 
     if (new Date(formData.start_date) >= new Date(formData.end_date)) {
       setError('End date must be after start date')
@@ -124,6 +144,30 @@ const ProgramFormPage: React.FC = () => {
                 onChange={(e) => handleChange('name', e.target.value)}
                 required
               />
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControl fullWidth required error={!!portfolioError}>
+                <InputLabel id="portfolio-select-label">Portfolio</InputLabel>
+                <Select
+                  labelId="portfolio-select-label"
+                  id="portfolio-select"
+                  value={formData.portfolio_id}
+                  label="Portfolio"
+                  onChange={(e) => {
+                    handleChange('portfolio_id', e.target.value)
+                    setPortfolioError('')
+                  }}
+                  disabled={isLoadingPortfolios}
+                >
+                  {portfoliosData?.items.map((portfolio) => (
+                    <MenuItem key={portfolio.id} value={portfolio.id}>
+                      {portfolio.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {portfolioError && <FormHelperText>{portfolioError}</FormHelperText>}
+              </FormControl>
             </Grid>
 
             <Grid item xs={12} md={6}>

@@ -265,9 +265,9 @@ const ActualsImportPage = () => {
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Row</TableCell>
-                    <TableCell>Errors</TableCell>
+                  <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Row</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Errors</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -299,12 +299,12 @@ const ActualsImportPage = () => {
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Worker</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell align="right">Existing</TableCell>
-                    <TableCell align="right">New</TableCell>
-                    <TableCell align="right">Total</TableCell>
+                  <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Worker</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Existing</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>New</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

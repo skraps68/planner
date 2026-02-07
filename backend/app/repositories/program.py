@@ -6,7 +6,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.program import Program
 from app.repositories.base import BaseRepository
@@ -18,24 +18,32 @@ class ProgramRepository(BaseRepository[Program]):
     def __init__(self):
         super().__init__(Program)
     
+    def get(self, db: Session, id: UUID) -> Optional[Program]:
+        """Get program by ID with portfolio relationship loaded."""
+        return db.query(Program).options(joinedload(Program.portfolio)).filter(Program.id == id).first()
+    
+    def get_multi(self, db: Session, *, skip: int = 0, limit: int = 100) -> List[Program]:
+        """Get multiple programs with portfolio relationship loaded."""
+        return db.query(Program).options(joinedload(Program.portfolio)).offset(skip).limit(limit).all()
+    
     def get_by_name(self, db: Session, name: str) -> Optional[Program]:
-        """Get program by name."""
-        return db.query(Program).filter(Program.name == name).first()
+        """Get program by name with portfolio relationship loaded."""
+        return db.query(Program).options(joinedload(Program.portfolio)).filter(Program.name == name).first()
     
     def get_by_manager(self, db: Session, manager: str) -> List[Program]:
-        """Get programs by program manager."""
-        return db.query(Program).filter(Program.program_manager == manager).all()
+        """Get programs by program manager with portfolio relationship loaded."""
+        return db.query(Program).options(joinedload(Program.portfolio)).filter(Program.program_manager == manager).all()
     
     def get_by_sponsor(self, db: Session, sponsor: str) -> List[Program]:
-        """Get programs by business sponsor."""
-        return db.query(Program).filter(Program.business_sponsor == sponsor).all()
+        """Get programs by business sponsor with portfolio relationship loaded."""
+        return db.query(Program).options(joinedload(Program.portfolio)).filter(Program.business_sponsor == sponsor).all()
     
     def get_active_programs(self, db: Session, as_of_date: Optional[date] = None) -> List[Program]:
-        """Get programs that are active on a given date (default: today)."""
+        """Get programs that are active on a given date (default: today) with portfolio relationship loaded."""
         if as_of_date is None:
             as_of_date = date.today()
         
-        return db.query(Program).filter(
+        return db.query(Program).options(joinedload(Program.portfolio)).filter(
             and_(
                 Program.start_date <= as_of_date,
                 Program.end_date >= as_of_date
@@ -48,7 +56,7 @@ class ProgramRepository(BaseRepository[Program]):
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> List[Program]:
-        """Get programs that overlap with a date range."""
+        """Get programs that overlap with a date range with portfolio relationship loaded."""
         filters = []
         
         if start_date:
@@ -57,13 +65,13 @@ class ProgramRepository(BaseRepository[Program]):
             filters.append(Program.start_date <= end_date)
         
         if filters:
-            return db.query(Program).filter(and_(*filters)).all()
+            return db.query(Program).options(joinedload(Program.portfolio)).filter(and_(*filters)).all()
         else:
             return self.get_multi(db)
     
     def search_by_name(self, db: Session, search_term: str) -> List[Program]:
-        """Search programs by name (case-insensitive partial match)."""
-        return db.query(Program).filter(
+        """Search programs by name (case-insensitive partial match) with portfolio relationship loaded."""
+        return db.query(Program).options(joinedload(Program.portfolio)).filter(
             Program.name.ilike(f"%{search_term}%")
         ).all()
     

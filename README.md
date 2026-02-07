@@ -4,13 +4,14 @@ A comprehensive enterprise application for managing hierarchical programs and pr
 
 ## Features
 
-- **Hierarchical Program/Project Management**: Organize projects under programs with complete lifecycle tracking
+- **Portfolio Management**: Top-level organizational entity for grouping programs under strategic initiatives
+- **Hierarchical Program/Project Management**: Organize projects under programs with complete lifecycle tracking (Portfolio → Program → Project)
 - **User-Definable Project Phases**: Flexible timeline management with continuous, non-overlapping phases (replaces fixed Planning/Execution)
 - **Resource Allocation**: Manage both labor and non-labor resources with conflict detection
 - **Budget Tracking**: Capital/expense splits with real-time budget vs actual reporting
 - **Actuals Import**: CSV-based import with allocation validation and variance analysis
 - **Cost Forecasting**: Dynamic cost projections based on resource assignments and rates
-- **Scoped Permissions**: Role-based access control with program-level and project-level scoping
+- **Scoped Permissions**: Role-based access control with portfolio, program-level and project-level scoping
 - **Comprehensive Audit Trails**: Track all data modifications with user attribution
 - **Variance Analysis**: Compare actual vs forecasted allocations with exception reporting
 
@@ -93,6 +94,7 @@ See the deployment documentation for detailed setup instructions.
 planner/
 ├── .kiro/specs/                 # Project specifications
 │   ├── planner/                 # Original planner spec
+│   ├── portfolio-entity/        # Portfolio management spec
 │   ├── user-definable-phases/   # Phase system redesign spec
 │   └── portfolio-dashboard/     # Portfolio dashboard spec
 ├── backend/                     # FastAPI application
@@ -106,6 +108,7 @@ planner/
 │   │   └── main.py             # FastAPI app entry point
 │   ├── docs/                    # API documentation
 │   │   ├── README.md           # Documentation index
+│   │   ├── PORTFOLIO_API.md    # Portfolio management API
 │   │   ├── PHASE_API.md        # Phase management API
 │   │   └── ...                 # Other documentation
 │   ├── tests/                   # Test suite
@@ -113,6 +116,9 @@ planner/
 │   ├── requirements.txt         # Python dependencies
 │   └── pytest.ini             # Test configuration
 ├── frontend/                    # React application
+├── docs/                        # User documentation
+│   ├── PORTFOLIO_USER_GUIDE.md # Portfolio feature guide
+│   └── deployment/             # Deployment documentation
 ├── scripts/                     # Development scripts
 ├── infrastructure/              # AWS deployment configs
 ├── docker-compose.yml           # Local development setup
@@ -134,8 +140,17 @@ This project follows a spec-driven development approach:
 
 ## Key Business Capabilities
 
+### Portfolio Management (NEW)
+- **Strategic Organization**: Group programs under portfolio umbrellas
+- **Executive Visibility**: High-level views of major initiatives
+- **Portfolio-Program Relationship**: One-to-many relationship with referential integrity
+- **Deletion Protection**: Prevent accidental deletion of portfolios with programs
+- **Scope-Based Access**: Control access at portfolio, program, and project levels
+- **Audit Logging**: Track all portfolio operations with user attribution
+
 ### Program Management
 - Create and manage programs with essential attributes
+- Associate programs with portfolios for strategic alignment
 - Associate multiple projects under program umbrellas
 - Program-level budget aggregation and reporting
 
@@ -171,7 +186,8 @@ This project follows a spec-driven development approach:
 - Variance reporting comparing actual vs planned work
 
 ### Scoped Permissions
-- Role-based access control (Admin, Program Manager, Project Manager, etc.)
+- Role-based access control (Admin, Portfolio Manager, Program Manager, Project Manager, etc.)
+- Portfolio-level scope (access to portfolio + all its programs and projects)
 - Program-level scope (access to program + all its projects)
 - Project-level scope (access to specific projects only)
 - Multi-scope support for complex organizational structures
@@ -186,10 +202,14 @@ This project follows a spec-driven development approach:
 
 ## Documentation
 
+### User Guides
+- **Portfolio Management**: [docs/PORTFOLIO_USER_GUIDE.md](docs/PORTFOLIO_USER_GUIDE.md)
+
 ### API Documentation
 - **Interactive Swagger UI**: http://localhost:8000/docs
 - **ReDoc Format**: http://localhost:8000/redoc
 - **Documentation Index**: [backend/docs/API_DOCUMENTATION_INDEX.md](backend/docs/API_DOCUMENTATION_INDEX.md)
+- **Portfolio Management API**: [backend/docs/PORTFOLIO_API.md](backend/docs/PORTFOLIO_API.md)
 - **Phase Management API**: [backend/docs/PHASE_API.md](backend/docs/PHASE_API.md)
 - **Quick Reference**: [backend/docs/PHASE_API_QUICK_REFERENCE.md](backend/docs/PHASE_API_QUICK_REFERENCE.md)
 

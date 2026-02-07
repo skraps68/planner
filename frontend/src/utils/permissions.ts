@@ -1,6 +1,10 @@
 import { User } from '../store/slices/authSlice'
 
 export type Permission = 
+  | 'view_portfolios'
+  | 'create_portfolios'
+  | 'edit_portfolios'
+  | 'delete_portfolios'
   | 'view_programs'
   | 'create_programs'
   | 'edit_programs'
@@ -27,6 +31,10 @@ export interface PermissionCheck {
 // Role-based permissions mapping
 const rolePermissions: Record<string, Permission[]> = {
   ADMIN: [
+    'view_portfolios',
+    'create_portfolios',
+    'edit_portfolios',
+    'delete_portfolios',
     'view_programs',
     'create_programs',
     'edit_programs',
@@ -46,6 +54,7 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_audit',
   ],
   PROGRAM_MANAGER: [
+    'view_portfolios',
     'view_programs',
     'edit_programs',
     'view_projects',
@@ -59,6 +68,7 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_reports',
   ],
   PROJECT_MANAGER: [
+    'view_portfolios',
     'view_programs',
     'view_projects',
     'edit_projects',
@@ -70,6 +80,7 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_reports',
   ],
   FINANCE_MANAGER: [
+    'view_portfolios',
     'view_programs',
     'view_projects',
     'view_resources',
@@ -79,6 +90,7 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_reports',
   ],
   RESOURCE_MANAGER: [
+    'view_portfolios',
     'view_programs',
     'view_projects',
     'view_resources',
@@ -89,6 +101,7 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_reports',
   ],
   VIEWER: [
+    'view_portfolios',
     'view_programs',
     'view_projects',
     'view_resources',

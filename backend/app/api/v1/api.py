@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     programs, projects, resources, workers, rates, 
-    assignments, actuals, reports, auth, users, audit, phases
+    assignments, actuals, reports, auth, users, audit, phases, portfolios
 )
 
 api_router = APIRouter()
@@ -14,6 +14,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
+api_router.include_router(portfolios.router, prefix="/portfolios", tags=["portfolios"])
 api_router.include_router(programs.router, prefix="/programs", tags=["programs"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(phases.router, prefix="", tags=["phases"])  # No prefix, uses paths from router
@@ -39,6 +40,7 @@ async def api_info():
             "auth": "/api/v1/auth",
             "users": "/api/v1/users",
             "audit": "/api/v1/audit",
+            "portfolios": "/api/v1/portfolios",
             "programs": "/api/v1/programs",
             "projects": "/api/v1/projects",
             "phases": "/api/v1/phases",

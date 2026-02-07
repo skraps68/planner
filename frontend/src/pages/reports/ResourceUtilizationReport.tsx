@@ -165,14 +165,14 @@ const ResourceUtilizationReport: React.FC = () => {
     <TableContainer component={Paper}>
       <Table>
         <TableHead>
-          <TableRow>
-            <TableCell>Resource Name</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell align="right">Avg Allocation %</TableCell>
-            <TableCell align="right">Days Utilized</TableCell>
-            <TableCell align="right">Total Days</TableCell>
-            <TableCell align="right">Utilization %</TableCell>
-            <TableCell>Status</TableCell>
+          <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+            <TableCell sx={{ fontWeight: 'bold' }}>Resource Name</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Avg Allocation %</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Days Utilized</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Days</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Utilization %</TableCell>
+            <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

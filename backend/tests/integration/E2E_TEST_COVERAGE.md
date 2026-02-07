@@ -15,7 +15,20 @@ This document summarizes the end-to-end integration test coverage for the planne
 - ✅ Budget validation and tracking
 - ✅ Data integrity across operations
 
-### 2. Resource Assignment and Actuals Import Workflows with Permissions
+### 2. Portfolio CRUD Workflows
+
+**Covered by:** `test_portfolio_crud_e2e.py`
+
+- ✅ Portfolio creation flow (create → verify in list)
+- ✅ Portfolio view and edit flow (view → edit → save → verify)
+- ✅ Portfolio deletion without programs (succeeds)
+- ✅ Portfolio deletion with programs (fails with 409 error)
+- ✅ Program creation with portfolio selection
+- ✅ Program creation without portfolio (fails with validation error)
+- ✅ Program creation with invalid portfolio (fails with error)
+- ✅ Portfolio-program relationship verification
+
+### 3. Resource Assignment and Actuals Import Workflows with Permissions
 
 **Covered by:** `test_resource_api.py`, `test_assignment_api.py`, `test_actuals_api.py`
 
@@ -27,7 +40,7 @@ This document summarizes the end-to-end integration test coverage for the planne
 - ✅ Cost calculation with capital/expense splits
 - ✅ Allocation conflict detection
 
-### 3. Forecasting and Reporting Functionality with Scope Filtering
+### 4. Forecasting and Reporting Functionality with Scope Filtering
 
 **Covered by:** `test_reports_api.py`
 
@@ -37,7 +50,7 @@ This document summarizes the end-to-end integration test coverage for the planne
 - ✅ Program and project level aggregation
 - ✅ Scope-based report filtering
 
-### 4. Role Switching and Scope Assignment Workflows
+### 5. Role Switching and Scope Assignment Workflows
 
 **Covered by:** `test_auth_api.py`, `test_user_api.py`
 
@@ -47,7 +60,7 @@ This document summarizes the end-to-end integration test coverage for the planne
 - ✅ Role switching for multi-role users
 - ✅ Permission validation
 
-### 5. API Endpoints with Authentication
+### 6. API Endpoints with Authentication
 
 **Covered by:** All integration test files
 
@@ -57,7 +70,7 @@ This document summarizes the end-to-end integration test coverage for the planne
 - ✅ Token-based authentication
 - ✅ Unauthorized access denial
 
-### 6. Error Handling and Edge Cases
+### 7. Error Handling and Edge Cases
 
 **Covered by:** `test_middleware_integration.py`, `test_error_handlers.py`, various API tests
 
@@ -70,7 +83,7 @@ This document summarizes the end-to-end integration test coverage for the planne
 - ✅ CORS handling
 - ✅ Security headers
 
-### 7. User-Definable Phase Lifecycle
+### 8. User-Definable Phase Lifecycle
 
 **Covered by:** `test_phase_lifecycle_e2e.py`
 
@@ -91,6 +104,9 @@ python -m pytest tests/integration/ -v
 
 Run specific test suites:
 ```bash
+# Portfolio CRUD workflows
+python -m pytest tests/integration/test_portfolio_crud_e2e.py -v
+
 # Program and project workflows
 python -m pytest tests/integration/test_program_api.py tests/integration/test_project_api.py -v
 
@@ -115,20 +131,22 @@ python -m pytest tests/integration/test_phase_lifecycle_e2e.py -v
 The existing integration tests provide comprehensive end-to-end coverage of:
 
 1. **Complete user journeys** from authentication through data operations
-2. **Scope-based permissions** at program and project levels
-3. **Data validation** and business rule enforcement
-4. **Error handling** across all layers
-5. **Security controls** including authentication, authorization, and scope isolation
-6. **User-definable phase lifecycle** including creation, updates, deletion, and reporting
-7. **Phase-based budget tracking** and aggregations
+2. **Portfolio CRUD operations** including creation, viewing, editing, and deletion
+3. **Portfolio-program relationships** with referential integrity enforcement
+4. **Scope-based permissions** at program and project levels
+5. **Data validation** and business rule enforcement
+6. **Error handling** across all layers
+7. **Security controls** including authentication, authorization, and scope isolation
+8. **User-definable phase lifecycle** including creation, updates, deletion, and reporting
+9. **Phase-based budget tracking** and aggregations
 
-All requirements from 1.1 through 11.7 are covered by the existing integration test suite.
+All requirements from 1.1 through 11.8 are covered by the existing integration test suite.
 
 ## Test Statistics
 
-- Total integration test files: 13
-- Total integration test classes: 42+
-- Total integration test methods: 155+
+- Total integration test files: 14
+- Total integration test classes: 46+
+- Total integration test methods: 163+
 - Coverage: >80% of application code
 
 ## Recommendations

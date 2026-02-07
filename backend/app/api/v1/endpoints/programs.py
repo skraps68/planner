@@ -45,6 +45,7 @@ async def create_program(
     - technical_lead: Technical lead name
     - start_date: Program start date
     - end_date: Program end date (must be after start_date)
+    - portfolio_id: Portfolio ID that this program belongs to
     
     Optional fields:
     - description: Program description
@@ -52,6 +53,7 @@ async def create_program(
     try:
         program = program_service.create_program(
             db=db,
+            portfolio_id=program_in.portfolio_id,
             name=program_in.name,
             business_sponsor=program_in.business_sponsor,
             program_manager=program_in.program_manager,
@@ -238,6 +240,7 @@ async def update_program(
     
     All fields are optional. Only provided fields will be updated.
     Date validation is applied if dates are updated.
+    Portfolio can be changed by providing a new portfolio_id.
     """
     try:
         program = program_service.update_program(
@@ -249,7 +252,8 @@ async def update_program(
             technical_lead=program_in.technical_lead,
             start_date=program_in.start_date,
             end_date=program_in.end_date,
-            description=program_in.description
+            description=program_in.description,
+            portfolio_id=program_in.portfolio_id
         )
         
         response = ProgramResponse.model_validate(program)

@@ -264,9 +264,9 @@ const PortfolioDashboardPage: React.FC = () => {
           )}
 
           {/* Chart Section Placeholder - Full width on all screens */}
-          {selectedProgramId && (
+          {selectedProgramId && financialTableData && (
             <Grid item xs={12}>
-              <ChartSection />
+              <ChartSection data={financialTableData} />
             </Grid>
           )}
         </Grid>

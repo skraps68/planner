@@ -112,6 +112,7 @@ const ProgramsListPage: React.FC = () => {
       <ScopeBreadcrumbs
         items={[
           { label: 'Home', path: '/dashboard' },
+          { label: 'Portfolios', path: '/portfolios' },
           { label: 'Programs' },
         ]}
       />
@@ -162,6 +163,12 @@ const ProgramsListPage: React.FC = () => {
           disableRowSelectionOnClick
           onRowClick={handleRowClick}
           sx={{
+            '& .MuiDataGrid-columnHeaders': {
+              fontWeight: 'bold',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 'bold',
+            },
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
               transition: 'all 0.2s ease',

@@ -45,14 +45,22 @@
 
 - need to add concept of budget as an original forecast so that the budget is actually a time series. this tracks well with the concept of change sets, since the budget can just be another change set.
 
+- this means that a budget is nothing more than a bunch of assignments associated with projects but that are special, up-front assignment and would need to support nameless resources.
+
 - for editing phases add a widget that allows sliding of a "divider" between phases. you can right-click and "add" a phase, then adjust the dates simply by sliding.
 
 - probably need to create requirement that all workers, whether labor resources, project managers, business sponsors, or technical leads, are loaded into the worker table.
 
-- on the phase editing screen, need a way to indicate modified fields and modified rows so that the user knows what the change set is
-
 - program editing screen should not allows dates to be changed. rather it should set start/end based on contained projects. sort of like projects and phases, but without the contiguous requirement
 
-- make the header rows in the Programs list and Projects list bolded
+- need to add approval workflows for program and project creation
+
+- add hyperlinks to allow jumping for project details to the enclosing portfolio and from program details to the enclosing portfolio
+
+- add some drag capabilities for editing resource assignments to make it easier to enter the data, e.g. drag 100% or some fixed percent to the right or left.
+
+-------------------------------
 
 - collapse project overview and phases tab together. there is no need to keep these separate. need to make sure project fields are still editable, maybe on screen without jumping to a new screen.
+
+- make the header rows in the Programs list and Projects list bolded

@@ -66,7 +66,7 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
     <TableContainer component={Paper} sx={{ mb: 3, overflowX: 'auto' }}>
       <Table sx={{ minWidth: 650 }}>
         <TableHead>
-          <TableRow>
+          <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
             <TableCell sx={{ fontWeight: 'bold', minWidth: 100 }}>Category</TableCell>
             <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Budget</TableCell>
             <TableCell align="right" sx={{ fontWeight: 'bold', minWidth: 120 }}>Actuals</TableCell>

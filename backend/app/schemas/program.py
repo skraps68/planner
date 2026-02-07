@@ -2,12 +2,15 @@
 Program-related Pydantic schemas.
 """
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import Field, field_validator
 
 from .base import BaseSchema, TimestampMixin, PaginatedResponse
+
+if TYPE_CHECKING:
+    from .portfolio import PortfolioSummary
 
 
 class ProgramBase(BaseSchema):
@@ -32,7 +35,8 @@ class ProgramBase(BaseSchema):
 
 class ProgramCreate(ProgramBase):
     """Schema for creating a new program."""
-    pass
+    
+    portfolio_id: UUID = Field(description="Portfolio ID that this program belongs to")
 
 
 class ProgramUpdate(BaseSchema):
@@ -45,6 +49,7 @@ class ProgramUpdate(BaseSchema):
     start_date: Optional[date] = Field(default=None, description="Program start date")
     end_date: Optional[date] = Field(default=None, description="Program end date")
     description: Optional[str] = Field(default=None, max_length=1000, description="Program description")
+    portfolio_id: Optional[UUID] = Field(default=None, description="Portfolio ID that this program belongs to")
     
     @field_validator('end_date')
     @classmethod
@@ -59,6 +64,8 @@ class ProgramUpdate(BaseSchema):
 class ProgramResponse(ProgramBase, TimestampMixin):
     """Schema for program response."""
     
+    portfolio_id: UUID = Field(description="Portfolio ID that this program belongs to")
+    portfolio: Optional['PortfolioSummary'] = Field(default=None, description="Portfolio information")
     project_count: Optional[int] = Field(default=0, description="Number of projects in this program")
 
 
@@ -76,3 +83,8 @@ class ProgramSummary(BaseSchema):
     start_date: date
     end_date: date
     project_count: int = Field(default=0, description="Number of projects in this program")
+
+
+# Resolve forward references
+from .portfolio import PortfolioSummary  # noqa: E402
+ProgramResponse.model_rebuild()

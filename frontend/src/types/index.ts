@@ -8,6 +8,11 @@ export interface Program {
   technical_lead: string
   start_date: string
   end_date: string
+  portfolio_id: string
+  portfolio?: {
+    id: string
+    name: string
+  }
   created_at: string
   updated_at: string
 }

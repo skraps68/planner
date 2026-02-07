@@ -104,6 +104,8 @@ const ProjectsListPage: React.FC = () => {
       <ScopeBreadcrumbs
         items={[
           { label: 'Home', path: '/dashboard' },
+          { label: 'Portfolios', path: '/portfolios' },
+          { label: 'Programs', path: '/programs' },
           { label: 'Projects' },
         ]}
       />
@@ -158,6 +160,12 @@ const ProjectsListPage: React.FC = () => {
             }
           }}
           sx={{
+            '& .MuiDataGrid-columnHeaders': {
+              fontWeight: 'bold',
+            },
+            '& .MuiDataGrid-columnHeaderTitle': {
+              fontWeight: 'bold',
+            },
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
               transition: 'all 0.2s ease',

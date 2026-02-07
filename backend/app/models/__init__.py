@@ -2,6 +2,7 @@
 Models package - imports all models for Alembic autogenerate.
 """
 from app.models.base import Base, BaseModel, GUID
+from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
@@ -15,6 +16,7 @@ __all__ = [
     "Base",
     "BaseModel",
     "GUID",
+    "Portfolio",
     "Program",
     "Project",
     "ProjectPhase",

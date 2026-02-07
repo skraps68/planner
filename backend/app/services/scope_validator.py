@@ -21,6 +21,54 @@ class ScopeValidatorService:
         self.project_repo = project_repository
         self.program_repo = program_repository
     
+    def get_user_accessible_portfolios(
+        self,
+        db: Session,
+        user_id: UUID
+    ) -> List[UUID]:
+        """
+        Get all portfolio IDs that a user has access to.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            
+        Returns:
+            List of portfolio IDs the user can access
+        """
+        from app.repositories.portfolio import portfolio_repository
+        
+        accessible_portfolios: Set[UUID] = set()
+        
+        # Get all active roles for the user
+        user_roles = self.user_role_repo.get_active_roles_by_user(db, user_id)
+        
+        for user_role in user_roles:
+            # Get active scope assignments for this role
+            scope_assignments = self.scope_assignment_repo.get_active_by_user_role(
+                db, user_role.id
+            )
+            
+            for scope in scope_assignments:
+                if scope.scope_type == ScopeType.GLOBAL:
+                    # Global scope means access to all portfolios
+                    all_portfolios = portfolio_repository.get_all(db)
+                    accessible_portfolios.update([p.id for p in all_portfolios])
+                elif scope.scope_type == ScopeType.PROGRAM and scope.program_id:
+                    # Program scope gives visibility to parent portfolio
+                    program = self.program_repo.get(db, scope.program_id)
+                    if program and program.portfolio_id:
+                        accessible_portfolios.add(program.portfolio_id)
+                elif scope.scope_type == ScopeType.PROJECT and scope.project_id:
+                    # Project scope gives visibility to parent portfolio via program
+                    project = self.project_repo.get(db, scope.project_id)
+                    if project:
+                        program = self.program_repo.get(db, project.program_id)
+                        if program and program.portfolio_id:
+                            accessible_portfolios.add(program.portfolio_id)
+        
+        return list(accessible_portfolios)
+    
     def get_user_accessible_programs(
         self,
         db: Session,
@@ -105,6 +153,26 @@ class ScopeValidatorService:
                     accessible_projects.add(scope.project_id)
         
         return list(accessible_projects)
+    
+    def can_access_portfolio(
+        self,
+        db: Session,
+        user_id: UUID,
+        portfolio_id: UUID
+    ) -> bool:
+        """
+        Check if a user has access to a specific portfolio.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            portfolio_id: Portfolio ID to check
+            
+        Returns:
+            True if user has access, False otherwise
+        """
+        accessible_portfolios = self.get_user_accessible_portfolios(db, user_id)
+        return portfolio_id in accessible_portfolios
     
     def can_access_program(
         self,
@@ -233,6 +301,26 @@ class ScopeValidatorService:
                     project_ids.add(scope.project_id)
         
         return list(project_ids)
+    
+    def filter_portfolios_by_scope(
+        self,
+        db: Session,
+        user_id: UUID,
+        portfolio_ids: List[UUID]
+    ) -> List[UUID]:
+        """
+        Filter a list of portfolio IDs to only those the user can access.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            portfolio_ids: List of portfolio IDs to filter
+            
+        Returns:
+            Filtered list of portfolio IDs
+        """
+        accessible_portfolios = set(self.get_user_accessible_portfolios(db, user_id))
+        return [pid for pid in portfolio_ids if pid in accessible_portfolios]
     
     def filter_programs_by_scope(
         self,

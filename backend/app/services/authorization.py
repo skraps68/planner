@@ -18,6 +18,12 @@ class Permission(str, Enum):
     MANAGE_USERS = "manage_users"
     MANAGE_ROLES = "manage_roles"
     
+    # Portfolio management
+    CREATE_PORTFOLIO = "create_portfolio"
+    READ_PORTFOLIO = "read_portfolio"
+    UPDATE_PORTFOLIO = "update_portfolio"
+    DELETE_PORTFOLIO = "delete_portfolio"
+    
     # Program management
     CREATE_PROGRAM = "create_program"
     READ_PROGRAM = "read_program"
@@ -71,6 +77,10 @@ ROLE_PERMISSIONS = {
         # Admins have all permissions
         Permission.MANAGE_USERS,
         Permission.MANAGE_ROLES,
+        Permission.CREATE_PORTFOLIO,
+        Permission.READ_PORTFOLIO,
+        Permission.UPDATE_PORTFOLIO,
+        Permission.DELETE_PORTFOLIO,
         Permission.CREATE_PROGRAM,
         Permission.READ_PROGRAM,
         Permission.UPDATE_PROGRAM,
@@ -104,6 +114,7 @@ ROLE_PERMISSIONS = {
     },
     RoleType.PROGRAM_MANAGER: {
         # Program managers can manage programs and their projects
+        Permission.READ_PORTFOLIO,
         Permission.CREATE_PROGRAM,
         Permission.READ_PROGRAM,
         Permission.UPDATE_PROGRAM,
@@ -125,6 +136,7 @@ ROLE_PERMISSIONS = {
     },
     RoleType.PROJECT_MANAGER: {
         # Project managers can manage their projects
+        Permission.READ_PORTFOLIO,
         Permission.READ_PROGRAM,
         Permission.READ_PROJECT,
         Permission.UPDATE_PROJECT,
@@ -142,6 +154,7 @@ ROLE_PERMISSIONS = {
     },
     RoleType.FINANCE_MANAGER: {
         # Finance managers focus on financial data
+        Permission.READ_PORTFOLIO,
         Permission.READ_PROGRAM,
         Permission.READ_PROJECT,
         Permission.READ_RESOURCE,
@@ -156,6 +169,7 @@ ROLE_PERMISSIONS = {
     },
     RoleType.RESOURCE_MANAGER: {
         # Resource managers handle resources and workers
+        Permission.READ_PORTFOLIO,
         Permission.READ_PROGRAM,
         Permission.READ_PROJECT,
         Permission.CREATE_RESOURCE,
@@ -175,6 +189,7 @@ ROLE_PERMISSIONS = {
     },
     RoleType.VIEWER: {
         # Viewers have read-only access
+        Permission.READ_PORTFOLIO,
         Permission.READ_PROGRAM,
         Permission.READ_PROJECT,
         Permission.READ_RESOURCE,
@@ -300,6 +315,32 @@ class AuthorizationService:
         """
         return self.user_role_repo.has_role(db, user_id, role_type)
     
+    def can_access_portfolio(
+        self,
+        db: Session,
+        user_id: UUID,
+        portfolio_id: UUID,
+        permission: Permission
+    ) -> bool:
+        """
+        Check if a user can perform an action on a specific portfolio.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            portfolio_id: Portfolio ID
+            permission: Required permission
+            
+        Returns:
+            True if user has permission and scope access, False otherwise
+        """
+        # Check if user has the required permission
+        if not self.has_permission(db, user_id, permission):
+            return False
+        
+        # Check if user has scope access to the portfolio
+        return self.scope_validator.can_access_portfolio(db, user_id, portfolio_id)
+    
     def can_access_program(
         self,
         db: Session,
@@ -369,6 +410,30 @@ class AuthorizationService:
         """
         return self.has_role(db, user_id, RoleType.ADMIN)
     
+    def get_accessible_portfolios_with_permission(
+        self,
+        db: Session,
+        user_id: UUID,
+        permission: Permission
+    ) -> List[UUID]:
+        """
+        Get all portfolios the user can access with a specific permission.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            permission: Required permission
+            
+        Returns:
+            List of accessible portfolio IDs
+        """
+        # Check if user has the required permission
+        if not self.has_permission(db, user_id, permission):
+            return []
+        
+        # Return all accessible portfolios
+        return self.scope_validator.get_user_accessible_portfolios(db, user_id)
+    
     def get_accessible_programs_with_permission(
         self,
         db: Session,
@@ -416,6 +481,35 @@ class AuthorizationService:
         
         # Return all accessible projects
         return self.scope_validator.get_user_accessible_projects(db, user_id)
+    
+    def validate_portfolio_access(
+        self,
+        db: Session,
+        user_id: UUID,
+        portfolio_id: UUID,
+        permission: Permission
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Validate portfolio access and return detailed error message.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            portfolio_id: Portfolio ID
+            permission: Required permission
+            
+        Returns:
+            Tuple of (is_authorized, error_message)
+        """
+        # Check permission
+        if not self.has_permission(db, user_id, permission):
+            return False, f"User does not have required permission: {permission.value}"
+        
+        # Check scope access
+        if not self.scope_validator.can_access_portfolio(db, user_id, portfolio_id):
+            return False, f"User does not have access to portfolio: {portfolio_id}"
+        
+        return True, None
     
     def validate_program_access(
         self,

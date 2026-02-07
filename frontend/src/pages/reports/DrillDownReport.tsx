@@ -358,9 +358,9 @@ const DrillDownReport: React.FC = () => {
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell width={50} />
-                <TableCell>
+              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                <TableCell width={50} sx={{ fontWeight: 'bold' }} />
+                <TableCell sx={{ fontWeight: 'bold' }}>
                   <TableSortLabel
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
@@ -369,7 +369,7 @@ const DrillDownReport: React.FC = () => {
                     {groupBy === 'worker' ? 'Worker' : groupBy === 'date' ? 'Date' : 'Phase'}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   <TableSortLabel
                     active={orderBy === 'budget'}
                     direction={orderBy === 'budget' ? order : 'asc'}
@@ -378,7 +378,7 @@ const DrillDownReport: React.FC = () => {
                     Budget
                   </TableSortLabel>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   <TableSortLabel
                     active={orderBy === 'actual'}
                     direction={orderBy === 'actual' ? order : 'asc'}
@@ -387,7 +387,7 @@ const DrillDownReport: React.FC = () => {
                     Actual
                   </TableSortLabel>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   <TableSortLabel
                     active={orderBy === 'forecast'}
                     direction={orderBy === 'forecast' ? order : 'asc'}
@@ -396,7 +396,7 @@ const DrillDownReport: React.FC = () => {
                     Forecast
                   </TableSortLabel>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   <TableSortLabel
                     active={orderBy === 'variance'}
                     direction={orderBy === 'variance' ? order : 'asc'}
@@ -405,7 +405,7 @@ const DrillDownReport: React.FC = () => {
                     Variance
                   </TableSortLabel>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   <TableSortLabel
                     active={orderBy === 'variance_percentage'}
                     direction={orderBy === 'variance_percentage' ? order : 'asc'}

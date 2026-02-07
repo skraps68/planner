@@ -23,6 +23,18 @@ vi.mock('./components/layout/Layout', () => ({
   )
 }))
 
+vi.mock('./pages/portfolios/PortfoliosListPage', () => ({
+  default: () => <div data-testid="portfolios-list">Portfolios List Page</div>
+}))
+
+vi.mock('./pages/portfolios/PortfolioDetailPage', () => ({
+  default: () => <div data-testid="portfolio-detail">Portfolio Detail Page</div>
+}))
+
+vi.mock('./pages/portfolios/PortfolioFormPage', () => ({
+  default: () => <div data-testid="portfolio-form">Portfolio Form Page</div>
+}))
+
 describe('Portfolio Dashboard Routing', () => {
   let store: ReturnType<typeof createTestStore>
 
@@ -85,5 +97,59 @@ describe('Portfolio Dashboard Routing', () => {
     })
 
     expect(screen.queryByTestId('portfolio-dashboard')).not.toBeInTheDocument()
+  })
+})
+
+describe('Portfolio Entity Routing', () => {
+  let store: ReturnType<typeof createTestStore>
+
+  beforeEach(() => {
+    // Create a store with authenticated user
+    store = createTestStore({
+      auth: {
+        user: {
+          id: '1',
+          username: 'testuser',
+          email: 'test@example.com',
+          roles: ['USER'],
+          permissions: ['view_portfolios', 'create_portfolios'],
+        },
+        token: 'test-token',
+        isAuthenticated: true,
+      },
+      ui: {
+        sidebarOpen: true,
+      },
+    })
+  })
+
+  it('should display Portfolios List page at /portfolios', async () => {
+    window.history.pushState({}, 'Test page', '/portfolios')
+    
+    render(<App />, { store })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('portfolios-list')).toBeInTheDocument()
+    })
+  })
+
+  it('should display Portfolio Form page at /portfolios/new', async () => {
+    window.history.pushState({}, 'Test page', '/portfolios/new')
+    
+    render(<App />, { store })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('portfolio-form')).toBeInTheDocument()
+    })
+  })
+
+  it('should display Portfolio Detail page at /portfolios/:id', async () => {
+    window.history.pushState({}, 'Test page', '/portfolios/123')
+    
+    render(<App />, { store })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('portfolio-detail')).toBeInTheDocument()
+    })
   })
 })

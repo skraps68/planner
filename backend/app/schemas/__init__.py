@@ -2,6 +2,7 @@
 Pydantic schemas for request/response validation.
 """
 from .base import *
+from .portfolio import *
 from .program import *
 from .project import *
 from .phase import *
@@ -21,6 +22,14 @@ __all__ = [
     "PaginatedResponse",
     "ErrorResponse",
     "SuccessResponse",
+    
+    # Portfolio schemas
+    "PortfolioBase",
+    "PortfolioCreate",
+    "PortfolioUpdate",
+    "PortfolioResponse",
+    "PortfolioListResponse",
+    "PortfolioSummary",
     
     # Program schemas
     "ProgramBase",

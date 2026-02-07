@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
+from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
@@ -36,12 +37,131 @@ def db():
     Base.metadata.drop_all(bind=engine)
 
 
+class TestPortfolioModel:
+    """Test Portfolio model."""
+    
+    def test_create_portfolio(self, db):
+        """Test creating a portfolio with valid data."""
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="A test portfolio for managing programs",
+            owner="John Doe",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        db.refresh(portfolio)
+        
+        assert portfolio.id is not None
+        assert portfolio.name == "Test Portfolio"
+        assert portfolio.description == "A test portfolio for managing programs"
+        assert portfolio.owner == "John Doe"
+        assert portfolio.reporting_start_date == date(2024, 1, 1)
+        assert portfolio.reporting_end_date == date(2024, 12, 31)
+    
+    def test_portfolio_audit_fields(self, db):
+        """Test that audit fields are populated automatically."""
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="A test portfolio",
+            owner="Jane Smith",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        db.refresh(portfolio)
+        
+        # Check audit fields
+        assert portfolio.id is not None
+        assert portfolio.created_at is not None
+        assert portfolio.updated_at is not None
+        assert isinstance(portfolio.created_at, datetime)
+        assert isinstance(portfolio.updated_at, datetime)
+    
+    def test_portfolio_date_constraint(self, db):
+        """Test date constraint validation (end date must be after start date)."""
+        from sqlalchemy.exc import IntegrityError
+        
+        # This should fail due to check constraint
+        portfolio = Portfolio(
+            name="Invalid Portfolio",
+            description="Portfolio with invalid dates",
+            owner="Test Owner",
+            reporting_start_date=date(2024, 12, 31),
+            reporting_end_date=date(2024, 1, 1)  # End before start
+        )
+        db.add(portfolio)
+        
+        with pytest.raises(IntegrityError):
+            db.commit()
+        
+        db.rollback()
+    
+    def test_portfolio_relationship_loading(self, db):
+        """Test relationship loading with programs."""
+        # Create portfolio
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="Portfolio with programs",
+            owner="Portfolio Manager",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        db.refresh(portfolio)
+        
+        # Create programs associated with portfolio
+        program1 = Program(
+            portfolio_id=portfolio.id,
+            name="Program 1",
+            business_sponsor="Sponsor 1",
+            program_manager="Manager 1",
+            technical_lead="Lead 1",
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 6, 30)
+        )
+        program2 = Program(
+            portfolio_id=portfolio.id,
+            name="Program 2",
+            business_sponsor="Sponsor 2",
+            program_manager="Manager 2",
+            technical_lead="Lead 2",
+            start_date=date(2024, 7, 1),
+            end_date=date(2024, 12, 31)
+        )
+        db.add(program1)
+        db.add(program2)
+        db.commit()
+        
+        # Refresh and check relationship
+        db.refresh(portfolio)
+        assert len(portfolio.programs) == 2
+        assert program1 in portfolio.programs
+        assert program2 in portfolio.programs
+
+
 class TestProgramModel:
     """Test Program model."""
     
     def test_create_program(self, db):
         """Test creating a program."""
+        # Create portfolio first
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="A test portfolio",
+            owner="Portfolio Owner",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        
+        # Create program
         program = Program(
+            portfolio_id=portfolio.id,
             name="Test Program",
             business_sponsor="John Doe",
             program_manager="Jane Smith",
@@ -54,6 +174,7 @@ class TestProgramModel:
         db.refresh(program)
         
         assert program.id is not None
+        assert program.portfolio_id == portfolio.id
         assert program.name == "Test Program"
         assert program.created_at is not None
         assert program.updated_at is not None
@@ -64,8 +185,20 @@ class TestProjectModel:
     
     def test_create_project(self, db):
         """Test creating a project."""
-        # Create program first
+        # Create portfolio first
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="A test portfolio",
+            owner="Portfolio Owner",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        
+        # Create program
         program = Program(
+            portfolio_id=portfolio.id,
             name="Test Program",
             business_sponsor="John Doe",
             program_manager="Jane Smith",
@@ -97,8 +230,20 @@ class TestProjectModel:
     
     def test_create_project_phase(self, db):
         """Test creating a project phase."""
-        # Create program and project
+        # Create portfolio first
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="A test portfolio",
+            owner="Portfolio Owner",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        
+        # Create program
         program = Program(
+            portfolio_id=portfolio.id,
             name="Test Program",
             business_sponsor="John Doe",
             program_manager="Jane Smith",
@@ -309,8 +454,19 @@ class TestUserModels:
         db.add(user_role)
         db.commit()
         
-        # Create program
+        # Create portfolio and program
+        portfolio = Portfolio(
+            name="Test Portfolio",
+            description="A test portfolio",
+            owner="Portfolio Owner",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31)
+        )
+        db.add(portfolio)
+        db.commit()
+        
         program = Program(
+            portfolio_id=portfolio.id,
             name="Test Program",
             business_sponsor="John Doe",
             program_manager="Jane Smith",

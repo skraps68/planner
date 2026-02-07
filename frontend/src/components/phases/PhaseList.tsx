@@ -225,15 +225,15 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
       <TableContainer>
         <Table size="small">
           <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Start Date</TableCell>
-              <TableCell>End Date</TableCell>
-              <TableCell align="right">Capital Budget</TableCell>
-              <TableCell align="right">Expense Budget</TableCell>
-              <TableCell align="right">Total Budget</TableCell>
-              {!readOnly && <TableCell align="center">Actions</TableCell>}
+            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>End Date</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital Budget</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense Budget</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
+              {!readOnly && <TableCell align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -423,7 +423,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
             {/* Totals Row */}
             {sortedPhases.length > 0 && (
               <TableRow sx={{ 
-                backgroundColor: 'grey.50',
+                backgroundColor: '#A5C1D8',
                 borderTop: '2px solid',
                 borderTopColor: 'grey.300',
               }}>
