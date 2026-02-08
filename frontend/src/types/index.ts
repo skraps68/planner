@@ -96,6 +96,7 @@ export interface Rate {
 export interface ResourceAssignment {
   id: string
   resource_id: string
+  resource_name?: string
   project_id: string
   project_phase_id: string
   assignment_date: string

@@ -161,6 +161,7 @@ const ProjectsListPage: React.FC = () => {
           }}
           sx={{
             '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: '#A5C1D8',
               fontWeight: 'bold',
             },
             '& .MuiDataGrid-columnHeaderTitle': {

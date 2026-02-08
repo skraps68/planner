@@ -25,6 +25,7 @@ import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -34,7 +35,7 @@ interface TabPanelProps {
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
   return (
-    <div hidden={value !== index} style={{ paddingTop: 24 }}>
+    <div hidden={value !== index} style={{ paddingTop: 24, maxWidth: '100%', overflow: 'hidden' }}>
       {value === index && children}
     </div>
   )
@@ -144,6 +145,22 @@ const ProjectDetailPage: React.FC = () => {
     setSnackbar({
       open: true,
       message: `Failed to save phases: ${error}`,
+      severity: 'error',
+    })
+  }
+
+  const handleAssignmentSaveSuccess = () => {
+    setSnackbar({
+      open: true,
+      message: 'Assignments saved successfully',
+      severity: 'success',
+    })
+  }
+
+  const handleAssignmentSaveError = (error: string) => {
+    setSnackbar({
+      open: true,
+      message: `Failed to save assignments: ${error}`,
       severity: 'error',
     })
   }
@@ -286,7 +303,7 @@ const ProjectDetailPage: React.FC = () => {
   breadcrumbItems.push({ label: project.name })
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
       <ScopeBreadcrumbs items={breadcrumbItems} />
 
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -480,12 +497,13 @@ const ProjectDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Resource Assignments
-          </Typography>
-          <Typography color="text.secondary">Assignment data will be displayed here</Typography>
-        </Paper>
+        <ResourceAssignmentCalendar
+          projectId={id!}
+          projectStartDate={project.start_date}
+          projectEndDate={project.end_date}
+          onSaveSuccess={handleAssignmentSaveSuccess}
+          onSaveError={handleAssignmentSaveError}
+        />
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>

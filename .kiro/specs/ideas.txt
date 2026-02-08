@@ -59,6 +59,10 @@
 
 - add some drag capabilities for editing resource assignments to make it easier to enter the data, e.g. drag 100% or some fixed percent to the right or left.
 
+- add chatbot to do all major actions and check permissions
+
+- need to show percentages somewhere on the assignments page in real time as user is editing so they know how much is left for other projects and/or BAU bucket
+
 -------------------------------
 
 - collapse project overview and phases tab together. there is no need to keep these separate. need to make sure project fields are still editable, maybe on screen without jumping to a new screen.

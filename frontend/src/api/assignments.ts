@@ -4,7 +4,6 @@ import { ResourceAssignment, PaginatedResponse } from '../types'
 export interface ResourceAssignmentCreateInput {
   resource_id: string
   project_id: string
-  project_phase_id: string
   assignment_date: string
   allocation_percentage: number
   capital_percentage: number

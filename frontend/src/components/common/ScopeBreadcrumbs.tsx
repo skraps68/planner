@@ -31,28 +31,7 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
   const hasGlobalScope = user?.activeRole?.scopes.some((scope) => scope.scope_type === 'GLOBAL') || false
 
   return (
-    <Box sx={{ mb: 2 }}>
-      {showScopeIndicator && scopeContext.length > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          {hasGlobalScope ? (
-            <Chip
-              icon={<LockOpen />}
-              label="Full Access"
-              size="small"
-              color="success"
-              variant="outlined"
-            />
-          ) : (
-            <Chip
-              icon={<Lock />}
-              label={`Scoped Access: ${scopeContext.join(', ')}`}
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
-          )}
-        </Box>
-      )}
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
       <Breadcrumbs separator={<NavigateNext fontSize="small" />} aria-label="breadcrumb">
         {items.map((item, index) => {
           const isLast = index === items.length - 1
@@ -94,6 +73,27 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
           )
         })}
       </Breadcrumbs>
+      {showScopeIndicator && scopeContext.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {hasGlobalScope ? (
+            <Chip
+              icon={<LockOpen />}
+              label="Full Access"
+              size="small"
+              color="success"
+              variant="outlined"
+            />
+          ) : (
+            <Chip
+              icon={<Lock />}
+              label={`Scoped Access: ${scopeContext.join(', ')}`}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          )}
+        </Box>
+      )}
     </Box>
   )
 }

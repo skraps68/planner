@@ -34,13 +34,14 @@ interface NavItem {
   path: string
   requiredPermission?: Permission
   requiredRole?: string
+  indent?: number // Indentation level for hierarchical display
 }
 
 const navItems: NavItem[] = [
   { text: 'Financials', icon: <AttachMoney />, path: '/portfolio' },
-  { text: 'Portfolios', icon: <BusinessCenter />, path: '/portfolios', requiredPermission: 'view_portfolios' },
-  { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs' },
-  { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects' },
+  { text: 'Portfolios', icon: <BusinessCenter />, path: '/portfolios', requiredPermission: 'view_portfolios', indent: 0 },
+  { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs', indent: 1 },
+  { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects', indent: 2 },
   { text: 'Resources', icon: <People />, path: '/resources', requiredPermission: 'view_resources' },
   { text: 'Workers', icon: <Work />, path: '/workers', requiredPermission: 'view_workers' },
   { text: 'Actuals', icon: <Assessment />, path: '/actuals', requiredPermission: 'view_actuals' },
@@ -88,6 +89,7 @@ const Sidebar: React.FC = () => {
   const renderNavItem = (item: NavItem) => {
     const accessCheck = checkItemAccess(item)
     const isSelected = location.pathname.startsWith(item.path)
+    const indentAmount = (item.indent || 0) * 8 // 8px per indent level
 
     const button = (
       <ListItemButton
@@ -98,6 +100,7 @@ const Sidebar: React.FC = () => {
           minHeight: 48,
           justifyContent: sidebarOpen ? 'initial' : 'center',
           px: 2.5,
+          pl: sidebarOpen ? 2.5 + indentAmount / 8 : 2.5, // Add indent when sidebar is open
           opacity: accessCheck.hasAccess ? 1 : 0.5,
           cursor: accessCheck.hasAccess ? 'pointer' : 'not-allowed',
         }}
