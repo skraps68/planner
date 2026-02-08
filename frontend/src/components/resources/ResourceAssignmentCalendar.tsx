@@ -30,9 +30,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
 
 interface EditableCellProps {
-  resourceId: string
-  date: Date
-  costTreatment: 'capital' | 'expense'
   value: number
   isEditMode: boolean
   hasError: boolean
@@ -97,7 +94,8 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
 
   const formatPercentage = (val: number): string => {
     if (val === 0) return ''
-    return `${val}%`
+    // Round to whole number and display without % symbol
+    return `${Math.round(val)}`
   }
 
   if (!isEditMode) {
@@ -125,10 +123,10 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
       }}
       error={displayError}
       sx={{
-        width: '80px',
+        width: '50px',
         '& .MuiInputBase-input': {
           textAlign: 'center',
-          padding: '4px 8px',
+          padding: '2px 4px',
         },
       }}
     />
@@ -192,10 +190,14 @@ const ResourceAssignmentCalendar = ({
     try {
       setIsLoading(true)
       setError(null)
+      console.log('📡 Fetching assignments for project:', projectId)
       const data = await assignmentsApi.getByProject(projectId)
+      console.log('✅ Assignments fetched:', data.length)
+      console.log('  - Sample data:', data.slice(0, 3))
       setAssignments(data)
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load assignments'
+      console.error('❌ Error fetching assignments:', errorMessage)
       setError(errorMessage)
       onSaveError?.(errorMessage)
     } finally {
@@ -308,7 +310,6 @@ const ResourceAssignmentCalendar = ({
       
       for (const [key, edits] of editsByResourceDate.entries()) {
         const [resourceId, dateStr] = key.split(':')
-        const date = new Date(dateStr)
         
         // Find existing assignment for this resource and date
         const existingAssignment = assignments.find(
@@ -323,9 +324,9 @@ const ResourceAssignmentCalendar = ({
         
         for (const edit of edits) {
           if (edit.costTreatment === 'capital') {
-            capitalPercentage = edit.newValue
+            capitalPercentage = Math.round(edit.newValue)
           } else {
-            expensePercentage = edit.newValue
+            expensePercentage = Math.round(edit.newValue)
           }
         }
         
@@ -384,15 +385,58 @@ const ResourceAssignmentCalendar = ({
     }
   }, [canEdit, editedCells, assignments, projectId, onSaveSuccess, onSaveError, fetchAssignments])
   
+  // Transform data to grid structure
+  // Memoized to avoid recalculation on every render
+  const gridData: GridData | null = useMemo(() => {
+    console.log('🎯 Grid data transformation starting')
+    console.log('  - Project start date:', projectStartDate)
+    console.log('  - Project end date:', projectEndDate)
+    console.log('  - Assignments count:', assignments.length)
+    
+    if (!projectStartDate || !projectEndDate) {
+      console.log('⚠️ Missing project dates')
+      return null
+    }
+
+    try {
+      // Parse dates as UTC to avoid timezone issues
+      // Date strings from API are in YYYY-MM-DD format
+      const parseUTCDate = (dateStr: string): Date => {
+        const [year, month, day] = dateStr.split('-').map(Number)
+        return new Date(Date.UTC(year, month - 1, day))
+      }
+      
+      const result = transformToGrid(
+        assignments,
+        parseUTCDate(projectStartDate),
+        parseUTCDate(projectEndDate)
+      )
+      
+      console.log('✅ Grid data created:')
+      console.log('  - Resources:', result.resources.length)
+      console.log('  - Dates:', result.dates.length)
+      console.log('  - Cells:', result.cells.size)
+      
+      return result
+    } catch (err) {
+      console.error('❌ Error transforming grid data:', err)
+      return null
+    }
+  }, [assignments, projectStartDate, projectEndDate])
+
   const handleCellChange = useCallback((
     resourceId: string,
     date: Date,
     costTreatment: 'capital' | 'expense',
     newValue: number
   ) => {
-    // Validate the new value
-    const validation = validatePercentage(newValue)
     const key = `${resourceId}:${date.toISOString()}:${costTreatment}`
+    
+    // Round to whole number to prevent fractional values
+    const roundedValue = Math.round(newValue)
+    
+    // Validate the rounded value
+    const validation = validatePercentage(roundedValue)
     
     if (!validation.isValid) {
       // Set validation error
@@ -418,7 +462,7 @@ const ResourceAssignmentCalendar = ({
       date,
       costTreatment,
       oldValue,
-      newValue,
+      newValue: roundedValue,
     }
     
     setEditedCells((prev) => {
@@ -426,7 +470,7 @@ const ResourceAssignmentCalendar = ({
       newMap.set(key, edit)
       return newMap
     })
-  }, []) // gridData is accessed from closure, no need to include in deps
+  }, [gridData]) // FIXED: Include gridData in dependencies to prevent stale closure
 
   const handleCellBlur = useCallback(async (
     resourceId: string,
@@ -496,55 +540,22 @@ const ResourceAssignmentCalendar = ({
       return edit.newValue
     }
     
-    return getCellValue(gridData!, resourceId, date, costTreatment)
-  }, [editedCells]) // gridData is accessed from closure, no need to include in deps
+    // Round values from API to whole numbers
+    const value = getCellValue(gridData!, resourceId, date, costTreatment)
+    return Math.round(value)
+  }, [editedCells, gridData]) // FIXED: Include gridData in dependencies to prevent stale closure
 
   useEffect(() => {
     fetchAssignments()
   }, [fetchAssignments])
 
-  // Transform data to grid structure
-  // Memoized to avoid recalculation on every render
-  const gridData: GridData | null = useMemo(() => {
-    if (!projectStartDate || !projectEndDate) {
-      return null
-    }
-
-    try {
-      // Parse dates as UTC to avoid timezone issues
-      // Date strings from API are in YYYY-MM-DD format
-      const parseUTCDate = (dateStr: string): Date => {
-        const [year, month, day] = dateStr.split('-').map(Number)
-        return new Date(Date.UTC(year, month - 1, day))
-      }
-      
-      return transformToGrid(
-        assignments,
-        parseUTCDate(projectStartDate),
-        parseUTCDate(projectEndDate)
-      )
-    } catch (err) {
-      console.error('Error transforming grid data:', err)
-      return null
-    }
-  }, [assignments, projectStartDate, projectEndDate])
-
   // Format date for column headers
   // Memoized to prevent recreation on every render
   const formatDate = useCallback((date: Date): string => {
-    // Use UTC methods to avoid timezone issues
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC',
-    })
-  }, [])
-
-  // Format percentage for display
-  // Memoized to prevent recreation on every render
-  const formatPercentage = useCallback((value: number): string => {
-    if (value === 0) return ''
-    return `${value}%`
+    // Use UTC methods to avoid timezone issues - format as M/D
+    const month = date.getUTCMonth() + 1 // getUTCMonth() returns 0-11
+    const day = date.getUTCDate()
+    return `${month}/${day}`
   }, [])
 
   // Loading state
@@ -682,6 +693,7 @@ const ResourceAssignmentCalendar = ({
         <Table 
           sx={{ width: '100%', tableLayout: 'auto' }} 
           size="small"
+          stickyHeader
           aria-label="Resource assignment calendar"
           role="grid"
         >
@@ -693,7 +705,7 @@ const ResourceAssignmentCalendar = ({
                   left: 0,
                   backgroundColor: '#A5C1D8',
                   fontWeight: 'bold',
-                  zIndex: 3,
+                  zIndex: 4,
                   minWidth: 200,
                 }}
                 role="columnheader"
@@ -701,21 +713,30 @@ const ResourceAssignmentCalendar = ({
               >
                 Resource
               </TableCell>
-              {gridData.dates.map((date, index) => (
-                <TableCell
-                  key={index}
-                  align="center"
-                  sx={{
-                    backgroundColor: '#A5C1D8',
-                    fontWeight: 'bold',
-                    minWidth: 80,
-                  }}
-                  role="columnheader"
-                  aria-label={`Date: ${formatDate(date)}`}
-                >
-                  {formatDate(date)}
-                </TableCell>
-              ))}
+              {gridData.dates.map((date, index) => {
+                // Check if this is Saturday (day 6) to add week boundary border
+                const isSaturday = date.getUTCDay() === 6
+                
+                return (
+                  <TableCell
+                    key={index}
+                    align="center"
+                    sx={{
+                      backgroundColor: '#A5C1D8',
+                      fontWeight: 'bold',
+                      minWidth: 50,
+                      padding: '6px 4px',
+                      ...(isSaturday && {
+                        borderRight: '2px solid #bdbdbd',
+                      }),
+                    }}
+                    role="columnheader"
+                    aria-label={`Date: ${formatDate(date)}`}
+                  >
+                    {formatDate(date)}
+                  </TableCell>
+                )
+              })}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -750,6 +771,7 @@ const ResourceAssignmentCalendar = ({
                     const key = getCellKey(resource.resourceId, date, 'capital')
                     const hasError = validationErrors.has(key)
                     const errorMessage = validationErrors.get(key)
+                    const isSaturday = date.getUTCDay() === 6
                     
                     return (
                       <TableCell
@@ -757,14 +779,15 @@ const ResourceAssignmentCalendar = ({
                         align="center"
                         sx={{
                           backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
+                          padding: '6px 4px',
+                          ...(isSaturday && {
+                            borderRight: '2px solid #bdbdbd',
+                          }),
                         }}
                         role="gridcell"
                         aria-label={`${resource.resourceName} capital allocation on ${formatDate(date)}: ${value}%`}
                       >
                         <EditableCell
-                          resourceId={resource.resourceId}
-                          date={date}
-                          costTreatment="capital"
                           value={value}
                           isEditMode={isEditMode}
                           hasError={hasError}
@@ -809,6 +832,7 @@ const ResourceAssignmentCalendar = ({
                     const key = getCellKey(resource.resourceId, date, 'expense')
                     const hasError = validationErrors.has(key)
                     const errorMessage = validationErrors.get(key)
+                    const isSaturday = date.getUTCDay() === 6
                     
                     return (
                       <TableCell
@@ -818,14 +842,15 @@ const ResourceAssignmentCalendar = ({
                           backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
                           borderBottom: '2px solid',
                           borderColor: 'divider',
+                          padding: '6px 4px',
+                          ...(isSaturday && {
+                            borderRight: '2px solid #bdbdbd',
+                          }),
                         }}
                         role="gridcell"
                         aria-label={`${resource.resourceName} expense allocation on ${formatDate(date)}: ${value}%`}
                       >
                         <EditableCell
-                          resourceId={resource.resourceId}
-                          date={date}
-                          costTreatment="expense"
                           value={value}
                           isEditMode={isEditMode}
                           hasError={hasError}
