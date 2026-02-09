@@ -12,7 +12,7 @@ from app.schemas.program import ProgramCreate, ProgramUpdate, ProgramResponse
 from app.schemas.project import ProjectCreate, ProjectPhaseCreate, ProjectUpdate
 from app.schemas.resource import ResourceCreate, WorkerCreate, WorkerTypeCreate
 from app.schemas.user import UserCreate, UserRoleCreate, ScopeAssignmentCreate
-from app.schemas.assignment import ResourceAssignmentCreate, AssignmentImportRow
+from app.schemas.assignment import ResourceAssignmentCreate, ResourceAssignmentUpdate, AssignmentImportRow
 from app.schemas.actual import ActualCreate, ActualBase, ActualImportRow
 from app.schemas.rate import RateCreate
 from app.schemas.auth import LoginRequest, RoleSwitchRequest
@@ -243,33 +243,162 @@ class TestAssignmentSchemas:
         assignment_data = {
             "resource_id": uuid4(),
             "project_id": uuid4(),
-            "project_phase_id": uuid4(),
             "assignment_date": date(2024, 1, 15),
-            "allocation_percentage": Decimal("75.00"),
             "capital_percentage": Decimal("60.00"),
             "expense_percentage": Decimal("40.00")
         }
         assignment = ResourceAssignmentCreate(**assignment_data)
-        assert assignment.allocation_percentage == Decimal("75.00")
         assert assignment.capital_percentage == Decimal("60.00")
+        assert assignment.expense_percentage == Decimal("40.00")
     
-    def test_resource_assignment_invalid_accounting_split(self):
-        """Test resource assignment with invalid accounting split."""
+    def test_resource_assignment_allocation_percentage_not_accepted(self):
+        """Test that allocation_percentage is not accepted in requests (ignored)."""
         assignment_data = {
             "resource_id": uuid4(),
             "project_id": uuid4(),
-            "project_phase_id": uuid4(),
             "assignment_date": date(2024, 1, 15),
-            "allocation_percentage": Decimal("75.00"),
+            "allocation_percentage": Decimal("75.00"),  # Should be ignored
+            "capital_percentage": Decimal("60.00"),
+            "expense_percentage": Decimal("40.00")
+        }
+        # Pydantic v2 ignores extra fields by default
+        assignment = ResourceAssignmentCreate(**assignment_data)
+        # Verify allocation_percentage is not in the model
+        assert not hasattr(assignment, 'allocation_percentage')
+        assert assignment.capital_percentage == Decimal("60.00")
+        assert assignment.expense_percentage == Decimal("40.00")
+    
+    def test_resource_assignment_sum_exceeds_100(self):
+        """Test that capital + expense > 100 is rejected."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
             "capital_percentage": Decimal("60.00"),
             "expense_percentage": Decimal("50.00")  # Total = 110%
         }
         with pytest.raises(ValidationError) as exc_info:
             ResourceAssignmentCreate(**assignment_data)
-        assert "Capital percentage + expense percentage must equal 100" in str(exc_info.value)
+        assert "cannot exceed 100" in str(exc_info.value)
+    
+    def test_resource_assignment_negative_capital_percentage(self):
+        """Test that negative capital percentage is rejected."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("-10.00"),
+            "expense_percentage": Decimal("50.00")
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            ResourceAssignmentCreate(**assignment_data)
+        assert "capital_percentage" in str(exc_info.value).lower()
+    
+    def test_resource_assignment_negative_expense_percentage(self):
+        """Test that negative expense percentage is rejected."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("50.00"),
+            "expense_percentage": Decimal("-10.00")
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            ResourceAssignmentCreate(**assignment_data)
+        assert "expense_percentage" in str(exc_info.value).lower()
+    
+    def test_resource_assignment_capital_percentage_exceeds_100(self):
+        """Test that capital percentage > 100 is rejected."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("150.00"),
+            "expense_percentage": Decimal("10.00")
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            ResourceAssignmentCreate(**assignment_data)
+        assert "capital_percentage" in str(exc_info.value).lower()
+    
+    def test_resource_assignment_expense_percentage_exceeds_100(self):
+        """Test that expense percentage > 100 is rejected."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("10.00"),
+            "expense_percentage": Decimal("150.00")
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            ResourceAssignmentCreate(**assignment_data)
+        assert "expense_percentage" in str(exc_info.value).lower()
+    
+    def test_resource_assignment_sum_equals_100_valid(self):
+        """Test that capital + expense = 100 is valid."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("100.00"),
+            "expense_percentage": Decimal("0.00")
+        }
+        assignment = ResourceAssignmentCreate(**assignment_data)
+        assert assignment.capital_percentage == Decimal("100.00")
+        assert assignment.expense_percentage == Decimal("0.00")
+    
+    def test_resource_assignment_sum_less_than_100_valid(self):
+        """Test that capital + expense < 100 is valid."""
+        assignment_data = {
+            "resource_id": uuid4(),
+            "project_id": uuid4(),
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("30.00"),
+            "expense_percentage": Decimal("20.00")  # Total = 50%
+        }
+        assignment = ResourceAssignmentCreate(**assignment_data)
+        assert assignment.capital_percentage == Decimal("30.00")
+        assert assignment.expense_percentage == Decimal("20.00")
+    
+    def test_resource_assignment_update_allocation_percentage_not_accepted(self):
+        """Test that allocation_percentage is not accepted in update requests (ignored)."""
+        update_data = {
+            "allocation_percentage": Decimal("75.00"),
+            "capital_percentage": Decimal("60.00"),
+            "expense_percentage": Decimal("40.00")
+        }
+        # Pydantic v2 ignores extra fields by default
+        update = ResourceAssignmentUpdate(**update_data)
+        # Verify allocation_percentage is not in the model
+        assert not hasattr(update, 'allocation_percentage')
+        assert update.capital_percentage == Decimal("60.00")
+        assert update.expense_percentage == Decimal("40.00")
+    
+    def test_resource_assignment_update_sum_exceeds_100(self):
+        """Test that capital + expense > 100 is rejected in updates."""
+        update_data = {
+            "capital_percentage": Decimal("70.00"),
+            "expense_percentage": Decimal("40.00")  # Total = 110%
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            ResourceAssignmentUpdate(**update_data)
+        assert "cannot exceed 100" in str(exc_info.value)
     
     def test_assignment_import_row_valid(self):
         """Test valid assignment import row."""
+        import_data = {
+            "resource_name": "Senior Developer",
+            "project_cost_center": "CC001",
+            "phase_name": "Planning Phase",
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("70.00"),
+            "expense_percentage": Decimal("30.00")
+        }
+        import_row = AssignmentImportRow(**import_data)
+        assert import_row.resource_name == "Senior Developer"
+        assert import_row.project_cost_center == "CC001"
+    
+    def test_assignment_import_row_allocation_percentage_not_accepted(self):
+        """Test that allocation_percentage is not accepted in import rows (ignored)."""
         import_data = {
             "resource_name": "Senior Developer",
             "project_cost_center": "CC001",
@@ -279,9 +408,27 @@ class TestAssignmentSchemas:
             "capital_percentage": Decimal("70.00"),
             "expense_percentage": Decimal("30.00")
         }
+        # Pydantic v2 ignores extra fields by default
         import_row = AssignmentImportRow(**import_data)
-        assert import_row.resource_name == "Senior Developer"
-        assert import_row.project_cost_center == "CC001"
+        # Verify allocation_percentage is not in the model
+        assert not hasattr(import_row, 'allocation_percentage')
+        assert import_row.capital_percentage == Decimal("70.00")
+        assert import_row.expense_percentage == Decimal("30.00")
+    
+    def test_assignment_import_row_sum_exceeds_100(self):
+        """Test that capital + expense > 100 is rejected in import rows."""
+        import_data = {
+            "resource_name": "Senior Developer",
+            "project_cost_center": "CC001",
+            "phase_name": "Planning Phase",
+            "assignment_date": date(2024, 1, 15),
+            "capital_percentage": Decimal("80.00"),
+            "expense_percentage": Decimal("30.00")  # Total = 110%
+        }
+        with pytest.raises(ValidationError) as exc_info:
+            AssignmentImportRow(**import_data)
+        assert "cannot exceed 100" in str(exc_info.value)
+
 
 
 class TestActualSchemas:
@@ -406,21 +553,6 @@ class TestAuthSchemas:
 class TestValidationEdgeCases:
     """Test edge cases and boundary conditions."""
     
-    def test_decimal_precision(self):
-        """Test decimal field precision handling."""
-        # Test valid precision
-        assignment_data = {
-            "resource_id": uuid4(),
-            "project_id": uuid4(),
-            "project_phase_id": uuid4(),
-            "assignment_date": date(2024, 1, 15),
-            "allocation_percentage": Decimal("75.50"),
-            "capital_percentage": Decimal("60.00"),
-            "expense_percentage": Decimal("40.00")
-        }
-        assignment = ResourceAssignmentCreate(**assignment_data)
-        assert assignment.allocation_percentage == Decimal("75.50")
-    
     def test_string_length_limits(self):
         """Test string field length validation."""
         # Test maximum length
@@ -438,28 +570,26 @@ class TestValidationEdgeCases:
     
     def test_percentage_boundaries(self):
         """Test percentage field boundaries."""
-        # Test negative percentage
+        # Test negative capital percentage
         with pytest.raises(ValidationError) as exc_info:
             ResourceAssignmentCreate(
                 resource_id=uuid4(),
                 project_id=uuid4(),
                 project_phase_id=uuid4(),
                 assignment_date=date(2024, 1, 15),
-                allocation_percentage=Decimal("-10.00"),
-                capital_percentage=Decimal("60.00"),
+                capital_percentage=Decimal("-10.00"),
                 expense_percentage=Decimal("40.00")
             )
         assert "greater than or equal to 0" in str(exc_info.value)
         
-        # Test over 100%
+        # Test capital percentage over 100%
         with pytest.raises(ValidationError) as exc_info:
             ResourceAssignmentCreate(
                 resource_id=uuid4(),
                 project_id=uuid4(),
                 project_phase_id=uuid4(),
                 assignment_date=date(2024, 1, 15),
-                allocation_percentage=Decimal("150.00"),
-                capital_percentage=Decimal("60.00"),
+                capital_percentage=Decimal("150.00"),
                 expense_percentage=Decimal("40.00")
             )
         assert "less than or equal to 100" in str(exc_info.value)

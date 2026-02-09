@@ -138,7 +138,6 @@ class TestResourceScopeFiltering:
             resource_id=resource1.id,
             project_id=project.id,
             assignment_date=date(2024, 6, 1),
-            allocation_percentage=Decimal("50"),
             capital_percentage=Decimal("70"),
             expense_percentage=Decimal("30")
         )

@@ -17,18 +17,20 @@ class ResourceAssignmentBase(BaseSchema):
     resource_id: UUID = Field(description="Resource ID")
     project_id: UUID = Field(description="Project ID")
     assignment_date: date = Field(description="Assignment date")
-    allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage (0-100)")
     capital_percentage: Decimal = Field(ge=0, le=100, description="Capital percentage (0-100)")
     expense_percentage: Decimal = Field(ge=0, le=100, description="Expense percentage (0-100)")
     
     @field_validator('expense_percentage')
     @classmethod
-    def validate_accounting_split(cls, v, info):
-        """Validate that capital_percentage + expense_percentage = 100."""
+    def validate_allocation_sum(cls, v, info):
+        """Validate that capital_percentage + expense_percentage <= 100."""
         if 'capital_percentage' in info.data:
             total = info.data['capital_percentage'] + v
-            if total != 100:
-                raise ValueError('Capital percentage + expense percentage must equal 100')
+            if total > 100:
+                raise ValueError(
+                    f'Capital percentage + expense percentage cannot exceed 100 '
+                    f'(got {total})'
+                )
         return v
 
 
@@ -43,18 +45,20 @@ class ResourceAssignmentUpdate(BaseSchema):
     resource_id: Optional[UUID] = Field(default=None, description="Resource ID")
     project_id: Optional[UUID] = Field(default=None, description="Project ID")
     assignment_date: Optional[date] = Field(default=None, description="Assignment date")
-    allocation_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Allocation percentage (0-100)")
     capital_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Capital percentage (0-100)")
     expense_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Expense percentage (0-100)")
     
     @field_validator('expense_percentage')
     @classmethod
-    def validate_accounting_split(cls, v, info):
-        """Validate that capital_percentage + expense_percentage = 100."""
+    def validate_allocation_sum(cls, v, info):
+        """Validate that capital_percentage + expense_percentage <= 100."""
         if v is not None and 'capital_percentage' in info.data and info.data['capital_percentage'] is not None:
             total = info.data['capital_percentage'] + v
-            if total != 100:
-                raise ValueError('Capital percentage + expense percentage must equal 100')
+            if total > 100:
+                raise ValueError(
+                    f'Capital percentage + expense percentage cannot exceed 100 '
+                    f'(got {total})'
+                )
         return v
 
 
@@ -79,18 +83,20 @@ class AssignmentImportRow(BaseSchema):
     project_cost_center: str = Field(description="Project cost center code")
     phase_name: str = Field(description="Project phase name")
     assignment_date: date = Field(description="Assignment date")
-    allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage")
     capital_percentage: Decimal = Field(ge=0, le=100, description="Capital percentage")
     expense_percentage: Decimal = Field(ge=0, le=100, description="Expense percentage")
     
     @field_validator('expense_percentage')
     @classmethod
-    def validate_accounting_split(cls, v, info):
-        """Validate that capital_percentage + expense_percentage = 100."""
+    def validate_allocation_sum(cls, v, info):
+        """Validate that capital_percentage + expense_percentage <= 100."""
         if 'capital_percentage' in info.data:
             total = info.data['capital_percentage'] + v
-            if total != 100:
-                raise ValueError('Capital percentage + expense percentage must equal 100')
+            if total > 100:
+                raise ValueError(
+                    f'Capital percentage + expense percentage cannot exceed 100 '
+                    f'(got {total})'
+                )
         return v
 
 

@@ -1947,7 +1947,6 @@ class TestAssignmentService:
             resource_id=setup_data["resource"].id,
             project_id=setup_data["project"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("60.00"),
             expense_percentage=Decimal("40.00")
         )
@@ -1970,7 +1969,6 @@ class TestAssignmentService:
                 project_id=setup_data["project"].id,
                 project_phase_id=setup_data["execution_phase"].id,
                 assignment_date=date(2024, 1, 15),
-                allocation_percentage=Decimal("150.00"),
                 capital_percentage=Decimal("60.00"),
                 expense_percentage=Decimal("40.00")
             )
@@ -1986,7 +1984,6 @@ class TestAssignmentService:
                 project_id=setup_data["project"].id,
                 project_phase_id=setup_data["execution_phase"].id,
                 assignment_date=date(2024, 1, 15),
-                allocation_percentage=Decimal("50.00"),
                 capital_percentage=Decimal("60.00"),
                 expense_percentage=Decimal("50.00")
             )
@@ -2002,7 +1999,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("60.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2015,7 +2011,6 @@ class TestAssignmentService:
                 project_id=setup_data["project"].id,
                 project_phase_id=setup_data["execution_phase"].id,
                 assignment_date=date(2024, 1, 15),
-                allocation_percentage=Decimal("50.00"),
                 capital_percentage=Decimal("50.00"),
                 expense_percentage=Decimal("50.00")
             )
@@ -2031,7 +2026,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("60.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2043,7 +2037,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("40.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2070,7 +2063,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("60.00"),
             expense_percentage=Decimal("40.00")
         )
@@ -2079,7 +2071,6 @@ class TestAssignmentService:
         updated = assignment_service.update_assignment(
             db,
             assignment.id,
-            allocation_percentage=Decimal("75.00")
         )
         
         assert updated.allocation_percentage == Decimal("75.00")
@@ -2096,7 +2087,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2107,7 +2097,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("30.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2117,7 +2106,6 @@ class TestAssignmentService:
             assignment_service.update_assignment(
                 db,
                 assignment1.id,
-                allocation_percentage=Decimal("80.00")
             )
     
     def test_delete_assignment(self, db, setup_data):
@@ -2131,7 +2119,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("60.00"),
             expense_percentage=Decimal("40.00")
         )
@@ -2155,7 +2142,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("50.00"),
             capital_percentage=Decimal("60.00"),
             expense_percentage=Decimal("40.00")
         )
@@ -2166,7 +2152,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 16),
-            allocation_percentage=Decimal("30.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2192,7 +2177,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("60.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )
@@ -2203,7 +2187,6 @@ class TestAssignmentService:
             project_id=setup_data["project"].id,
             project_phase_id=setup_data["execution_phase"].id,
             assignment_date=date(2024, 1, 15),
-            allocation_percentage=Decimal("40.00"),
             capital_percentage=Decimal("50.00"),
             expense_percentage=Decimal("50.00")
         )

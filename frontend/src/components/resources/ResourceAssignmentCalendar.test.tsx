@@ -157,7 +157,6 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
         project_id: mockProjectId,
         project_phase_id: 'phase-1',
         assignment_date: '2024-01-02',
-        allocation_percentage: 100,
         capital_percentage: 60,
         expense_percentage: 40,
         created_at: '2024-01-01T00:00:00Z',
@@ -170,7 +169,6 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
         project_id: mockProjectId,
         project_phase_id: 'phase-1',
         assignment_date: '2024-01-03',
-        allocation_percentage: 100,
         capital_percentage: 50,
         expense_percentage: 50,
         created_at: '2024-01-01T00:00:00Z',
@@ -183,7 +181,6 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
         project_id: mockProjectId,
         project_phase_id: 'phase-1',
         assignment_date: '2024-01-02',
-        allocation_percentage: 100,
         capital_percentage: 70,
         expense_percentage: 30,
         created_at: '2024-01-01T00:00:00Z',
@@ -205,7 +202,7 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       )
 
       await waitFor(() => {
-        const table = screen.getByRole('table')
+        const table = screen.getByRole('grid')
         expect(table).toBeInTheDocument()
       })
 
@@ -214,7 +211,7 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
 
       // Check for date columns - dates are generated in UTC, so we check for the actual rendered dates
       // The component should render 5 date columns (Jan 1-5 in the date range)
-      const table = screen.getByRole('table')
+      const table = screen.getByRole('grid')
       const headerRow = table.querySelector('thead tr')
       const headerCells = headerRow?.querySelectorAll('th')
       
@@ -261,12 +258,12 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       )
 
       await waitFor(() => {
-        // Check that all expected percentage values are present
-        expect(screen.getByText('60%')).toBeInTheDocument()
-        expect(screen.getByText('40%')).toBeInTheDocument()
-        expect(screen.getAllByText('50%')).toHaveLength(2) // John Doe has 50% on Jan 3 for both Capital and Expense
-        expect(screen.getByText('70%')).toBeInTheDocument()
-        expect(screen.getByText('30%')).toBeInTheDocument()
+        // Check that all expected percentage values are present (without % symbol)
+        expect(screen.getByText('60')).toBeInTheDocument()
+        expect(screen.getByText('40')).toBeInTheDocument()
+        expect(screen.getAllByText('50')).toHaveLength(2) // John Doe has 50% on Jan 3 for both Capital and Expense
+        expect(screen.getByText('70')).toBeInTheDocument()
+        expect(screen.getByText('30')).toBeInTheDocument()
       })
     })
 
@@ -280,16 +277,16 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       )
 
       await waitFor(() => {
-        const table = screen.getByRole('table')
+        const table = screen.getByRole('grid')
         expect(table).toBeInTheDocument()
       })
 
       // Most cells should be empty (no percentage values)
       // We have 2 resources × 2 rows (Capital/Expense) × 5 dates = 20 cells
       // Only 5 cells have values, so 15 should be empty
-      const allCells = screen.getAllByRole('cell')
+      const allCells = screen.getAllByRole('gridcell')
       const emptyCells = allCells.filter(
-        (cell) => cell.textContent === '' || !cell.textContent?.includes('%')
+        (cell) => cell.textContent === '' || cell.textContent?.trim() === ''
       )
 
       // Should have many empty cells (exact count depends on structure)
@@ -305,7 +302,6 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
           project_id: mockProjectId,
           project_phase_id: 'phase-1',
           assignment_date: '2024-01-02',
-          allocation_percentage: 0,
           capital_percentage: 0,
           expense_percentage: 0,
           created_at: '2024-01-01T00:00:00Z',
@@ -342,7 +338,6 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
           project_id: mockProjectId,
           project_phase_id: 'phase-1',
           assignment_date: '2024-01-02',
-          allocation_percentage: 100,
           capital_percentage: 50,
           expense_percentage: 50,
           created_at: '2024-01-01T00:00:00Z',
@@ -458,7 +453,6 @@ describe('ResourceAssignmentCalendar - Edit Mode', () => {
       project_id: mockProjectId,
       project_phase_id: 'phase-1',
       assignment_date: '2024-01-02',
-      allocation_percentage: 100,
       capital_percentage: 60,
       expense_percentage: 40,
       created_at: '2024-01-01T00:00:00Z',
@@ -735,8 +729,8 @@ describe('ResourceAssignmentCalendar - Edit Mode', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText('60%')).toBeInTheDocument()
-        expect(screen.getByText('40%')).toBeInTheDocument()
+        expect(screen.getByText('60')).toBeInTheDocument()
+        expect(screen.getByText('40')).toBeInTheDocument()
       })
 
       // Should not have input fields in read-only mode

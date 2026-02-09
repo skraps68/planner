@@ -40,7 +40,6 @@ const mockAssignments = [
     resource_name: 'John Doe',
     project_id: 'project-1',
     assignment_date: '2024-01-15',
-    allocation_percentage: 80,
     capital_percentage: 50,
     expense_percentage: 30,
   },
@@ -50,7 +49,6 @@ const mockAssignments = [
     resource_name: 'Jane Smith',
     project_id: 'project-1',
     assignment_date: '2024-01-16',
-    allocation_percentage: 60,
     capital_percentage: 40,
     expense_percentage: 20,
   },
@@ -80,7 +78,6 @@ describe('ResourceAssignmentCalendar - End-to-End Integration', () => {
       vi.mocked(assignmentsApi.update).mockResolvedValue({
         ...mockAssignments[0],
         capital_percentage: 60,
-        allocation_percentage: 90,
       })
       vi.mocked(validateCellEdit).mockResolvedValue({ isValid: true })
 
@@ -145,7 +142,6 @@ describe('ResourceAssignmentCalendar - End-to-End Integration', () => {
       // Wait for save to complete
       await waitFor(() => {
         expect(assignmentsApi.update).toHaveBeenCalledWith('assignment-1', {
-          allocation_percentage: 90, // 60 capital + 30 expense
           capital_percentage: 60,
           expense_percentage: 30,
         })

@@ -67,6 +67,13 @@ Other endpoints are documented through the interactive Swagger UI at `/docs`. Na
 
 ### Migration Guides
 
+- **[Resource Assignment Migration Guide](./RESOURCE_ASSIGNMENT_MIGRATION_GUIDE.md)** ⭐ NEW
+  - Remove allocation_percentage field
+  - Update validation constraints
+  - Step-by-step migration instructions
+  - Rollback procedures
+  - [Quick Reference](./RESOURCE_ASSIGNMENT_MIGRATION_QUICK_REFERENCE.md)
+
 - **[Phase Migration Runbook](./PHASE_MIGRATION_RUNBOOK.md)**
   - Step-by-step migration instructions
   - Pre-migration checks
@@ -198,7 +205,22 @@ For questions or issues:
 
 ## Recent Updates
 
-### Portfolio Management API (Latest)
+### Resource Assignment Data Model Refactoring (Latest)
+
+The Resource Assignment data model has been refactored to support a new conceptual model:
+
+- **Breaking Change**: Removed `allocation_percentage` field from resource assignments
+- **Constraint Update**: Changed from `capital + expense = 100` to `capital + expense <= 100`
+- **New Validation**: Cross-project allocation validation ensures total <= 100% per resource per day
+- **Migration Required**: See [Resource Assignment Migration Guide](./RESOURCE_ASSIGNMENT_MIGRATION_GUIDE.md)
+- **Key Changes**:
+  - Capital and expense percentages now represent direct time allocations
+  - Validation logic moved to service layer
+  - Frontend validation updated for cross-project checks
+
+For complete details, see [Resource Assignment Migration Guide](./RESOURCE_ASSIGNMENT_MIGRATION_GUIDE.md) or [Quick Reference](./RESOURCE_ASSIGNMENT_MIGRATION_QUICK_REFERENCE.md).
+
+### Portfolio Management API
 
 The Portfolio Management API introduces a new top-level organizational entity:
 

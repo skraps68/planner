@@ -114,6 +114,12 @@ export function transformToGrid(
   startDate: Date,
   endDate: Date
 ): GridData {
+  console.log('🔄 transformToGrid called')
+  console.log('  - Assignments count:', assignments.length)
+  console.log('  - Start date:', startDate.toISOString())
+  console.log('  - End date:', endDate.toISOString())
+  console.log('  - Sample assignments:', assignments.slice(0, 3))
+  
   // 1. Extract unique resources
   const resourceMap = new Map<string, ResourceInfo>()
   assignments.forEach(a => {
@@ -125,8 +131,12 @@ export function transformToGrid(
     }
   })
   
+  console.log('  - Unique resources:', resourceMap.size)
+  
   // 2. Generate date range
   const dates = generateDateRange(startDate, endDate)
+  console.log('  - Generated dates:', dates.length)
+  console.log('  - First 3 dates:', dates.slice(0, 3).map(d => d.toISOString()))
   
   // 3. Create cell map with composite keys
   // Store capital and expense as separate entries for proper lookup
@@ -146,6 +156,9 @@ export function transformToGrid(
     const expenseKey = getCellKey(a.resource_id, a.assignment_date, 'expense')
     cells.set(expenseKey, baseData)
   })
+  
+  console.log('  - Total cell keys created:', cells.size)
+  console.log('  - Sample cell keys:', Array.from(cells.keys()).slice(0, 5))
   
   return {
     resources: Array.from(resourceMap.values()),
@@ -170,6 +183,21 @@ export function getCellValue(
 ): number {
   const key = getCellKey(resourceId, date, costTreatment)
   const cellData = gridData.cells.get(key)
+  
+  // Debug logging for first few lookups
+  if (gridData.resources.length > 0 && gridData.dates.length > 0) {
+    const isFirstResource = resourceId === gridData.resources[0].resourceId
+    const isFirstDate = date.getTime() === gridData.dates[0].getTime()
+    if (isFirstResource && isFirstDate) {
+      console.log('🔍 getCellValue lookup:')
+      console.log('  - Resource ID:', resourceId)
+      console.log('  - Date:', date.toISOString())
+      console.log('  - Cost treatment:', costTreatment)
+      console.log('  - Generated key:', key)
+      console.log('  - Cell data found:', cellData)
+      console.log('  - Value:', cellData ? (costTreatment === 'capital' ? cellData.capitalPercentage : cellData.expensePercentage) : 0)
+    }
+  }
   
   if (!cellData) return 0
   

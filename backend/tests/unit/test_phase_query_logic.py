@@ -359,7 +359,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -367,7 +366,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 6, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -398,7 +396,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 2, 1),  # Phase start
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -406,7 +403,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 11, 30),  # Phase end
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -458,7 +454,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),  # In phase 1
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -466,7 +461,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 9, 15),  # In phase 2
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -524,7 +518,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 9, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -532,7 +525,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -540,7 +532,6 @@ class TestGetAssignmentsForPhase:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 6, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -582,7 +573,6 @@ class TestPhaseCostCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("60"),
             expense_percentage=Decimal("40")
         )
@@ -595,7 +585,6 @@ class TestPhaseCostCalculations:
             project_id=sample_project.id,
             resource_assignment_id=assignment.id,
             actual_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             actual_cost=Decimal("1000"),
             capital_amount=Decimal("600"),
             expense_amount=Decimal("400"),
@@ -685,7 +674,6 @@ class TestPhaseCostCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -693,7 +681,6 @@ class TestPhaseCostCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 9, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -708,7 +695,6 @@ class TestPhaseCostCalculations:
             project_id=sample_project.id,
             resource_assignment_id=assignment1.id,
             actual_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             actual_cost=Decimal("1000"),
             capital_amount=Decimal("500"),
             expense_amount=Decimal("500"),
@@ -719,7 +705,6 @@ class TestPhaseCostCalculations:
             project_id=sample_project.id,
             resource_assignment_id=assignment2.id,
             actual_date=date(2024, 9, 15),
-            allocation_percentage=Decimal("100"),
             actual_cost=Decimal("2000"),
             capital_amount=Decimal("1000"),
             expense_amount=Decimal("1000"),
@@ -766,7 +751,6 @@ class TestPhaseCostCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -774,7 +758,6 @@ class TestPhaseCostCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 6, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -789,7 +772,6 @@ class TestPhaseCostCalculations:
             project_id=sample_project.id,
             resource_assignment_id=assignment1.id,
             actual_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             actual_cost=Decimal("1000"),
             capital_amount=Decimal("500"),
             expense_amount=Decimal("500"),
@@ -800,7 +782,6 @@ class TestPhaseCostCalculations:
             project_id=sample_project.id,
             resource_assignment_id=assignment2.id,
             actual_date=date(2024, 6, 15),
-            allocation_percentage=Decimal("100"),
             actual_cost=Decimal("2000"),
             capital_amount=Decimal("1000"),
             expense_amount=Decimal("1000"),
@@ -871,7 +852,6 @@ class TestPhaseForecastCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 6, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("60"),
             expense_percentage=Decimal("40")
         )
@@ -879,7 +859,6 @@ class TestPhaseForecastCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 9, 15),
-            allocation_percentage=Decimal("50"),
             capital_percentage=Decimal("60"),
             expense_percentage=Decimal("40")
         )
@@ -957,7 +936,6 @@ class TestPhaseForecastCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 3, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -965,7 +943,6 @@ class TestPhaseForecastCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 9, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -1028,7 +1005,6 @@ class TestPhaseForecastCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 5, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )
@@ -1036,7 +1012,6 @@ class TestPhaseForecastCalculations:
             resource_id=sample_resource.id,
             project_id=sample_project.id,
             assignment_date=date(2024, 9, 15),
-            allocation_percentage=Decimal("100"),
             capital_percentage=Decimal("50"),
             expense_percentage=Decimal("50")
         )

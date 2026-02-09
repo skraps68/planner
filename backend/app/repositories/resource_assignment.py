@@ -45,24 +45,6 @@ class ResourceAssignmentRepository(BaseRepository[ResourceAssignment]):
             )
         ).all()
     
-    def get_total_allocation_for_date(
-        self,
-        db: Session,
-        resource_id: UUID,
-        assignment_date: date
-    ) -> Decimal:
-        """Get total allocation percentage for a resource on a specific date."""
-        result = db.query(
-            func.sum(ResourceAssignment.allocation_percentage)
-        ).filter(
-            and_(
-                ResourceAssignment.resource_id == resource_id,
-                ResourceAssignment.assignment_date == assignment_date
-            )
-        ).scalar()
-        
-        return result if result else Decimal('0.00')
-    
     def get_by_date_range(
         self,
         db: Session,
@@ -79,42 +61,6 @@ class ResourceAssignmentRepository(BaseRepository[ResourceAssignment]):
             )
         ).order_by(ResourceAssignment.assignment_date).all()
     
-    def validate_allocation_limit(
-        self,
-        db: Session,
-        resource_id: UUID,
-        assignment_date: date,
-        new_allocation: Decimal,
-        exclude_id: Optional[UUID] = None
-    ) -> bool:
-        """
-        Validate that adding a new allocation doesn't exceed 100% for the day.
-        
-        Returns True if the allocation is valid (total <= 100%).
-        """
-        query = db.query(
-            func.sum(ResourceAssignment.allocation_percentage)
-        ).filter(
-            and_(
-                ResourceAssignment.resource_id == resource_id,
-                ResourceAssignment.assignment_date == assignment_date
-            )
-        )
-        
-        if exclude_id:
-            query = query.filter(ResourceAssignment.id != exclude_id)
-        
-        current_total = query.scalar() or Decimal('0.00')
-        return (current_total + new_allocation) <= Decimal('100.00')
-    
-    def validate_accounting_split(
-        self,
-        capital_percentage: Decimal,
-        expense_percentage: Decimal
-    ) -> bool:
-        """Validate that capital + expense = 100%."""
-        return capital_percentage + expense_percentage == Decimal('100.00')
-
 
 # Create repository instance
 resource_assignment_repository = ResourceAssignmentRepository()

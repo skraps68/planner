@@ -742,7 +742,6 @@ class TestProjectReportingWithActualData:
                 external_worker_id=f"EMP{i:03d}",
                 worker_name=f"Worker {i}",
                 actual_date=date(2024, 1, 15) + timedelta(days=i),
-                allocation_percentage=Decimal("50.0"),
                 actual_cost=Decimal("500.0"),
                 capital_amount=Decimal("300.0"),
                 expense_amount=Decimal("200.0")

@@ -250,7 +250,6 @@ class TestAllocationValidatorService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 15),
-            allocation_percentage=Decimal('60.00'),
             actual_cost=Decimal('300.00'),
             capital_amount=Decimal('150.00'),
             expense_amount=Decimal('150.00')
@@ -276,7 +275,6 @@ class TestAllocationValidatorService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 15),
-            allocation_percentage=Decimal('40.00'),
             actual_cost=Decimal('200.00'),
             capital_amount=Decimal('100.00'),
             expense_amount=Decimal('100.00')
@@ -286,7 +284,6 @@ class TestAllocationValidatorService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 15),
-            allocation_percentage=Decimal('30.00'),
             actual_cost=Decimal('150.00'),
             capital_amount=Decimal('75.00'),
             expense_amount=Decimal('75.00')
@@ -358,7 +355,6 @@ class TestActualsService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 15),
-            allocation_percentage=Decimal('75.00')
         )
         
         assert actual.id is not None
@@ -378,7 +374,6 @@ class TestActualsService:
                 external_worker_id="EMP001",
                 worker_name="John Smith",
                 actual_date=date(2024, 1, 15),
-                allocation_percentage=Decimal('75.00')
             )
     
     def test_create_actual_invalid_worker(self, db, sample_project, sample_rate):
@@ -390,7 +385,6 @@ class TestActualsService:
                 external_worker_id="EMP999",
                 worker_name="Unknown Worker",
                 actual_date=date(2024, 1, 15),
-                allocation_percentage=Decimal('75.00')
             )
     
     def test_create_actual_exceeds_allocation(self, db, sample_project, sample_worker, sample_rate):
@@ -402,7 +396,6 @@ class TestActualsService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 15),
-            allocation_percentage=Decimal('60.00')
         )
         
         # Try to add another that exceeds limit
@@ -413,7 +406,6 @@ class TestActualsService:
                 external_worker_id="EMP001",
                 worker_name="John Smith",
                 actual_date=date(2024, 1, 15),
-                allocation_percentage=Decimal('50.00')
             )
     
     def test_get_project_total_cost(self, db, sample_project, sample_worker, sample_rate):
@@ -425,7 +417,6 @@ class TestActualsService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 15),
-            allocation_percentage=Decimal('50.00')
         )
         actuals_service.create_actual(
             db=db,
@@ -433,7 +424,6 @@ class TestActualsService:
             external_worker_id="EMP001",
             worker_name="John Smith",
             actual_date=date(2024, 1, 16),
-            allocation_percentage=Decimal('75.00')
         )
         
         total_cost = actuals_service.get_project_total_cost(db, sample_project.id)

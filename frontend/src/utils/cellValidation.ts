@@ -100,7 +100,7 @@ export async function validateCellEdit(
   currentProjectId: string,
   existingAssignments?: any[]
 ): Promise<AllocationValidationResult> {
-  // First validate the percentage range
+  // First validate the percentage range (0-100)
   const rangeValidation = validatePercentage(newValue)
   if (!rangeValidation.isValid) {
     return rangeValidation
@@ -110,20 +110,11 @@ export async function validateCellEdit(
     // Format date as YYYY-MM-DD
     const dateStr = date.toISOString().split('T')[0]
     
-    // Get all assignments for this resource on this date
+    // Get all assignments for this resource on this date across all projects
     let assignments = existingAssignments
     if (!assignments) {
       assignments = await assignmentsApi.getByDate(resourceId, dateStr)
     }
-    
-    // Calculate total allocation across all projects
-    let totalAllocation = 0
-    const projectBreakdown: Array<{
-      projectId: string
-      projectName?: string
-      capitalPercentage: number
-      expensePercentage: number
-    }> = []
     
     // Group assignments by project
     const projectMap = new Map<string, { capital: number; expense: number; name?: string }>()
@@ -144,9 +135,41 @@ export async function validateCellEdit(
       project.expense += assignment.expense_percentage || 0
     })
     
+    // Get current project's other value (the one not being edited)
+    const currentProject = projectMap.get(currentProjectId)
+    const otherValue = costTreatment === 'capital'
+      ? (currentProject?.expense || 0)
+      : (currentProject?.capital || 0)
+    
+    // Calculate new project total (single assignment constraint)
+    const newProjectTotal = newValue + otherValue
+    
+    // Validate single assignment constraint: capital + expense <= 100 for this project
+    if (newProjectTotal > 100) {
+      return {
+        isValid: false,
+        errorMessage: `Capital + expense cannot exceed 100% for this project (would be ${newProjectTotal}%)`,
+        totalAllocation: newProjectTotal,
+        projectBreakdown: [{
+          projectId: currentProjectId,
+          capitalPercentage: costTreatment === 'capital' ? newValue : otherValue,
+          expensePercentage: costTreatment === 'expense' ? newValue : otherValue
+        }]
+      }
+    }
+    
+    // Calculate total allocation across all projects (cross-project constraint)
+    let totalAllocation = 0
+    const projectBreakdown: Array<{
+      projectId: string
+      projectName?: string
+      capitalPercentage: number
+      expensePercentage: number
+    }> = []
+    
     // Calculate total and build breakdown
     projectMap.forEach((data, projectId) => {
-      // If this is the current project, replace with new value
+      // If this is the current project, replace with new values
       if (projectId === currentProjectId) {
         if (costTreatment === 'capital') {
           data.capital = newValue
@@ -155,7 +178,8 @@ export async function validateCellEdit(
         }
       }
       
-      totalAllocation += data.capital + data.expense
+      const projectTotal = data.capital + data.expense
+      totalAllocation += projectTotal
       
       projectBreakdown.push({
         projectId,
@@ -179,8 +203,11 @@ export async function validateCellEdit(
       })
     }
     
-    // Check if over-allocated
+    // Validate cross-project constraint: total allocation across all projects <= 100
     if (totalAllocation > 100) {
+      // Calculate current total (excluding this project)
+      const currentTotalOtherProjects = totalAllocation - newProjectTotal
+      
       const breakdownText = projectBreakdown
         .map(p => {
           const projectLabel = p.projectName || p.projectId
@@ -191,7 +218,7 @@ export async function validateCellEdit(
       
       return {
         isValid: false,
-        errorMessage: `Resource is over-allocated (${totalAllocation}% total). Breakdown: ${breakdownText}`,
+        errorMessage: `Total allocation across all projects would exceed 100% (current: ${currentTotalOtherProjects.toFixed(1)}%, this project: ${newProjectTotal.toFixed(1)}%, total: ${totalAllocation.toFixed(1)}%). Breakdown: ${breakdownText}`,
         totalAllocation,
         projectBreakdown
       }

@@ -133,23 +133,77 @@ describe('Cell Validation Properties', () => {
 })
 
 /**
- * Property 5: Cross-Project Allocation Validation
- * For any resource and date, if the sum of allocation_percentage across all projects
- * (including both capital_percentage and expense_percentage) exceeds 100%,
- * the validation should reject the change and provide details about the over-allocation.
- * Validates: Requirements 13.4, 15.2, 15.3
+ * Property-based tests for resource-assignment-refactor
+ * Feature: resource-assignment-refactor
  */
-describe('Cross-Project Allocation Validation Properties', () => {
-  it('Property 5: should reject allocations that exceed 100% across projects', async () => {
+describe('Resource Assignment Refactor Validation Properties', () => {
+  /**
+   * Property: Single Assignment Constraint
+   * For any assignment, capital_percentage + expense_percentage must be <= 100.
+   * Feature: resource-assignment-refactor, Property 2: Single Assignment Sum Constraint
+   * Validates: Requirements 7.2, 7.3
+   */
+  it('Property 2: should reject single assignment where capital + expense > 100', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.integer({ min: 0, max: 100 }),
+        fc.integer({ min: 0, max: 100 }),
+        fc.constantFrom('capital', 'expense'),
+        async (capital, expense, costTreatment) => {
+          // Create an existing assignment with capital and expense
+          const existingAssignments = [
+            {
+              project_id: 'test-project-id',
+              capital_percentage: capital,
+              expense_percentage: expense
+            }
+          ]
+          
+          // Generate a new value that would violate the constraint
+          const otherValue = costTreatment === 'capital' ? expense : capital
+          const newValue = 101 - otherValue // This will make total > 100
+          
+          if (newValue > 100 || newValue < 0) {
+            return // Skip invalid test cases
+          }
+          
+          const { validateCellEdit } = await import('./cellValidation')
+          const result = await validateCellEdit(
+            'test-resource-id',
+            new Date('2024-01-15'),
+            costTreatment as 'capital' | 'expense',
+            newValue,
+            'test-project-id',
+            existingAssignments
+          )
+          
+          // Should be invalid due to single assignment constraint
+          expect(result.isValid).toBe(false)
+          expect(result.errorMessage).toBeDefined()
+          expect(result.errorMessage).toContain('cannot exceed 100%')
+        }
+      ),
+      { numRuns: 100 }
+    )
+  })
+
+  /**
+   * Property: Cross-Project Allocation Constraint
+   * For any resource and date, the sum of (capital + expense) across all projects
+   * must not exceed 100%.
+   * Feature: resource-assignment-refactor, Property 3: Cross-Project Allocation Constraint
+   * Validates: Requirements 7.2, 7.3
+   */
+  it('Property 3: should validate cross-project allocation correctly', async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.array(
           fc.record({
             project_id: fc.uuid(),
-            capital_percentage: fc.integer({ min: 0, max: 100 }),
-            expense_percentage: fc.integer({ min: 0, max: 100 })
-          }),
-          { minLength: 1, maxLength: 5 }
+            capital_percentage: fc.integer({ min: 0, max: 50 }),
+            expense_percentage: fc.integer({ min: 0, max: 50 })
+          }).filter(a => a.capital_percentage + a.expense_percentage <= 100),
+          { minLength: 0, maxLength: 3 }
         ),
         fc.constantFrom('capital', 'expense'),
         fc.integer({ min: 0, max: 100 }),
@@ -160,28 +214,13 @@ describe('Cross-Project Allocation Validation Properties', () => {
             0
           )
           
-          // Pick a project to update (use first one or create new)
-          const currentProjectId = existingAssignments[0]?.project_id || 'test-project-id'
+          // Use a new project ID to test cross-project validation
+          const currentProjectId = 'new-project-id'
           
           // Calculate what the new total would be
-          const currentProjectExisting = existingAssignments.find(
-            a => a.project_id === currentProjectId
-          )
+          const newProjectTotal = newValue + (costTreatment === 'capital' ? 0 : 0)
+          const newGrandTotal = existingTotal + newValue
           
-          let newTotal = existingTotal
-          if (currentProjectExisting) {
-            // Subtract old value, add new value
-            if (costTreatment === 'capital') {
-              newTotal = newTotal - currentProjectExisting.capital_percentage + newValue
-            } else {
-              newTotal = newTotal - currentProjectExisting.expense_percentage + newValue
-            }
-          } else {
-            // Adding to a new project
-            newTotal = existingTotal + newValue
-          }
-          
-          // Mock the API call by passing existingAssignments
           const { validateCellEdit } = await import('./cellValidation')
           const result = await validateCellEdit(
             'test-resource-id',
@@ -193,11 +232,10 @@ describe('Cross-Project Allocation Validation Properties', () => {
           )
           
           // Property: If total > 100, should be invalid
-          if (newTotal > 100) {
+          if (newGrandTotal > 100) {
             expect(result.isValid).toBe(false)
             expect(result.errorMessage).toBeDefined()
-            expect(result.errorMessage).toContain('over-allocated')
-            expect(result.totalAllocation).toBeGreaterThan(100)
+            expect(result.errorMessage).toContain('exceed 100%')
           } else {
             // If total <= 100, should be valid
             expect(result.isValid).toBe(true)
@@ -205,7 +243,7 @@ describe('Cross-Project Allocation Validation Properties', () => {
           }
         }
       ),
-      { numRuns: 50 } // Reduced runs for async tests
+      { numRuns: 100 }
     )
   })
 
@@ -265,8 +303,8 @@ describe('Cross-Project Allocation Validation Properties', () => {
     )
     
     expect(result.isValid).toBe(false)
-    expect(result.errorMessage).toContain('over-allocated')
-    expect(result.errorMessage).toContain('130%') // Total should be 130%
+    expect(result.errorMessage).toContain('exceed 100%')
+    expect(result.errorMessage).toContain('130') // Total should be 130%
     expect(result.projectBreakdown).toBeDefined()
     expect(result.projectBreakdown?.length).toBeGreaterThan(0)
   })

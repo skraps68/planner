@@ -100,7 +100,6 @@ export interface ResourceAssignment {
   project_id: string
   project_phase_id: string
   assignment_date: string
-  allocation_percentage: number
   capital_percentage: number
   expense_percentage: number
   created_at: string

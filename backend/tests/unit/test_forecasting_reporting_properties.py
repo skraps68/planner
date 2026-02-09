@@ -208,7 +208,6 @@ class TestForecastingReportingProperties:
                     external_worker_id=f"WORKER-{j}",
                     worker_name=f"Worker {j}",
                     actual_date=actual_date,
-                    allocation_percentage=Decimal("100.00"),
                     actual_cost=actual_cost,
                     capital_amount=capital_amount,
                     expense_amount=expense_amount
@@ -319,7 +318,6 @@ class TestForecastingReportingProperties:
                     resource_id=test_resource.id,
                     project_id=test_project.id,
                     assignment_date=assignment_date,
-                    allocation_percentage=Decimal("100.00"),
                     capital_percentage=Decimal("60.00"),
                     expense_percentage=Decimal("40.00")
                 )

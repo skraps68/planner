@@ -330,13 +330,10 @@ const ResourceAssignmentCalendar = ({
           }
         }
         
-        const allocationPercentage = capitalPercentage + expensePercentage
-        
         if (existingAssignment) {
           // Update existing assignment
           updatePromises.push(
             assignmentsApi.update(existingAssignment.id, {
-              allocation_percentage: allocationPercentage,
               capital_percentage: capitalPercentage,
               expense_percentage: expensePercentage,
             })
@@ -348,7 +345,6 @@ const ResourceAssignmentCalendar = ({
               resource_id: resourceId,
               project_id: projectId,
               assignment_date: dateStr,
-              allocation_percentage: allocationPercentage,
               capital_percentage: capitalPercentage,
               expense_percentage: expensePercentage,
             })

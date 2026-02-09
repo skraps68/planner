@@ -196,7 +196,6 @@ def sample_assignment(db_session, sample_project, sample_resource):
         resource_id=sample_resource.id,
         project_id=sample_project.id,
         assignment_date=date(2024, 6, 15),
-        allocation_percentage=Decimal("75.0"),
         capital_percentage=Decimal("60.0"),
         expense_percentage=Decimal("40.0")
     )
@@ -214,7 +213,6 @@ def sample_actual(db_session, sample_project):
         external_worker_id="EMP001",
         worker_name="John Worker",
         actual_date=date(2024, 3, 15),
-        allocation_percentage=Decimal("80.0"),
         actual_cost=Decimal("400.00"),
         capital_amount=Decimal("240.00"),
         expense_amount=Decimal("160.00")

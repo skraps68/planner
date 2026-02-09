@@ -61,13 +61,12 @@ async def create_assignment(
     - resource_id: Resource ID to assign
     - project_id: Project ID to assign to
     - assignment_date: Date of assignment
-    - allocation_percentage: Allocation percentage (0-100)
-    - capital_percentage: Capital accounting percentage (0-100)
-    - expense_percentage: Expense accounting percentage (0-100)
+    - capital_percentage: Capital time allocation percentage (0-100)
+    - expense_percentage: Expense time allocation percentage (0-100)
     
     Validation:
-    - Capital + expense percentages must equal 100
-    - Total allocation for resource on date cannot exceed 100%
+    - Capital + expense percentages must be <= 100 for single assignment
+    - Total allocation for resource on date across all projects cannot exceed 100%
     - User must have access to the project (scope-based)
     """
     try:
@@ -76,7 +75,6 @@ async def create_assignment(
             resource_id=assignment_in.resource_id,
             project_id=assignment_in.project_id,
             assignment_date=assignment_in.assignment_date,
-            allocation_percentage=assignment_in.allocation_percentage,
             capital_percentage=assignment_in.capital_percentage,
             expense_percentage=assignment_in.expense_percentage,
             user_id=current_user.id
@@ -239,15 +237,14 @@ async def update_assignment(
     All fields are optional. Only provided fields will be updated.
     
     Validation:
-    - If updating accounting split, capital + expense must equal 100
-    - If updating allocation, total for resource on date cannot exceed 100%
+    - Capital + expense percentages must be <= 100 for single assignment
+    - Total allocation for resource on date across all projects cannot exceed 100%
     - User must have access to the project (scope-based)
     """
     try:
         assignment = assignment_service.update_assignment(
             db=db,
             assignment_id=assignment_id,
-            allocation_percentage=assignment_in.allocation_percentage,
             capital_percentage=assignment_in.capital_percentage,
             expense_percentage=assignment_in.expense_percentage,
             user_id=current_user.id

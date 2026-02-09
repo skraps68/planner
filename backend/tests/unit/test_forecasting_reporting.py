@@ -133,7 +133,6 @@ def sample_actuals(db, sample_project, sample_worker_and_rate):
             external_worker_id=worker.external_id,
             worker_name=worker.name,
             actual_date=date(2024, 1, 1) + timedelta(days=i),
-            allocation_percentage=Decimal('50.00'),
             actual_cost=Decimal('500.00'),
             capital_amount=Decimal('250.00'),
             expense_amount=Decimal('250.00')

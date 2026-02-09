@@ -30,13 +30,59 @@ class AssignmentService:
         self.user_role_repository = user_role_repository
         self.scope_assignment_repository = scope_assignment_repository
     
+    def _validate_cross_project_allocation(
+        self,
+        db: Session,
+        resource_id: UUID,
+        assignment_date: date,
+        capital_percentage: Decimal,
+        expense_percentage: Decimal,
+        exclude_assignment_id: Optional[UUID] = None
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Validate that adding/updating an assignment doesn't exceed 100% 
+        allocation across all projects for a resource on a date.
+        
+        Args:
+            db: Database session
+            resource_id: Resource ID
+            assignment_date: Assignment date
+            capital_percentage: Capital percentage for new/updated assignment (whole number)
+            expense_percentage: Expense percentage for new/updated assignment (whole number)
+            exclude_assignment_id: Optional assignment ID to exclude (for updates)
+        
+        Returns:
+            (is_valid, error_message) tuple
+        """
+        # Get all assignments for this resource on this date
+        assignments = self.repository.get_by_date(db, resource_id, assignment_date)
+        
+        # Calculate current total (excluding the assignment being updated)
+        current_total = Decimal('0')
+        for assignment in assignments:
+            if exclude_assignment_id and assignment.id == exclude_assignment_id:
+                continue
+            current_total += assignment.capital_percentage + assignment.expense_percentage
+        
+        # Calculate new allocation
+        new_allocation = capital_percentage + expense_percentage
+        new_total = current_total + new_allocation
+        
+        if new_total > Decimal('100'):
+            return (False, 
+                    f'Assignment would exceed 100% allocation for resource on '
+                    f'{assignment_date}. Current total across other projects: {current_total}%, '
+                    f'This assignment: {new_allocation}%, '
+                    f'Would result in: {new_total}%')
+        
+        return (True, None)
+    
     def create_assignment(
         self,
         db: Session,
         resource_id: UUID,
         project_id: UUID,
         assignment_date: date,
-        allocation_percentage: Decimal,
         capital_percentage: Decimal,
         expense_percentage: Decimal,
         user_id: Optional[UUID] = None
@@ -49,7 +95,6 @@ class AssignmentService:
             resource_id: Resource ID to assign
             project_id: Project ID to assign to
             assignment_date: Date of assignment
-            allocation_percentage: Allocation percentage (0-100)
             capital_percentage: Capital accounting percentage (0-100)
             expense_percentage: Expense percentage (0-100)
             user_id: Optional user ID for scope validation
@@ -82,32 +127,33 @@ class AssignmentService:
             if not self._can_access_project(db, user_id, project_id):
                 raise ValueError(f"User does not have access to project {project_id}")
         
-        # Validate allocation percentage range
-        if allocation_percentage < Decimal('0') or allocation_percentage > Decimal('100'):
-            raise ValueError("Allocation percentage must be between 0 and 100")
+        # Validate percentages are whole numbers (integers)
+        if capital_percentage % 1 != 0:
+            raise ValueError(f"Capital percentage must be a whole number (got {capital_percentage})")
+        if expense_percentage % 1 != 0:
+            raise ValueError(f"Expense percentage must be a whole number (got {expense_percentage})")
         
-        # Validate accounting split
-        if not self.repository.validate_accounting_split(capital_percentage, expense_percentage):
-            raise ValueError("Capital and expense percentages must sum to 100")
-        
-        # Validate allocation limit (≤100% per day per resource)
-        if not self.repository.validate_allocation_limit(
-            db, resource_id, assignment_date, allocation_percentage
-        ):
-            current_total = self.repository.get_total_allocation_for_date(
-                db, resource_id, assignment_date
-            )
+        # Validate single assignment constraint (capital + expense <= 100)
+        total = capital_percentage + expense_percentage
+        if total > Decimal('100'):
             raise ValueError(
-                f"Assignment would exceed 100% allocation for resource on {assignment_date}. "
-                f"Current total: {current_total}%, Attempting to add: {allocation_percentage}%"
+                f'Capital percentage + expense percentage cannot exceed 100% '
+                f'(got {total}%)'
             )
+        
+        # Validate cross-project allocation
+        is_valid, error_msg = self._validate_cross_project_allocation(
+            db, resource_id, assignment_date, 
+            capital_percentage, expense_percentage
+        )
+        if not is_valid:
+            raise ValueError(error_msg)
         
         # Create assignment
         assignment_data = {
             "resource_id": resource_id,
             "project_id": project_id,
             "assignment_date": assignment_date,
-            "allocation_percentage": allocation_percentage,
             "capital_percentage": capital_percentage,
             "expense_percentage": expense_percentage
         }
@@ -233,30 +279,10 @@ class AssignmentService:
         
         return assignments
     
-    def get_resource_allocation(
-        self,
-        db: Session,
-        resource_id: UUID,
-        assignment_date: date
-    ) -> Decimal:
-        """
-        Get total allocation percentage for a resource on a specific date.
-        
-        Args:
-            db: Database session
-            resource_id: Resource ID
-            assignment_date: Assignment date
-            
-        Returns:
-            Total allocation percentage
-        """
-        return self.repository.get_total_allocation_for_date(db, resource_id, assignment_date)
-    
     def update_assignment(
         self,
         db: Session,
         assignment_id: UUID,
-        allocation_percentage: Optional[Decimal] = None,
         capital_percentage: Optional[Decimal] = None,
         expense_percentage: Optional[Decimal] = None,
         user_id: Optional[UUID] = None
@@ -267,7 +293,6 @@ class AssignmentService:
         Args:
             db: Database session
             assignment_id: Assignment ID to update
-            allocation_percentage: Optional new allocation percentage
             capital_percentage: Optional new capital percentage
             expense_percentage: Optional new expense percentage
             user_id: Optional user ID for scope validation
@@ -291,44 +316,41 @@ class AssignmentService:
         # Build update data
         update_data = {}
         
-        # Handle allocation percentage update with validation
-        if allocation_percentage is not None:
-            if allocation_percentage < Decimal('0') or allocation_percentage > Decimal('100'):
-                raise ValueError("Allocation percentage must be between 0 and 100")
-            
-            # Validate allocation limit (excluding current assignment)
-            if not self.repository.validate_allocation_limit(
-                db,
-                assignment.resource_id,
-                assignment.assignment_date,
-                allocation_percentage,
-                exclude_id=assignment_id
-            ):
-                current_total = self.repository.get_total_allocation_for_date(
-                    db, assignment.resource_id, assignment.assignment_date
-                )
-                # Subtract current assignment's allocation
-                current_total -= assignment.allocation_percentage
-                raise ValueError(
-                    f"Update would exceed 100% allocation for resource on {assignment.assignment_date}. "
-                    f"Current total (excluding this assignment): {current_total}%, "
-                    f"Attempting to set: {allocation_percentage}%"
-                )
-            
-            update_data["allocation_percentage"] = allocation_percentage
-        
-        # Handle accounting split update
+        # Determine new capital and expense values
         new_capital = capital_percentage if capital_percentage is not None else assignment.capital_percentage
         new_expense = expense_percentage if expense_percentage is not None else assignment.expense_percentage
         
-        if capital_percentage is not None or expense_percentage is not None:
-            if not self.repository.validate_accounting_split(new_capital, new_expense):
-                raise ValueError("Capital and expense percentages must sum to 100")
-            
-            if capital_percentage is not None:
-                update_data["capital_percentage"] = capital_percentage
-            if expense_percentage is not None:
-                update_data["expense_percentage"] = expense_percentage
+        # Validate percentages are whole numbers if provided
+        if capital_percentage is not None and capital_percentage % 1 != 0:
+            raise ValueError(f"Capital percentage must be a whole number (got {capital_percentage})")
+        if expense_percentage is not None and expense_percentage % 1 != 0:
+            raise ValueError(f"Expense percentage must be a whole number (got {expense_percentage})")
+        
+        # Validate single assignment constraint (capital + expense <= 100)
+        total = new_capital + new_expense
+        if total > Decimal('100'):
+            raise ValueError(
+                f'Capital percentage + expense percentage cannot exceed 100% '
+                f'(got {total}%)'
+            )
+        
+        # Validate cross-project allocation (excluding current assignment)
+        is_valid, error_msg = self._validate_cross_project_allocation(
+            db,
+            assignment.resource_id,
+            assignment.assignment_date,
+            new_capital,
+            new_expense,
+            exclude_assignment_id=assignment_id
+        )
+        if not is_valid:
+            raise ValueError(error_msg)
+        
+        # Add fields to update data
+        if capital_percentage is not None:
+            update_data["capital_percentage"] = capital_percentage
+        if expense_percentage is not None:
+            update_data["expense_percentage"] = expense_percentage
         
         return self.repository.update(db, db_obj=assignment, obj_in=update_data)
     
@@ -374,7 +396,7 @@ class AssignmentService:
         Import resource assignments from CSV with validation.
         
         CSV Format:
-        resource_id,project_id,assignment_date,allocation_percentage,capital_percentage,expense_percentage
+        resource_id,project_id,assignment_date,capital_percentage,expense_percentage
         
         Args:
             db: Database session
@@ -409,7 +431,6 @@ class AssignmentService:
                 resource_id = UUID(row["resource_id"])
                 project_id = UUID(row["project_id"])
                 assignment_date = date.fromisoformat(row["assignment_date"])
-                allocation_percentage = Decimal(row["allocation_percentage"])
                 capital_percentage = Decimal(row["capital_percentage"])
                 expense_percentage = Decimal(row["expense_percentage"])
                 
@@ -419,7 +440,6 @@ class AssignmentService:
                     resource_id=resource_id,
                     project_id=project_id,
                     assignment_date=assignment_date,
-                    allocation_percentage=allocation_percentage,
                     capital_percentage=capital_percentage,
                     expense_percentage=expense_percentage,
                     user_id=user_id
@@ -469,7 +489,8 @@ class AssignmentService:
             assignment_date = assignment.assignment_date
             if assignment_date not in date_allocations:
                 date_allocations[assignment_date] = Decimal('0')
-            date_allocations[assignment_date] += assignment.allocation_percentage
+            date_allocations[assignment_date] += (assignment.capital_percentage + 
+                                                   assignment.expense_percentage)
         
         # Identify conflicts (>100%)
         for assignment_date, total_allocation in date_allocations.items():
