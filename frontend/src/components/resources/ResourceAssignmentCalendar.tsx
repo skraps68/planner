@@ -705,9 +705,23 @@ const ResourceAssignmentCalendar = ({
                   minWidth: 200,
                 }}
                 role="columnheader"
-                aria-label="Resource name and cost treatment"
+                aria-label="Resource name"
               >
                 Resource
+              </TableCell>
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 200, // Adjust based on resource name column width
+                  backgroundColor: '#A5C1D8',
+                  fontWeight: 'bold',
+                  zIndex: 4,
+                  minWidth: 60,
+                }}
+                role="columnheader"
+                aria-label="Cost treatment type"
+              >
+                Type
               </TableCell>
               {gridData.dates.map((date, index) => {
                 // Check if this is Saturday (day 6) to add week boundary border
@@ -740,7 +754,9 @@ const ResourceAssignmentCalendar = ({
               <React.Fragment key={resource.resourceId}>
                 {/* Capital Row */}
                 <TableRow role="row">
+                  {/* Resource Name Cell - spans 2 rows */}
                   <TableCell
+                    rowSpan={2}
                     sx={{
                       position: 'sticky',
                       left: 0,
@@ -749,18 +765,35 @@ const ResourceAssignmentCalendar = ({
                       zIndex: 2,
                       borderRight: '2px solid',
                       borderColor: 'divider',
+                      borderBottom: '2px solid',
+                      verticalAlign: 'middle',
                     }}
                     role="rowheader"
-                    aria-label={`${resource.resourceName} - Capital allocations`}
+                    aria-label={`${resource.resourceName} - Capital and Expense allocations`}
                   >
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">
-                        {resource.resourceName}
-                      </Typography>
-                      <Typography variant="caption" color="primary">
-                        Capital
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {resource.resourceName}
+                    </Typography>
+                  </TableCell>
+                  {/* Cost Treatment Label Cell - Capital */}
+                  <TableCell
+                    sx={{
+                      position: 'sticky',
+                      left: 200, // Adjust based on resource name column width
+                      backgroundColor: 'background.paper',
+                      fontWeight: 'medium',
+                      zIndex: 2,
+                      borderRight: '2px solid',
+                      borderColor: 'divider',
+                      minWidth: 60,
+                      padding: '6px 8px',
+                    }}
+                    role="rowheader"
+                    aria-label="Capital"
+                  >
+                    <Typography variant="caption" color="primary">
+                      Cap
+                    </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
                     const value = getDisplayValue(resource.resourceId, date, 'capital')
@@ -800,28 +833,26 @@ const ResourceAssignmentCalendar = ({
 
                 {/* Expense Row */}
                 <TableRow role="row">
+                  {/* Cost Treatment Label Cell - Expense */}
                   <TableCell
                     sx={{
                       position: 'sticky',
-                      left: 0,
+                      left: 200, // Adjust based on resource name column width
                       backgroundColor: 'background.paper',
                       fontWeight: 'medium',
                       zIndex: 2,
                       borderRight: '2px solid',
                       borderColor: 'divider',
                       borderBottom: '2px solid',
+                      minWidth: 60,
+                      padding: '6px 8px',
                     }}
                     role="rowheader"
-                    aria-label={`${resource.resourceName} - Expense allocations`}
+                    aria-label="Expense"
                   >
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">
-                        {resource.resourceName}
-                      </Typography>
-                      <Typography variant="caption" color="secondary">
-                        Expense
-                      </Typography>
-                    </Box>
+                    <Typography variant="caption" color="secondary">
+                      Exp
+                    </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
                     const value = getDisplayValue(resource.resourceId, date, 'expense')

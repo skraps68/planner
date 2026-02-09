@@ -215,9 +215,10 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       const headerRow = table.querySelector('thead tr')
       const headerCells = headerRow?.querySelectorAll('th')
       
-      // Should have 6 header cells: Resource + 5 date columns
-      expect(headerCells).toHaveLength(6)
+      // Should have 7 header cells: Resource + Type + 5 date columns
+      expect(headerCells).toHaveLength(7)
       expect(headerCells?.[0].textContent).toBe('Resource')
+      expect(headerCells?.[1].textContent).toBe('Type')
     })
 
     it('displays resources with Capital and Expense rows', async () => {
@@ -234,13 +235,13 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
         const johnDoeElements = screen.getAllByText('John Doe')
         const janeSmithElements = screen.getAllByText('Jane Smith')
 
-        // Each resource should appear twice (Capital and Expense rows)
-        expect(johnDoeElements).toHaveLength(2)
-        expect(janeSmithElements).toHaveLength(2)
+        // Each resource should appear once (with rowSpan for Capital and Expense rows)
+        expect(johnDoeElements).toHaveLength(1)
+        expect(janeSmithElements).toHaveLength(1)
 
-        // Check for Capital and Expense labels
-        const capitalLabels = screen.getAllByText('Capital')
-        const expenseLabels = screen.getAllByText('Expense')
+        // Check for Capital and Expense labels (abbreviated as Cap and Exp)
+        const capitalLabels = screen.getAllByText('Cap')
+        const expenseLabels = screen.getAllByText('Exp')
 
         // Should have 2 Capital labels (one per resource) and 2 Expense labels
         expect(capitalLabels).toHaveLength(2)
@@ -323,7 +324,7 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
         // Zero values should display as empty cells (formatPercentage returns '' for 0)
         // The resource name should be visible but percentage cells should be empty
         const zeroResourceElements = screen.getAllByText('Zero Resource')
-        expect(zeroResourceElements).toHaveLength(2) // Capital and Expense rows
+        expect(zeroResourceElements).toHaveLength(1) // Resource name appears once with rowSpan
       })
     })
   })
@@ -357,17 +358,18 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
 
       await waitFor(() => {
         const testResourceElements = screen.getAllByText('Test Resource')
-        expect(testResourceElements).toHaveLength(2) // Capital and Expense rows
+        expect(testResourceElements).toHaveLength(1) // Resource name appears once with rowSpan
       })
 
-      // Check that the first column header exists and is the Resource column
+      // Check that the first two column headers exist (Resource and Type)
       const headerCells = container.querySelectorAll('th')
-      expect(headerCells.length).toBeGreaterThan(0)
+      expect(headerCells.length).toBeGreaterThan(1)
       expect(headerCells[0].textContent).toBe('Resource')
+      expect(headerCells[1].textContent).toBe('Type')
       
-      // Check that resource name cells exist in the body
-      const bodyCells = container.querySelectorAll('tbody td:first-child')
-      expect(bodyCells.length).toBe(2) // Capital and Expense rows
+      // Check that we have 2 rows (Capital and Expense)
+      const bodyRows = container.querySelectorAll('tbody tr')
+      expect(bodyRows.length).toBe(2) // Capital and Expense rows
     })
   })
 
