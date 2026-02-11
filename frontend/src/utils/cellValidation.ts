@@ -131,8 +131,9 @@ export async function validateCellEdit(
       }
       
       const project = projectMap.get(projectId)!
-      project.capital += assignment.capital_percentage || 0
-      project.expense += assignment.expense_percentage || 0
+      // Ensure values are numbers, not strings
+      project.capital += Number(assignment.capital_percentage) || 0
+      project.expense += Number(assignment.expense_percentage) || 0
     })
     
     // Get current project's other value (the one not being edited)

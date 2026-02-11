@@ -759,10 +759,16 @@ describe('ResourceAssignmentCalendar - Edit Mode', () => {
       await user.click(editButton)
 
       await waitFor(() => {
-        // In edit mode, cells should become input fields
-        const inputs = screen.getAllByRole('spinbutton')
-        expect(inputs.length).toBeGreaterThan(0)
+        // In edit mode, cells should be clickable (not immediately input fields for performance)
+        // Check that Save and Cancel buttons appear
+        expect(screen.getByText('Save')).toBeInTheDocument()
+        expect(screen.getByText('Cancel')).toBeInTheDocument()
       })
+      
+      // In edit mode, cells are clickable boxes that become input fields when clicked
+      // This is a performance optimization to avoid rendering thousands of TextFields at once
+      const table = screen.getByRole('grid')
+      expect(table).toBeInTheDocument()
     })
   })
 })

@@ -34,6 +34,7 @@ interface EditableCellProps {
   isEditMode: boolean
   hasError: boolean
   errorMessage?: string
+  isEdited: boolean
   onChange: (newValue: number) => void
   onBlur: () => void
 }
@@ -43,11 +44,13 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   isEditMode,
   hasError,
   errorMessage,
+  isEdited,
   onChange,
   onBlur,
 }) => {
   const [inputValue, setInputValue] = useState(value.toString())
   const [localError, setLocalError] = useState<string | undefined>()
+  const [isFocused, setIsFocused] = useState(false)
 
   useEffect(() => {
     setInputValue(value.toString())
@@ -79,17 +82,29 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      setIsFocused(false)
       onBlur()
     } else if (e.key === 'Escape') {
       // Escape key reverts to original value and exits edit
       e.preventDefault()
       setInputValue(value.toString())
       setLocalError(undefined)
+      setIsFocused(false)
       onBlur()
     } else if (e.key === 'Tab') {
       // Tab will naturally trigger blur, so we just let it happen
       // onBlur will be called automatically
+      setIsFocused(false)
     }
+  }
+
+  const handleBlur = () => {
+    setIsFocused(false)
+    onBlur()
+  }
+
+  const handleFocus = () => {
+    setIsFocused(true)
   }
 
   const formatPercentage = (val: number): string => {
@@ -105,12 +120,38 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   const displayError = hasError || !!localError
   const displayErrorMessage = errorMessage || localError
 
+  // In edit mode but not focused: show as clickable text
+  // This prevents rendering thousands of TextField components at once
+  if (!isFocused) {
+    return (
+      <Box
+        onClick={handleFocus}
+        sx={{
+          cursor: 'pointer',
+          padding: '2px 4px',
+          minHeight: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.3)' : 'transparent',
+          '&:hover': {
+            backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.5)' : 'action.hover',
+          },
+        }}
+      >
+        {formatPercentage(value)}
+      </Box>
+    )
+  }
+
   const cellContent = (
     <TextField
       value={inputValue}
       onChange={handleChange}
-      onBlur={onBlur}
+      onBlur={handleBlur}
       onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
+      autoFocus
       size="small"
       type="number"
       inputProps={{
@@ -127,6 +168,7 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
         '& .MuiInputBase-input': {
           textAlign: 'center',
           padding: '2px 4px',
+          fontSize: '0.875rem',
         },
       }}
     />
@@ -141,10 +183,19 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   }
 
   return cellContent
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  // Return true if props are equal (skip re-render), false if different (re-render)
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.isEditMode === nextProps.isEditMode &&
+    prevProps.hasError === nextProps.hasError &&
+    prevProps.errorMessage === nextProps.errorMessage &&
+    prevProps.isEdited === nextProps.isEdited
+    // Note: We intentionally don't compare onChange and onBlur functions
+    // as they are recreated on every render but their behavior is the same
+  )
 })
-
-// Memoize EditableCell to prevent unnecessary re-renders
-// Only re-render when value, isEditMode, hasError, or errorMessage changes
 
 interface ResourceAssignmentCalendarProps {
   projectId: string
@@ -194,6 +245,12 @@ const ResourceAssignmentCalendar = ({
       const data = await assignmentsApi.getByProject(projectId)
       console.log('✅ Assignments fetched:', data.length)
       console.log('  - Sample data:', data.slice(0, 3))
+      console.log('  - First assignment percentages:', data[0] ? {
+        capital: data[0].capital_percentage,
+        expense: data[0].expense_percentage,
+        capital_type: typeof data[0].capital_percentage,
+        expense_type: typeof data[0].expense_percentage
+      } : 'no data')
       setAssignments(data)
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load assignments'
@@ -420,13 +477,14 @@ const ResourceAssignmentCalendar = ({
     }
   }, [assignments, projectStartDate, projectEndDate])
 
-  const handleCellChange = useCallback((
+  // NOT memoized - we want this to always have access to current state
+  const handleCellChange = (
     resourceId: string,
     date: Date,
     costTreatment: 'capital' | 'expense',
     newValue: number
   ) => {
-    const key = `${resourceId}:${date.toISOString()}:${costTreatment}`
+    const key = getCellKey(resourceId, date, costTreatment)
     
     // Round to whole number to prevent fractional values
     const roundedValue = Math.round(newValue)
@@ -453,6 +511,17 @@ const ResourceAssignmentCalendar = ({
     
     const oldValue = getCellValue(gridData!, resourceId, date, costTreatment)
     
+    // If the new value equals the original value, remove from edited cells
+    // This handles the case where user changes a value then changes it back
+    if (roundedValue === Math.round(oldValue)) {
+      setEditedCells((prev) => {
+        const newMap = new Map(prev)
+        newMap.delete(key)
+        return newMap
+      })
+      return
+    }
+    
     const edit: CellEdit = {
       resourceId,
       date,
@@ -466,7 +535,7 @@ const ResourceAssignmentCalendar = ({
       newMap.set(key, edit)
       return newMap
     })
-  }, [gridData]) // FIXED: Include gridData in dependencies to prevent stale closure
+  }
 
   const handleCellBlur = useCallback(async (
     resourceId: string,
@@ -476,7 +545,8 @@ const ResourceAssignmentCalendar = ({
     const key = getCellKey(resourceId, date, costTreatment)
     const edit = editedCells.get(key)
     
-    // Only validate if there's an edit
+    // Only validate if there's an edit - this prevents validation on initial render
+    // when entering edit mode
     if (!edit) {
       return
     }
@@ -492,17 +562,11 @@ const ResourceAssignmentCalendar = ({
       )
       
       if (!validationResult.isValid) {
-        // Set validation error
+        // Set validation error but keep the edited value
+        // User can see the error and decide whether to fix it or revert manually
         setValidationErrors((prev) => {
           const newMap = new Map(prev)
           newMap.set(key, validationResult.errorMessage || 'Validation failed')
-          return newMap
-        })
-        
-        // Revert the cell to its old value
-        setEditedCells((prev) => {
-          const newMap = new Map(prev)
-          newMap.delete(key)
           return newMap
         })
       } else {
@@ -515,7 +579,7 @@ const ResourceAssignmentCalendar = ({
       }
     } catch (error) {
       console.error('Error validating cell:', error)
-      // Set a generic error
+      // Set a generic error but keep the edited value
       setValidationErrors((prev) => {
         const newMap = new Map(prev)
         newMap.set(key, 'Failed to validate allocation')
@@ -524,7 +588,8 @@ const ResourceAssignmentCalendar = ({
     }
   }, [editedCells, projectId])
 
-  const getDisplayValue = useCallback((
+  // NOT memoized - we want this to run on every render to pick up state changes
+  const getDisplayValue = (
     resourceId: string,
     date: Date,
     costTreatment: 'capital' | 'expense'
@@ -539,7 +604,7 @@ const ResourceAssignmentCalendar = ({
     // Round values from API to whole numbers
     const value = getCellValue(gridData!, resourceId, date, costTreatment)
     return Math.round(value)
-  }, [editedCells, gridData]) // FIXED: Include gridData in dependencies to prevent stale closure
+  }
 
   useEffect(() => {
     fetchAssignments()
@@ -800,6 +865,7 @@ const ResourceAssignmentCalendar = ({
                     const key = getCellKey(resource.resourceId, date, 'capital')
                     const hasError = validationErrors.has(key)
                     const errorMessage = validationErrors.get(key)
+                    const isEdited = editedCells.has(key)
                     const isSaturday = date.getUTCDay() === 6
                     
                     return (
@@ -807,7 +873,11 @@ const ResourceAssignmentCalendar = ({
                         key={dateIndex}
                         align="center"
                         sx={{
-                          backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
+                          backgroundColor: isEdited 
+                            ? 'rgba(255, 182, 193, 0.3)' 
+                            : value > 0 
+                              ? 'action.hover' 
+                              : 'background.paper',
                           padding: '6px 4px',
                           ...(isSaturday && {
                             borderRight: '2px solid #bdbdbd',
@@ -821,6 +891,7 @@ const ResourceAssignmentCalendar = ({
                           isEditMode={isEditMode}
                           hasError={hasError}
                           errorMessage={errorMessage}
+                          isEdited={isEdited}
                           onChange={(newValue) =>
                             handleCellChange(resource.resourceId, date, 'capital', newValue)
                           }
@@ -859,6 +930,7 @@ const ResourceAssignmentCalendar = ({
                     const key = getCellKey(resource.resourceId, date, 'expense')
                     const hasError = validationErrors.has(key)
                     const errorMessage = validationErrors.get(key)
+                    const isEdited = editedCells.has(key)
                     const isSaturday = date.getUTCDay() === 6
                     
                     return (
@@ -866,7 +938,11 @@ const ResourceAssignmentCalendar = ({
                         key={dateIndex}
                         align="center"
                         sx={{
-                          backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
+                          backgroundColor: isEdited 
+                            ? 'rgba(255, 182, 193, 0.3)' 
+                            : value > 0 
+                              ? 'action.hover' 
+                              : 'background.paper',
                           borderBottom: '2px solid',
                           borderColor: 'divider',
                           padding: '6px 4px',
@@ -882,6 +958,7 @@ const ResourceAssignmentCalendar = ({
                           isEditMode={isEditMode}
                           hasError={hasError}
                           errorMessage={errorMessage}
+                          isEdited={isEdited}
                           onChange={(newValue) =>
                             handleCellChange(resource.resourceId, date, 'expense', newValue)
                           }
