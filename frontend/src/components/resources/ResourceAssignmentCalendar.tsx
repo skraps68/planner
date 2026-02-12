@@ -16,6 +16,7 @@ import {
   Tooltip,
   Button,
   Stack,
+  Snackbar,
 } from '@mui/material'
 import { assignmentsApi } from '../../api/assignments'
 import { ResourceAssignment } from '../../types'
@@ -51,6 +52,8 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   const [inputValue, setInputValue] = useState(value.toString())
   const [localError, setLocalError] = useState<string | undefined>()
   const [isFocused, setIsFocused] = useState(false)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+  const spanRef = React.useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     setInputValue(value.toString())
@@ -91,11 +94,8 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
       setLocalError(undefined)
       setIsFocused(false)
       onBlur()
-    } else if (e.key === 'Tab') {
-      // Tab will naturally trigger blur, so we just let it happen
-      // onBlur will be called automatically
-      setIsFocused(false)
     }
+    // Tab key will naturally trigger blur and move to next cell
   }
 
   const handleBlur = () => {
@@ -105,6 +105,31 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
 
   const handleFocus = () => {
     setIsFocused(true)
+    // Select all text when focusing
+    // Use setTimeout to ensure the TextField has rendered and the input is available
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.select()
+      }
+    }, 0)
+  }
+
+  const handleClick = () => {
+    if (isEditMode && !isFocused) {
+      handleFocus()
+    }
+  }
+
+  const handleSpanKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    // When user presses any key on the span, activate edit mode
+    if (isEditMode && !isFocused) {
+      // Don't handle Tab - let it move to next cell naturally
+      if (e.key === 'Tab') {
+        return
+      }
+      e.preventDefault()
+      handleFocus()
+    }
   }
 
   const formatPercentage = (val: number): string => {
@@ -113,51 +138,71 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
     return `${Math.round(val)}`
   }
 
+  const displayError = hasError || !!localError
+  const displayErrorMessage = errorMessage || localError
+
+  // Not in edit mode: show plain text
   if (!isEditMode) {
     return <>{formatPercentage(value)}</>
   }
 
-  const displayError = hasError || !!localError
-  const displayErrorMessage = errorMessage || localError
-
-  // In edit mode but not focused: show as clickable text
-  // This prevents rendering thousands of TextField components at once
+  // In edit mode but not focused: show as clickable/tabbable span
+  // This prevents rendering thousands of input/TextField components at once
   if (!isFocused) {
-    return (
-      <Box
-        onClick={handleFocus}
-        sx={{
-          cursor: 'pointer',
+    const cellContent = (
+      <span
+        ref={spanRef}
+        tabIndex={0}
+        role="button"
+        onClick={handleClick}
+        onKeyDown={handleSpanKeyDown}
+        onFocus={handleFocus}
+        style={{
+          display: 'inline-block',
+          width: '50px',
+          textAlign: 'center',
           padding: '2px 4px',
-          minHeight: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          fontSize: '0.875rem',
+          border: displayError ? '1px solid #d32f2f' : '1px solid #e0e0e0',
           backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.3)' : 'transparent',
-          '&:hover': {
-            backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.5)' : 'action.hover',
-          },
+          cursor: 'text',
+          outline: 'none',
+          borderRadius: '4px',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05) inset',
         }}
+        aria-label="Allocation percentage"
+        aria-invalid={displayError}
+        aria-describedby={displayError ? 'cell-error' : undefined}
       >
         {formatPercentage(value)}
-      </Box>
+      </span>
     )
+
+    if (displayError && displayErrorMessage) {
+      return (
+        <Tooltip title={displayErrorMessage} arrow>
+          {cellContent}
+        </Tooltip>
+      )
+    }
+
+    return cellContent
   }
 
+  // When focused, show full TextField
   const cellContent = (
     <TextField
+      inputRef={inputRef}
       value={inputValue}
       onChange={handleChange}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
-      onFocus={handleFocus}
       autoFocus
       size="small"
-      type="number"
+      type="text"
       inputProps={{
-        min: 0,
-        max: 100,
-        step: 1,
+        inputMode: 'numeric',
+        pattern: '[0-9]*',
         'aria-label': 'Allocation percentage',
         'aria-invalid': displayError,
         'aria-describedby': displayError ? 'cell-error' : undefined,
@@ -165,10 +210,25 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
       error={displayError}
       sx={{
         width: '50px',
+        '& .MuiInputBase-root': {
+          backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.3)' : 'transparent',
+        },
         '& .MuiInputBase-input': {
           textAlign: 'center',
           padding: '2px 4px',
           fontSize: '0.875rem',
+        },
+        // Remove spinner arrows
+        '& input[type=number]': {
+          MozAppearance: 'textfield',
+        },
+        '& input[type=number]::-webkit-outer-spin-button': {
+          WebkitAppearance: 'none',
+          margin: 0,
+        },
+        '& input[type=number]::-webkit-inner-spin-button': {
+          WebkitAppearance: 'none',
+          margin: 0,
         },
       }}
     />
@@ -241,26 +301,18 @@ const ResourceAssignmentCalendar = ({
     try {
       setIsLoading(true)
       setError(null)
-      console.log('📡 Fetching assignments for project:', projectId)
       const data = await assignmentsApi.getByProject(projectId)
-      console.log('✅ Assignments fetched:', data.length)
-      console.log('  - Sample data:', data.slice(0, 3))
-      console.log('  - First assignment percentages:', data[0] ? {
-        capital: data[0].capital_percentage,
-        expense: data[0].expense_percentage,
-        capital_type: typeof data[0].capital_percentage,
-        expense_type: typeof data[0].expense_percentage
-      } : 'no data')
       setAssignments(data)
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load assignments'
-      console.error('❌ Error fetching assignments:', errorMessage)
       setError(errorMessage)
+      // Note: We intentionally don't include onSaveError in dependencies
+      // to prevent unnecessary refetches when parent re-renders
       onSaveError?.(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, onSaveError])
+  }, [projectId]) // Removed onSaveError from dependencies
 
   const handleEditClick = useCallback(() => {
     if (!canEdit) {
@@ -410,10 +462,57 @@ const ResourceAssignmentCalendar = ({
       }
       
       // Execute all updates and creates
-      await Promise.all([...updatePromises, ...createPromises])
+      const results = await Promise.all([...updatePromises, ...createPromises])
       
-      // Success - refetch data, clear edits, exit edit mode
-      await fetchAssignments()
+      // Success - update local state with saved values to avoid refetch
+      // This ensures the UI shows the saved values after clearing editedCells
+      setAssignments((prevAssignments) => {
+        const updatedAssignments = [...prevAssignments]
+        
+        // Apply all edits to the local state
+        for (const [key, edits] of editsByResourceDate.entries()) {
+          const [resourceId, dateStr] = key.split(':')
+          
+          // Find existing assignment
+          const existingIndex = updatedAssignments.findIndex(
+            (a) => a.resource_id === resourceId && a.assignment_date === dateStr
+          )
+          
+          // Calculate new percentages
+          let capitalPercentage = existingIndex >= 0 ? updatedAssignments[existingIndex].capital_percentage : 0
+          let expensePercentage = existingIndex >= 0 ? updatedAssignments[existingIndex].expense_percentage : 0
+          
+          for (const edit of edits) {
+            if (edit.costTreatment === 'capital') {
+              capitalPercentage = Math.round(edit.newValue)
+            } else {
+              expensePercentage = Math.round(edit.newValue)
+            }
+          }
+          
+          if (existingIndex >= 0) {
+            // Update existing assignment
+            updatedAssignments[existingIndex] = {
+              ...updatedAssignments[existingIndex],
+              capital_percentage: capitalPercentage,
+              expense_percentage: expensePercentage,
+            }
+          } else {
+            // Add new assignment (created on server)
+            // We need to get the ID from the create response
+            const createResult = results.find((r: any) => 
+              r.resource_id === resourceId && r.assignment_date === dateStr
+            )
+            if (createResult) {
+              updatedAssignments.push(createResult as ResourceAssignment)
+            }
+          }
+        }
+        
+        return updatedAssignments
+      })
+      
+      // Clear edits, exit edit mode
       setEditedCells(new Map())
       setValidationErrors(new Map())
       setIsEditMode(false)
@@ -502,7 +601,7 @@ const ResourceAssignmentCalendar = ({
       return
     }
     
-    // Clear any existing validation error
+    // Clear any existing validation error (will be re-set if cross-project validation fails)
     setValidationErrors((prev) => {
       const newMap = new Map(prev)
       newMap.delete(key)
@@ -535,6 +634,9 @@ const ResourceAssignmentCalendar = ({
       newMap.set(key, edit)
       return newMap
     })
+    
+    // Note: Cross-project validation is now deferred to handleCellBlur
+    // This improves responsiveness by not blocking on API calls during typing
   }
 
   const handleCellBlur = useCallback(async (
@@ -680,19 +782,28 @@ const ResourceAssignmentCalendar = ({
         {!isEditMode && saveSuccess && 'Changes saved successfully. Edit mode disabled.'}
       </Box>
 
-      {/* Success Message */}
-      {saveSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveSuccess(false)}>
+      {/* Success/Error Messages - Fixed at bottom of screen */}
+      <Snackbar
+        open={saveSuccess}
+        autoHideDuration={6000}
+        onClose={() => setSaveSuccess(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSaveSuccess(false)} sx={{ width: '100%' }}>
           Assignments saved successfully
         </Alert>
-      )}
+      </Snackbar>
       
-      {/* Error Message */}
-      {saveError && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
+      <Snackbar
+        open={!!saveError}
+        autoHideDuration={6000}
+        onClose={() => setSaveError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setSaveError(null)} sx={{ width: '100%' }}>
           {saveError}
         </Alert>
-      )}
+      </Snackbar>
       
       {/* Edit Controls */}
       {canEdit && (
@@ -718,6 +829,7 @@ const ResourceAssignmentCalendar = ({
                 onClick={handleCancelClick}
                 disabled={isSaving}
                 aria-label="Cancel editing and discard changes"
+                type="button"
               >
                 Cancel
               </Button>
@@ -728,6 +840,7 @@ const ResourceAssignmentCalendar = ({
                 disabled={isSaving}
                 aria-label="Save all changes to resource assignments"
                 aria-busy={isSaving}
+                type="button"
               >
                 {isSaving ? (
                   <>
