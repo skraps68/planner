@@ -296,4 +296,123 @@ describe('Portfolios API Client', () => {
       await expect(portfoliosApi.delete('portfolio-with-programs')).rejects.toEqual(error)
     })
   })
+
+  describe('version handling', () => {
+    it('should include version in update requests', async () => {
+      const updateData: PortfolioUpdate = {
+        name: 'Updated Portfolio',
+        version: 5,
+      }
+
+      const mockUpdatedPortfolio: Portfolio = {
+        id: '789',
+        name: 'Updated Portfolio',
+        description: 'Description',
+        owner: 'Owner',
+        reporting_start_date: '2024-01-01',
+        reporting_end_date: '2024-12-31',
+        program_count: 2,
+        version: 6,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-02T00:00:00Z',
+      }
+
+      const mockResponse = { data: mockUpdatedPortfolio }
+
+      vi.mocked(apiClient.put).mockResolvedValueOnce(mockResponse)
+
+      const result = await portfoliosApi.update('789', updateData)
+
+      // Verify version was sent in the request
+      expect(apiClient.put).toHaveBeenCalledWith('/portfolios/789', updateData)
+      expect(apiClient.put).toHaveBeenCalledWith('/portfolios/789', expect.objectContaining({ version: 5 }))
+      
+      // Verify version is in the response
+      expect(result.version).toBe(6)
+    })
+
+    it('should store version from API responses on get', async () => {
+      const mockPortfolio: Portfolio = {
+        id: '123',
+        name: 'Test Portfolio',
+        description: 'Test Description',
+        owner: 'Test Owner',
+        reporting_start_date: '2024-01-01',
+        reporting_end_date: '2024-12-31',
+        program_count: 3,
+        version: 1,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      }
+
+      const mockResponse = { data: mockPortfolio }
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
+
+      const result = await portfoliosApi.get('123')
+
+      expect(result.version).toBe(1)
+      expect(result).toHaveProperty('version')
+    })
+
+    it('should store version from API responses on create', async () => {
+      const createData: PortfolioCreate = {
+        name: 'New Portfolio',
+        description: 'New Description',
+        owner: 'New Owner',
+        reporting_start_date: '2024-01-01',
+        reporting_end_date: '2024-12-31',
+      }
+
+      const mockCreatedPortfolio: Portfolio = {
+        id: '456',
+        ...createData,
+        program_count: 0,
+        version: 1,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      }
+
+      const mockResponse = { data: mockCreatedPortfolio }
+
+      vi.mocked(apiClient.post).mockResolvedValueOnce(mockResponse)
+
+      const result = await portfoliosApi.create(createData)
+
+      expect(result.version).toBe(1)
+      expect(result).toHaveProperty('version')
+    })
+
+    it('should store version from API responses on list', async () => {
+      const mockResponse = {
+        data: {
+          items: [
+            {
+              id: '1',
+              name: 'Portfolio 1',
+              description: 'Description 1',
+              owner: 'Owner 1',
+              reporting_start_date: '2024-01-01',
+              reporting_end_date: '2024-12-31',
+              program_count: 5,
+              version: 3,
+              created_at: '2024-01-01T00:00:00Z',
+              updated_at: '2024-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          page: 1,
+          size: 10,
+          pages: 1,
+        },
+      }
+
+      vi.mocked(apiClient.get).mockResolvedValueOnce(mockResponse)
+
+      const result = await portfoliosApi.list()
+
+      expect(result.items[0].version).toBe(3)
+      expect(result.items[0]).toHaveProperty('version')
+    })
+  })
 })

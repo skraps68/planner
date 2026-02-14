@@ -182,3 +182,279 @@ class TestExceptionInheritance:
         """Test ResourceNotFoundError inherits from AppException."""
         exc = ResourceNotFoundError("Test")
         assert isinstance(exc, AppException)
+
+
+
+class TestConflictErrorLogging:
+    """Test conflict error logging functionality."""
+    
+    def test_conflict_error_log_contains_entity_type(self):
+        """Test that conflict log contains entity type."""
+        from unittest.mock import patch, MagicMock, AsyncMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        portfolio_id = uuid4()
+        current_state = {
+            "id": str(portfolio_id),
+            "name": "Test Portfolio",
+            "version": 2
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="portfolio",
+            entity_id=str(portfolio_id),
+            current_state=current_state
+        )
+        
+        # Mock request
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/portfolios/{portfolio_id}"
+        mock_request.method = "PUT"
+        mock_request.state.user_id = uuid4()
+        
+        # Mock logger
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            # Verify logger was called
+            assert mock_logger.warning.called
+            log_extra = mock_logger.warning.call_args[1].get('extra', {})
+            
+            # Verify entity_type is in log
+            assert "entity_type" in log_extra
+            assert log_extra["entity_type"] == "portfolio"
+    
+    def test_conflict_error_log_contains_entity_id(self):
+        """Test that conflict log contains entity ID."""
+        from unittest.mock import patch, MagicMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        project_id = uuid4()
+        current_state = {
+            "id": str(project_id),
+            "name": "Test Project",
+            "version": 3
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="project",
+            entity_id=str(project_id),
+            current_state=current_state
+        )
+        
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/projects/{project_id}"
+        mock_request.method = "PUT"
+        mock_request.state.user_id = uuid4()
+        
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            log_extra = mock_logger.warning.call_args[1].get('extra', {})
+            
+            # Verify entity_id is in log
+            assert "entity_id" in log_extra
+            assert log_extra["entity_id"] == str(project_id)
+    
+    def test_conflict_error_log_contains_actual_version(self):
+        """Test that conflict log contains actual version number."""
+        from unittest.mock import patch, MagicMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        resource_id = uuid4()
+        actual_version = 5
+        current_state = {
+            "id": str(resource_id),
+            "name": "Test Resource",
+            "version": actual_version
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="resource",
+            entity_id=str(resource_id),
+            current_state=current_state
+        )
+        
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/resources/{resource_id}"
+        mock_request.method = "PUT"
+        mock_request.state.user_id = uuid4()
+        
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            log_extra = mock_logger.warning.call_args[1].get('extra', {})
+            
+            # Verify actual_version is in log
+            assert "actual_version" in log_extra
+            assert log_extra["actual_version"] == actual_version
+    
+    def test_conflict_error_log_contains_user_id(self):
+        """Test that conflict log contains user ID."""
+        from unittest.mock import patch, MagicMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        program_id = uuid4()
+        user_id = uuid4()
+        current_state = {
+            "id": str(program_id),
+            "name": "Test Program",
+            "version": 2
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="program",
+            entity_id=str(program_id),
+            current_state=current_state
+        )
+        
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/programs/{program_id}"
+        mock_request.method = "PUT"
+        mock_request.state.user_id = user_id
+        
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            log_extra = mock_logger.warning.call_args[1].get('extra', {})
+            
+            # Verify user_id is in log
+            assert "user_id" in log_extra
+            assert log_extra["user_id"] == str(user_id)
+    
+    def test_conflict_error_log_excludes_sensitive_data(self):
+        """Test that conflict log does not contain sensitive data."""
+        from unittest.mock import patch, MagicMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        portfolio_id = uuid4()
+        current_state = {
+            "id": str(portfolio_id),
+            "name": "Test Portfolio",
+            "version": 2,
+            "description": "Sensitive description",
+            "owner": "Sensitive owner name",
+            "budget": 1000000,
+            "internal_notes": "Confidential notes"
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="portfolio",
+            entity_id=str(portfolio_id),
+            current_state=current_state
+        )
+        
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/portfolios/{portfolio_id}"
+        mock_request.method = "PUT"
+        mock_request.state.user_id = uuid4()
+        
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            log_extra = mock_logger.warning.call_args[1].get('extra', {})
+            
+            # Verify sensitive fields are NOT in log extra
+            assert "description" not in log_extra
+            assert "owner" not in log_extra
+            assert "budget" not in log_extra
+            assert "internal_notes" not in log_extra
+            
+            # Verify only required fields are present
+            assert "entity_type" in log_extra
+            assert "entity_id" in log_extra
+            assert "actual_version" in log_extra
+            assert "user_id" in log_extra
+            assert "request_id" in log_extra
+            assert "path" in log_extra
+            assert "method" in log_extra
+    
+    def test_conflict_error_log_handles_missing_user_id(self):
+        """Test that conflict log handles missing user ID gracefully."""
+        from unittest.mock import patch, MagicMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        resource_id = uuid4()
+        current_state = {
+            "id": str(resource_id),
+            "name": "Test Resource",
+            "version": 1
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="resource",
+            entity_id=str(resource_id),
+            current_state=current_state
+        )
+        
+        # Mock request without user_id
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/resources/{resource_id}"
+        mock_request.method = "PUT"
+        mock_request.state = MagicMock()
+        # Simulate missing user_id attribute
+        type(mock_request.state).user_id = property(lambda self: None)
+        
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            log_extra = mock_logger.warning.call_args[1].get('extra', {})
+            
+            # Verify user_id is present but None
+            assert "user_id" in log_extra
+            assert log_extra["user_id"] is None
+    
+    def test_conflict_error_log_message_format(self):
+        """Test that conflict log message has proper format."""
+        from unittest.mock import patch, MagicMock
+        from app.core.exceptions import ConflictError
+        from app.core.error_handlers import conflict_error_handler
+        from fastapi import Request
+        import asyncio
+        
+        project_id = uuid4()
+        current_state = {
+            "id": str(project_id),
+            "name": "Test Project",
+            "version": 4
+        }
+        
+        conflict_error = ConflictError(
+            entity_type="project",
+            entity_id=str(project_id),
+            current_state=current_state
+        )
+        
+        mock_request = MagicMock(spec=Request)
+        mock_request.url.path = f"/api/v1/projects/{project_id}"
+        mock_request.method = "PUT"
+        mock_request.state.user_id = uuid4()
+        
+        with patch('app.core.error_handlers.logger') as mock_logger:
+            asyncio.run(conflict_error_handler(mock_request, conflict_error))
+            
+            # Get log message
+            log_message = mock_logger.warning.call_args[0][0]
+            
+            # Verify message contains key information
+            assert "conflict" in log_message.lower()
+            assert "project" in log_message.lower()
+            assert str(project_id) in log_message

@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin
+from .base import BaseSchema, TimestampMixin, VersionedSchema
 
 
 class PhaseBase(BaseSchema):
@@ -62,7 +62,7 @@ class PhaseCreate(PhaseBase):
     project_id: UUID = Field(description="Project ID this phase belongs to")
 
 
-class PhaseUpdate(BaseSchema):
+class PhaseUpdate(VersionedSchema):
     """Schema for updating an existing phase."""
     
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
@@ -74,7 +74,7 @@ class PhaseUpdate(BaseSchema):
     total_budget: Optional[Decimal] = Field(default=None, ge=0)
 
 
-class PhaseResponse(PhaseBase, TimestampMixin):
+class PhaseResponse(PhaseBase, TimestampMixin, VersionedSchema):
     """Schema for phase response."""
     
     id: UUID

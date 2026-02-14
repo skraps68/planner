@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import (
     get_db,
@@ -26,7 +27,7 @@ from app.schemas.program import ProgramSummary
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.portfolio import portfolio_service
 from app.services.authorization import Permission, authorization_service
-from app.core.exceptions import AuthorizationError, ScopeAccessDeniedError
+from app.core.exceptions import AuthorizationError, ScopeAccessDeniedError, ConflictError
 
 router = APIRouter()
 
@@ -288,6 +289,18 @@ async def update_portfolio(
         response.program_count = len(portfolio.programs) if portfolio.programs else 0
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        current_portfolio = portfolio_service.get_portfolio(db, portfolio_id)
+        if current_portfolio:
+            current_state = PortfolioResponse.model_validate(current_portfolio).model_dump()
+            raise ConflictError("portfolio", str(portfolio_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Portfolio with ID {portfolio_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(

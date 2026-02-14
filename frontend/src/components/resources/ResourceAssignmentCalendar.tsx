@@ -18,7 +18,7 @@ import {
   Stack,
   Snackbar,
 } from '@mui/material'
-import { assignmentsApi } from '../../api/assignments'
+import { assignmentsApi, BulkUpdateFailure } from '../../api/assignments'
 import { ResourceAssignment } from '../../types'
 import {
   transformToGrid,
@@ -29,6 +29,7 @@ import {
 import { validatePercentage, validateCellEdit } from '../../utils/cellValidation'
 import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
+import BulkConflictDialog from './BulkConflictDialog'
 
 interface EditableCellProps {
   value: number
@@ -141,9 +142,25 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   const displayError = hasError || !!localError
   const displayErrorMessage = errorMessage || localError
 
-  // Not in edit mode: show plain text
+  // Not in edit mode: show plain text with consistent border styling
   if (!isEditMode) {
-    return <>{formatPercentage(value)}</>
+    return (
+      <span
+        style={{
+          display: 'inline-block',
+          width: '50px',
+          textAlign: 'center',
+          padding: '2px 4px',
+          fontSize: '0.875rem',
+          border: '1px solid transparent',
+          backgroundColor: 'transparent',
+          borderRadius: '4px',
+          boxShadow: '0 0 0 1px transparent inset',
+        }}
+      >
+        {formatPercentage(value)}
+      </span>
+    )
   }
 
   // In edit mode but not focused: show as clickable/tabbable span
@@ -290,6 +307,12 @@ const ResourceAssignmentCalendar = ({
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false)
+  const [bulkConflictFailures, setBulkConflictFailures] = useState<BulkUpdateFailure[]>([])
+  const [bulkConflictSuccessCount, setBulkConflictSuccessCount] = useState(0)
+  
+  // Ref to track scroll position
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null)
 
   // Check if user has permission to edit resources
   const canEdit = useMemo(() => {
@@ -318,13 +341,37 @@ const ResourceAssignmentCalendar = ({
     if (!canEdit) {
       return
     }
+    // Save scroll position before entering edit mode
+    const scrollLeft = scrollContainerRef.current?.scrollLeft || 0
+    const scrollTop = scrollContainerRef.current?.scrollTop || 0
+    
     setIsEditMode(true)
+    
+    // Restore scroll position after state update
+    requestAnimationFrame(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = scrollLeft
+        scrollContainerRef.current.scrollTop = scrollTop
+      }
+    })
   }, [canEdit])
 
   const handleCancelClick = useCallback(() => {
+    // Save scroll position before exiting edit mode
+    const scrollLeft = scrollContainerRef.current?.scrollLeft || 0
+    const scrollTop = scrollContainerRef.current?.scrollTop || 0
+    
     setIsEditMode(false)
     setEditedCells(new Map())
     setValidationErrors(new Map())
+    
+    // Restore scroll position after state update
+    requestAnimationFrame(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollLeft = scrollLeft
+        scrollContainerRef.current.scrollTop = scrollTop
+      }
+    })
   }, [])
 
   const handleSaveClick = useCallback(async () => {
@@ -335,6 +382,10 @@ const ResourceAssignmentCalendar = ({
       onSaveError?.(errorMsg)
       return
     }
+    
+    // Save scroll position before saving
+    const scrollLeft = scrollContainerRef.current?.scrollLeft || 0
+    const scrollTop = scrollContainerRef.current?.scrollTop || 0
     
     // Clear previous save messages
     setSaveSuccess(false)
@@ -414,7 +465,7 @@ const ResourceAssignmentCalendar = ({
       }
       
       // Process each resource-date combination
-      const updatePromises: Promise<any>[] = []
+      const bulkUpdates: any[] = []
       const createPromises: Promise<any>[] = []
       
       for (const [key, edits] of editsByResourceDate.entries()) {
@@ -440,13 +491,13 @@ const ResourceAssignmentCalendar = ({
         }
         
         if (existingAssignment) {
-          // Update existing assignment
-          updatePromises.push(
-            assignmentsApi.update(existingAssignment.id, {
-              capital_percentage: capitalPercentage,
-              expense_percentage: expensePercentage,
-            })
-          )
+          // Add to bulk update
+          bulkUpdates.push({
+            id: existingAssignment.id,
+            capital_percentage: capitalPercentage,
+            expense_percentage: expensePercentage,
+            version: existingAssignment.version,
+          })
         } else {
           // Create new assignment
           createPromises.push(
@@ -461,63 +512,156 @@ const ResourceAssignmentCalendar = ({
         }
       }
       
-      // Execute all updates and creates
-      const results = await Promise.all([...updatePromises, ...createPromises])
+      // Execute bulk updates and creates
+      let bulkResult: any = { succeeded: [], failed: [] }
+      if (bulkUpdates.length > 0) {
+        bulkResult = await assignmentsApi.bulkUpdate(bulkUpdates)
+      }
       
-      // Success - update local state with saved values to avoid refetch
-      // This ensures the UI shows the saved values after clearing editedCells
-      setAssignments((prevAssignments) => {
-        const updatedAssignments = [...prevAssignments]
+      const createResults = await Promise.all(createPromises)
+      
+      // Check if there were any conflicts
+      if (bulkResult.failed && bulkResult.failed.length > 0) {
+        // Handle conflicts - show which assignments failed
+        const failedIds = bulkResult.failed.map((f: any) => f.id)
+        const failedCount = bulkResult.failed.length
+        const successCount = bulkResult.succeeded.length + createResults.length
         
-        // Apply all edits to the local state
-        for (const [key, edits] of editsByResourceDate.entries()) {
-          const [resourceId, dateStr] = key.split(':')
+        // Update local state with successful updates
+        setAssignments((prevAssignments) => {
+          const updatedAssignments = [...prevAssignments]
           
-          // Find existing assignment
-          const existingIndex = updatedAssignments.findIndex(
-            (a) => a.resource_id === resourceId && a.assignment_date === dateStr
-          )
-          
-          // Calculate new percentages
-          let capitalPercentage = existingIndex >= 0 ? updatedAssignments[existingIndex].capital_percentage : 0
-          let expensePercentage = existingIndex >= 0 ? updatedAssignments[existingIndex].expense_percentage : 0
-          
-          for (const edit of edits) {
-            if (edit.costTreatment === 'capital') {
-              capitalPercentage = Math.round(edit.newValue)
-            } else {
-              expensePercentage = Math.round(edit.newValue)
+          // Apply successful updates
+          for (const success of bulkResult.succeeded) {
+            const index = updatedAssignments.findIndex((a) => a.id === success.id)
+            if (index >= 0) {
+              // Find the edit for this assignment
+              const assignment = updatedAssignments[index]
+              const dateStr = assignment.assignment_date
+              const key = `${assignment.resource_id}:${dateStr}`
+              const edits = editsByResourceDate.get(key) || []
+              
+              let capitalPercentage = assignment.capital_percentage
+              let expensePercentage = assignment.expense_percentage
+              
+              for (const edit of edits) {
+                if (edit.costTreatment === 'capital') {
+                  capitalPercentage = Math.round(edit.newValue)
+                } else {
+                  expensePercentage = Math.round(edit.newValue)
+                }
+              }
+              
+              updatedAssignments[index] = {
+                ...assignment,
+                capital_percentage: capitalPercentage,
+                expense_percentage: expensePercentage,
+                version: success.version,
+              }
             }
           }
           
-          if (existingIndex >= 0) {
-            // Update existing assignment
-            updatedAssignments[existingIndex] = {
-              ...updatedAssignments[existingIndex],
-              capital_percentage: capitalPercentage,
-              expense_percentage: expensePercentage,
-            }
-          } else {
-            // Add new assignment (created on server)
-            // We need to get the ID from the create response
-            const createResult = results.find((r: any) => 
-              r.resource_id === resourceId && r.assignment_date === dateStr
-            )
-            if (createResult) {
-              updatedAssignments.push(createResult as ResourceAssignment)
+          // Add created assignments
+          for (const created of createResults) {
+            updatedAssignments.push(created)
+          }
+          
+          return updatedAssignments
+        })
+        
+        // Remove successful edits from editedCells
+        setEditedCells((prev) => {
+          const newMap = new Map(prev)
+          
+          // Remove edits for successful updates
+          for (const success of bulkResult.succeeded) {
+            const assignment = assignments.find((a) => a.id === success.id)
+            if (assignment) {
+              const dateStr = assignment.assignment_date
+              const date = new Date(dateStr + 'T00:00:00Z')
+              const capitalKey = getCellKey(assignment.resource_id, date, 'capital')
+              const expenseKey = getCellKey(assignment.resource_id, date, 'expense')
+              newMap.delete(capitalKey)
+              newMap.delete(expenseKey)
             }
           }
+          
+          // Remove edits for created assignments
+          for (const created of createResults) {
+            const dateStr = created.assignment_date
+            const date = new Date(dateStr + 'T00:00:00Z')
+            const capitalKey = getCellKey(created.resource_id, date, 'capital')
+            const expenseKey = getCellKey(created.resource_id, date, 'expense')
+            newMap.delete(capitalKey)
+            newMap.delete(expenseKey)
+          }
+          
+          return newMap
+        })
+        
+        // Show conflict dialog
+        setBulkConflictFailures(bulkResult.failed)
+        setBulkConflictSuccessCount(successCount)
+        setConflictDialogOpen(true)
+        
+        // Don't exit edit mode - keep failed edits visible
+      } else {
+        // All updates succeeded
+        setAssignments((prevAssignments) => {
+          const updatedAssignments = [...prevAssignments]
+          
+          // Apply all successful updates
+          for (const success of bulkResult.succeeded) {
+            const index = updatedAssignments.findIndex((a) => a.id === success.id)
+            if (index >= 0) {
+              const assignment = updatedAssignments[index]
+              const dateStr = assignment.assignment_date
+              const key = `${assignment.resource_id}:${dateStr}`
+              const edits = editsByResourceDate.get(key) || []
+              
+              let capitalPercentage = assignment.capital_percentage
+              let expensePercentage = assignment.expense_percentage
+              
+              for (const edit of edits) {
+                if (edit.costTreatment === 'capital') {
+                  capitalPercentage = Math.round(edit.newValue)
+                } else {
+                  expensePercentage = Math.round(edit.newValue)
+                }
+              }
+              
+              updatedAssignments[index] = {
+                ...assignment,
+                capital_percentage: capitalPercentage,
+                expense_percentage: expensePercentage,
+                version: success.version,
+              }
+            }
+          }
+          
+          // Add created assignments
+          for (const created of createResults) {
+            updatedAssignments.push(created)
+          }
+          
+          return updatedAssignments
+        })
+        
+        // Clear all edits and exit edit mode
+        setEditedCells(new Map())
+        setValidationErrors(new Map())
+        setIsEditMode(false)
+        setSaveSuccess(true)
+        onSaveSuccess?.()
+      }
+      
+      // Restore scroll position
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollLeft = scrollLeft
+          scrollContainerRef.current.scrollTop = scrollTop
         }
-        
-        return updatedAssignments
       })
-      
-      // Clear edits, exit edit mode
-      setEditedCells(new Map())
-      setValidationErrors(new Map())
-      setIsEditMode(false)
-      setSaveSuccess(true)
-      onSaveSuccess?.()
     } catch (error: any) {
       console.error('Error saving assignments:', error)
       
@@ -536,6 +680,27 @@ const ResourceAssignmentCalendar = ({
       setIsSaving(false)
     }
   }, [canEdit, editedCells, assignments, projectId, onSaveSuccess, onSaveError, fetchAssignments])
+  
+  const handleConflictRefreshAndRetry = useCallback(async () => {
+    // Close the dialog
+    setConflictDialogOpen(false)
+    
+    // Refresh assignments to get latest data
+    await fetchAssignments()
+    
+    // The failed edits are still in editedCells, so user can see them highlighted
+    // and can click Save again to retry
+  }, [fetchAssignments])
+  
+  const handleConflictCancel = useCallback(() => {
+    // Close the dialog
+    setConflictDialogOpen(false)
+    
+    // Clear all edits and exit edit mode
+    setEditedCells(new Map())
+    setValidationErrors(new Map())
+    setIsEditMode(false)
+  }, [])
   
   // Transform data to grid structure
   // Memoized to avoid recalculation on every render
@@ -765,6 +930,15 @@ const ResourceAssignmentCalendar = ({
 
   return (
     <Box sx={{ width: '100%', overflow: 'hidden' }}>
+      {/* Bulk Conflict Dialog */}
+      <BulkConflictDialog
+        open={conflictDialogOpen}
+        successCount={bulkConflictSuccessCount}
+        failures={bulkConflictFailures}
+        onRefreshAndRetry={handleConflictRefreshAndRetry}
+        onCancel={handleConflictCancel}
+      />
+      
       {/* Screen reader announcements for mode changes */}
       <Box
         role="status"
@@ -862,7 +1036,7 @@ const ResourceAssignmentCalendar = ({
         virtualization using react-window or react-virtualized to render only visible columns.
         Current implementation handles up to ~365 days efficiently with memoization.
       */}
-      <Box sx={{ overflowX: 'auto', width: '100%', maxHeight: 'calc(100vh - 300px)' }}>
+      <Box ref={scrollContainerRef} sx={{ overflowX: 'auto', width: '100%', maxHeight: 'calc(100vh - 300px)' }}>
         <TableContainer component={Paper} sx={{ maxHeight: 'calc(100vh - 300px)' }}>
         <Table 
           sx={{ width: '100%', tableLayout: 'auto' }} 

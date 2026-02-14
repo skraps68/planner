@@ -12,6 +12,31 @@ export interface ResourceAssignmentCreateInput {
 export interface ResourceAssignmentUpdateInput {
   capital_percentage?: number
   expense_percentage?: number
+  version: number
+}
+
+export interface BulkAssignmentUpdate {
+  id: string
+  capital_percentage?: number
+  expense_percentage?: number
+  version: number
+}
+
+export interface BulkUpdateSuccess {
+  id: string
+  version: number
+}
+
+export interface BulkUpdateFailure {
+  id: string
+  error: string
+  message: string
+  current_state?: ResourceAssignment
+}
+
+export interface BulkUpdateResult {
+  succeeded: BulkUpdateSuccess[]
+  failed: BulkUpdateFailure[]
 }
 
 export interface AssignmentConflict {
@@ -54,6 +79,11 @@ export const assignmentsApi = {
 
   update: async (id: string, data: ResourceAssignmentUpdateInput) => {
     const response = await apiClient.put<ResourceAssignment>(`/assignments/${id}`, data)
+    return response.data
+  },
+
+  bulkUpdate: async (updates: BulkAssignmentUpdate[]) => {
+    const response = await apiClient.post<BulkUpdateResult>('/assignments/bulk-update', updates)
     return response.data
   },
 

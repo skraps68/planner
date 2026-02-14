@@ -25,12 +25,15 @@ import { Program } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import ConflictDialog from '../../components/common/ConflictDialog'
+import { useConflictHandler } from '../../hooks/useConflictHandler'
 
 const PortfolioDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { hasPermission } = usePermissions()
+  const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [isEditing, setIsEditing] = useState(false)
   const [editValues, setEditValues] = useState<PortfolioUpdate>({
     name: '',
@@ -38,6 +41,7 @@ const PortfolioDetailPage: React.FC = () => {
     owner: '',
     reporting_start_date: '',
     reporting_end_date: '',
+    version: 1,
   })
   const [snackbar, setSnackbar] = useState<{
     open: boolean
@@ -81,12 +85,18 @@ const PortfolioDetailPage: React.FC = () => {
       setValidationErrors({})
     },
     onError: (error: any) => {
-      const errorMessage = error.response?.data?.detail || 'Failed to update portfolio'
-      setSnackbar({
-        open: true,
-        message: errorMessage,
-        severity: 'error',
-      })
+      // Try to handle as conflict error
+      const isConflict = handleError(error, editValues)
+      
+      if (!isConflict) {
+        // Not a conflict, show generic error
+        const errorMessage = error.response?.data?.detail || 'Failed to update portfolio'
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+        })
+      }
     },
   })
 
@@ -105,6 +115,7 @@ const PortfolioDetailPage: React.FC = () => {
         owner: portfolio.owner,
         reporting_start_date: portfolio.reporting_start_date,
         reporting_end_date: portfolio.reporting_end_date,
+        version: portfolio.version,
       })
       setIsEditing(true)
       setValidationErrors({})
@@ -445,6 +456,28 @@ const PortfolioDetailPage: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Conflict Dialog */}
+      <ConflictDialog
+        open={conflictState.isConflict}
+        entityType={conflictState.entityType}
+        attemptedChanges={conflictState.attemptedChanges}
+        currentState={conflictState.currentState}
+        onRefreshAndRetry={() => {
+          // Reload the portfolio data
+          queryClient.invalidateQueries({ queryKey: ['portfolio', id] })
+          // Pre-fill form with attempted changes and new version
+          setEditValues({
+            ...conflictState.attemptedChanges,
+            version: conflictState.currentState.version,
+          })
+          clearConflict()
+        }}
+        onCancel={() => {
+          clearConflict()
+          setIsEditing(false)
+        }}
+      />
     </Box>
   )
 }

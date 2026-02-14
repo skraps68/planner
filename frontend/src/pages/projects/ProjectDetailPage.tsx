@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -26,6 +26,8 @@ import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
+import ConflictDialog from '../../components/common/ConflictDialog'
+import { useConflictHandler } from '../../hooks/useConflictHandler'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -60,6 +62,7 @@ const ProjectDetailPage: React.FC = () => {
     const tabParam = params.get('tab')
     return tabParam ? parseInt(tabParam, 10) : 0
   })
+  const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [snackbar, setSnackbar] = useState<{
     open: boolean
     message: string
@@ -78,10 +81,11 @@ const ProjectDetailPage: React.FC = () => {
     cost_center_code: '',
     start_date: '',
     end_date: '',
+    version: 1,
   })
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
 
-  const { data: project, isLoading, refetch } = useQuery({
+  const { data: project, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['project', id],
     queryFn: () => projectsApi.get(id!),
     enabled: !!id,
@@ -149,21 +153,21 @@ const ProjectDetailPage: React.FC = () => {
     })
   }
 
-  const handleAssignmentSaveSuccess = () => {
+  const handleAssignmentSaveSuccess = useCallback(() => {
     setSnackbar({
       open: true,
       message: 'Assignments saved successfully',
       severity: 'success',
     })
-  }
+  }, [])
 
-  const handleAssignmentSaveError = (error: string) => {
+  const handleAssignmentSaveError = useCallback((error: string) => {
     setSnackbar({
       open: true,
       message: `Failed to save assignments: ${error}`,
       severity: 'error',
     })
-  }
+  }, [])
 
   const handleProjectDateChange = async (startDate: string, endDate: string) => {
     try {
@@ -215,6 +219,7 @@ const ProjectDetailPage: React.FC = () => {
         cost_center_code: project.cost_center_code,
         start_date: project.start_date,
         end_date: project.end_date,
+        version: project.version,
       })
       setIsEditingInfo(true)
     }
@@ -230,13 +235,19 @@ const ProjectDetailPage: React.FC = () => {
       })
       setIsEditingInfo(false)
       refetch()
-    } catch (error) {
-      console.error('Failed to update project:', error)
-      setSnackbar({
-        open: true,
-        message: 'Failed to update project information',
-        severity: 'error',
-      })
+    } catch (error: any) {
+      // Try to handle as conflict error
+      const isConflict = handleError(error, editValues)
+      
+      if (!isConflict) {
+        // Not a conflict, show generic error
+        console.error('Failed to update project:', error)
+        setSnackbar({
+          open: true,
+          message: 'Failed to update project information',
+          severity: 'error',
+        })
+      }
     }
   }
 
@@ -533,6 +544,28 @@ const ProjectDetailPage: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Conflict Dialog */}
+      <ConflictDialog
+        open={conflictState.isConflict}
+        entityType={conflictState.entityType}
+        attemptedChanges={conflictState.attemptedChanges}
+        currentState={conflictState.currentState}
+        onRefreshAndRetry={() => {
+          // Reload the project data
+          refetch()
+          // Pre-fill form with attempted changes and new version
+          setEditValues({
+            ...conflictState.attemptedChanges,
+            version: conflictState.currentState.version,
+          })
+          clearConflict()
+        }}
+        onCancel={() => {
+          clearConflict()
+          setIsEditingInfo(false)
+        }}
+      />
     </Box>
   )
 }

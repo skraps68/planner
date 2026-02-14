@@ -323,12 +323,15 @@ class TestPortfolioAPICRUD:
             headers={"Authorization": "Bearer fake-token"}
         )
         assert create_response.status_code == 201
-        portfolio_id = create_response.json()["id"]
+        created_portfolio = create_response.json()
+        portfolio_id = created_portfolio["id"]
+        version = created_portfolio["version"]
         
         # Update the portfolio
         update_data = {
             "description": "Updated description",
-            "owner": "Jane Smith"
+            "owner": "Jane Smith",
+            "version": version
         }
         
         update_response = client.put(
@@ -342,6 +345,7 @@ class TestPortfolioAPICRUD:
         assert data["description"] == update_data["description"]
         assert data["owner"] == update_data["owner"]
         assert data["name"] == portfolio_data["name"]  # Unchanged
+        assert data["version"] == version + 1  # Version incremented
     
     def test_update_portfolio_invalid_dates(self, client):
         """Test updating a portfolio with invalid dates."""
@@ -360,12 +364,15 @@ class TestPortfolioAPICRUD:
             headers={"Authorization": "Bearer fake-token"}
         )
         assert create_response.status_code == 201
-        portfolio_id = create_response.json()["id"]
+        created_portfolio = create_response.json()
+        portfolio_id = created_portfolio["id"]
+        version = created_portfolio["version"]
         
         # Try to update with invalid dates
         update_data = {
             "reporting_start_date": "2024-12-31",
-            "reporting_end_date": "2024-01-01"
+            "reporting_end_date": "2024-01-01",
+            "version": version
         }
         
         update_response = client.put(

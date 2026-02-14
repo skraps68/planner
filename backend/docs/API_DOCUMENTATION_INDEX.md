@@ -46,6 +46,13 @@ The API provides interactive documentation through FastAPI's built-in tools:
   - Worker and worker type management
   - Rate management with temporal validity
 
+- **[Optimistic Locking API](./OPTIMISTIC_LOCKING_API.md)** ⭐ NEW
+  - Version-based concurrency control
+  - Conflict detection and resolution
+  - 409 Conflict response format
+  - Bulk update partial success handling
+  - Client implementation guide
+
 ### Additional Endpoints
 
 Other endpoints are documented through the interactive Swagger UI at `/docs`. Navigate to the appropriate tag:
@@ -205,7 +212,24 @@ For questions or issues:
 
 ## Recent Updates
 
-### Resource Assignment Data Model Refactoring (Latest)
+### Optimistic Locking Concurrency Control (Latest)
+
+The Optimistic Locking feature adds version-based concurrency control to all user-editable entities:
+
+- **New Feature**: Version tracking prevents silent data loss from concurrent edits
+- **Version Field**: All entities now include a `version` field that auto-increments on updates
+- **Conflict Detection**: HTTP 409 Conflict returned when version mismatch detected
+- **Migration Required**: Automatic addition of version columns with default value 1
+- **Key Features**:
+  - Version required in all update requests
+  - Current entity state returned in conflict responses
+  - Bulk update partial success handling
+  - Comprehensive conflict logging
+  - No application downtime required
+
+For complete details, see [OPTIMISTIC_LOCKING_API.md](./OPTIMISTIC_LOCKING_API.md).
+
+### Resource Assignment Data Model Refactoring
 
 The Resource Assignment data model has been refactored to support a new conceptual model:
 

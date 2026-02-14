@@ -468,6 +468,52 @@ async def sqlalchemy_operational_error_handler(
     )
 
 
+async def conflict_error_handler(request: Request, exc) -> JSONResponse:
+    """
+    Handle optimistic locking conflict errors with detailed logging.
+    
+    Args:
+        request: HTTP request
+        exc: ConflictError exception
+        
+    Returns:
+        JSON error response with current entity state
+    """
+    from app.core.exceptions import ConflictError
+    
+    request_id = str(uuid.uuid4())
+    
+    # Extract user info if available
+    user_id = getattr(request.state, "user_id", None)
+    
+    # Extract version information from current state
+    current_state = exc.details.get("current_state", {})
+    actual_version = current_state.get("version")
+    
+    # Log conflict with structured data (no sensitive information)
+    logger.warning(
+        f"Version conflict detected on {exc.details.get('entity_type')} {exc.details.get('entity_id')}",
+        extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "method": request.method,
+            "user_id": str(user_id) if user_id else None,
+            "entity_type": exc.details.get("entity_type"),
+            "entity_id": exc.details.get("entity_id"),
+            "actual_version": actual_version,
+            "error_code": exc.error_code
+        }
+    )
+    
+    return create_error_response(
+        status_code=exc.status_code,
+        message=exc.message,
+        error_code=exc.error_code,
+        details=exc.details,
+        request_id=request_id
+    )
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
     Handle unexpected exceptions.
@@ -509,6 +555,8 @@ def register_error_handlers(app):
     Args:
         app: FastAPI application instance
     """
+    from app.core.exceptions import ConflictError
+    
     # Custom application exceptions
     app.add_exception_handler(AppException, app_exception_handler)
     app.add_exception_handler(AuthenticationError, authentication_error_handler)
@@ -518,6 +566,7 @@ def register_error_handlers(app):
     app.add_exception_handler(BusinessRuleViolationError, business_rule_violation_handler)
     app.add_exception_handler(ResourceNotFoundError, resource_not_found_handler)
     app.add_exception_handler(DatabaseError, database_error_handler)
+    app.add_exception_handler(ConflictError, conflict_error_handler)
     
     # Pydantic validation errors
     app.add_exception_handler(RequestValidationError, validation_error_handler)

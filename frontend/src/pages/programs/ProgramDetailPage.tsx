@@ -34,6 +34,8 @@ import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import ConflictDialog from '../../components/common/ConflictDialog'
+import { useConflictHandler } from '../../hooks/useConflictHandler'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -63,6 +65,7 @@ const ProgramDetailPage: React.FC = () => {
     return tabParam ? parseInt(tabParam, 10) : 0
   })
   const { canAccessProject } = usePermissions()
+  const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [isEditingInfo, setIsEditingInfo] = useState(false)
   const [editValues, setEditValues] = useState({
     name: '',
@@ -72,6 +75,7 @@ const ProgramDetailPage: React.FC = () => {
     start_date: '',
     end_date: '',
     portfolio_id: '',
+    version: 1,
   })
   const [snackbar, setSnackbar] = useState<{
     open: boolean
@@ -169,6 +173,7 @@ const ProgramDetailPage: React.FC = () => {
         start_date: program.start_date,
         end_date: program.end_date,
         portfolio_id: program.portfolio?.id || '',
+        version: program.version,
       })
       setIsEditingInfo(true)
     }
@@ -184,13 +189,19 @@ const ProgramDetailPage: React.FC = () => {
       })
       setIsEditingInfo(false)
       refetch()
-    } catch (error) {
-      console.error('Failed to update program:', error)
-      setSnackbar({
-        open: true,
-        message: 'Failed to update program information',
-        severity: 'error',
-      })
+    } catch (error: any) {
+      // Try to handle as conflict error
+      const isConflict = handleError(error, editValues)
+      
+      if (!isConflict) {
+        // Not a conflict, show generic error
+        console.error('Failed to update program:', error)
+        setSnackbar({
+          open: true,
+          message: 'Failed to update program information',
+          severity: 'error',
+        })
+      }
     }
   }
 
@@ -640,6 +651,28 @@ const ProgramDetailPage: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Conflict Dialog */}
+      <ConflictDialog
+        open={conflictState.isConflict}
+        entityType={conflictState.entityType}
+        attemptedChanges={conflictState.attemptedChanges}
+        currentState={conflictState.currentState}
+        onRefreshAndRetry={() => {
+          // Reload the program data
+          refetch()
+          // Pre-fill form with attempted changes and new version
+          setEditValues({
+            ...conflictState.attemptedChanges,
+            version: conflictState.currentState.version,
+          })
+          clearConflict()
+        }}
+        onCancel={() => {
+          clearConflict()
+          setIsEditingInfo(false)
+        }}
+      />
     </Box>
   )
 }

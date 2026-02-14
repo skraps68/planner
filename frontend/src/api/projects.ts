@@ -20,7 +20,9 @@ export interface ProjectCreateRequest {
   }
 }
 
-export interface ProjectUpdateRequest extends Partial<Omit<ProjectCreateRequest, 'program_id'>> {}
+export interface ProjectUpdateRequest extends Partial<Omit<ProjectCreateRequest, 'program_id'>> {
+  version: number
+}
 
 export interface ProjectListParams {
   skip?: number

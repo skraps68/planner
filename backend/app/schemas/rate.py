@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class RateBase(BaseSchema):
@@ -33,7 +33,7 @@ class RateCreate(RateBase):
     pass
 
 
-class RateUpdate(BaseSchema):
+class RateUpdate(VersionedSchema):
     """Schema for updating an existing rate."""
     
     worker_type_id: Optional[UUID] = Field(default=None, description="Worker type ID")
@@ -51,7 +51,7 @@ class RateUpdate(BaseSchema):
         return v
 
 
-class RateResponse(RateBase, TimestampMixin):
+class RateResponse(RateBase, TimestampMixin, VersionedSchema):
     """Schema for rate response."""
     
     worker_type_name: Optional[str] = Field(default=None, description="Worker type name")

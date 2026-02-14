@@ -31,6 +31,8 @@ import { assignmentsApi } from '../../api/assignments'
 import { Resource, ResourceAssignment } from '../../types'
 import AssignmentCalendar from '../../components/resources/AssignmentCalendar'
 import AllocationConflictView from '../../components/resources/AllocationConflictView'
+import ConflictDialog from '../../components/common/ConflictDialog'
+import { useConflictHandler } from '../../hooks/useConflictHandler'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -50,6 +52,7 @@ const TabPanel = (props: TabPanelProps) => {
 const ResourceDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [resource, setResource] = useState<Resource | null>(null)
   const [assignments, setAssignments] = useState<ResourceAssignment[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +62,7 @@ const ResourceDetailPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    version: 1,
   })
 
   const isNewResource = id === 'new'
@@ -81,6 +85,7 @@ const ResourceDetailPage = () => {
       setFormData({
         name: data.name,
         description: data.description || '',
+        version: data.version,
       })
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load resource')
@@ -114,11 +119,18 @@ const ResourceDetailPage = () => {
         await resourcesApi.update(id!, {
           name: formData.name,
           description: formData.description || undefined,
+          version: formData.version,
         })
         fetchResource()
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save resource')
+      // Try to handle as conflict error
+      const isConflict = handleError(err, formData)
+      
+      if (!isConflict) {
+        // Not a conflict, show generic error
+        setError(err.response?.data?.detail || 'Failed to save resource')
+      }
     } finally {
       setSaving(false)
     }
@@ -288,6 +300,27 @@ const ResourceDetailPage = () => {
           </TabPanel>
         </>
       )}
+
+      {/* Conflict Dialog */}
+      <ConflictDialog
+        open={conflictState.isConflict}
+        entityType={conflictState.entityType}
+        attemptedChanges={conflictState.attemptedChanges}
+        currentState={conflictState.currentState}
+        onRefreshAndRetry={() => {
+          // Reload the resource data
+          fetchResource()
+          // Pre-fill form with attempted changes and new version
+          setFormData({
+            ...conflictState.attemptedChanges,
+            version: conflictState.currentState.version,
+          })
+          clearConflict()
+        }}
+        onCancel={() => {
+          clearConflict()
+        }}
+      />
     </Box>
   )
 }

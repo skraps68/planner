@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -19,6 +20,7 @@ from app.schemas.program import (
 )
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.program import program_service
+from app.core.exceptions import ConflictError
 
 router = APIRouter()
 
@@ -260,6 +262,18 @@ async def update_program(
         response.project_count = len(program.projects) if program.projects else 0
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        current_program = program_service.get_program(db, program_id)
+        if current_program:
+            current_state = ProgramResponse.model_validate(current_program).model_dump()
+            raise ConflictError("program", str(program_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Program with ID {program_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(

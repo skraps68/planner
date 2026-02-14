@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_active_user
 from app.models.user import User, RoleType, ScopeType
@@ -27,6 +28,7 @@ from app.services.authentication import authentication_service
 from app.services.authorization import authorization_service, Permission
 from app.services.role_management import role_management_service
 from app.services.audit import audit_service
+from app.core.exceptions import ConflictError
 
 router = APIRouter()
 
@@ -319,57 +321,71 @@ def update_user(
             detail="User not found"
         )
     
-    # Capture before values for audit
-    before_values = audit_service.capture_before_update(user)
-    
-    # Update user
-    update_data = user_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(user, field, value)
-    
-    db.commit()
-    db.refresh(user)
-    
-    # Log audit trail
-    audit_service.log_update(db, current_user.id, user, before_values)
-    
-    # Get user roles
-    user_roles = role_management_service.get_user_roles(db, user.id, active_only=False)
-    role_responses = []
-    
-    for role in user_roles:
-        scopes = role_management_service.get_role_scopes(db, role.id, active_only=False)
-        scope_responses = [
-            ScopeAssignmentResponse(id=scope.id, 
-                user_role_id=scope.user_role_id,
-                scope_type=scope.scope_type,
-                program_id=scope.program_id,
-                project_id=scope.project_id,
-                is_active=scope.is_active,
-                created_at=scope.created_at,
-                updated_at=scope.updated_at
-            )
-            for scope in scopes
-        ]
+    try:
+        # Capture before values for audit
+        before_values = audit_service.capture_before_update(user)
         
-        role_responses.append(UserRoleResponse(id=role.id, 
-            user_id=role.user_id,
-            role_type=role.role_type,
-            is_active=role.is_active,
-            scope_assignments=scope_responses,
-            created_at=role.created_at,
-            updated_at=role.updated_at
-        ))
+        # Update user
+        update_data = user_data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(user, field, value)
+        
+        db.commit()
+        db.refresh(user)
+        
+        # Log audit trail
+        audit_service.log_update(db, current_user.id, user, before_values)
+        
+        # Get user roles
+        user_roles = role_management_service.get_user_roles(db, user.id, active_only=False)
+        role_responses = []
+        
+        for role in user_roles:
+            scopes = role_management_service.get_role_scopes(db, role.id, active_only=False)
+            scope_responses = [
+                ScopeAssignmentResponse(id=scope.id, 
+                    user_role_id=scope.user_role_id,
+                    scope_type=scope.scope_type,
+                    program_id=scope.program_id,
+                    project_id=scope.project_id,
+                    is_active=scope.is_active,
+                    created_at=scope.created_at,
+                    updated_at=scope.updated_at
+                )
+                for scope in scopes
+            ]
+            
+            role_responses.append(UserRoleResponse(id=role.id, 
+                user_id=role.user_id,
+                role_type=role.role_type,
+                is_active=role.is_active,
+                scope_assignments=scope_responses,
+                created_at=role.created_at,
+                updated_at=role.updated_at
+            ))
+        
+        return UserResponse(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            is_active=user.is_active,
+            user_roles=role_responses,
+            created_at=user.created_at,
+            updated_at=user.updated_at
+        )
     
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        is_active=user.is_active,
-        user_roles=role_responses,
-        created_at=user.created_at,
-        updated_at=user.updated_at
-    )
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        db.rollback()
+        current_user_obj = user_repository.get(db, user_id)
+        if current_user_obj:
+            current_state = UserResponse.model_validate(current_user_obj).model_dump()
+            raise ConflictError("user", str(user_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

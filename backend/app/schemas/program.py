@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 if TYPE_CHECKING:
     from .portfolio import PortfolioSummary
@@ -39,7 +39,7 @@ class ProgramCreate(ProgramBase):
     portfolio_id: UUID = Field(description="Portfolio ID that this program belongs to")
 
 
-class ProgramUpdate(BaseSchema):
+class ProgramUpdate(VersionedSchema):
     """Schema for updating an existing program."""
     
     name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Program name")
@@ -61,7 +61,7 @@ class ProgramUpdate(BaseSchema):
         return v
 
 
-class ProgramResponse(ProgramBase, TimestampMixin):
+class ProgramResponse(ProgramBase, TimestampMixin, VersionedSchema):
     """Schema for program response."""
     
     portfolio_id: UUID = Field(description="Portfolio ID that this program belongs to")

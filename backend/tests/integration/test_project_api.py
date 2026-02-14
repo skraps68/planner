@@ -41,13 +41,32 @@ def override_auth_dependency():
 @pytest.fixture
 def test_program(client, override_auth_dependency):
     """Create a test program for project tests."""
+    # First create a portfolio
+    portfolio_data = {
+        "name": f"Test Portfolio {uuid4()}",
+        "description": "Test portfolio for projects",
+        "owner": "Test Owner",
+        "reporting_start_date": "2024-01-01",
+        "reporting_end_date": "2024-12-31"
+    }
+    
+    portfolio_response = client.post(
+        "/api/v1/portfolios/",
+        json=portfolio_data,
+        headers={"Authorization": "Bearer fake-token"}
+    )
+    assert portfolio_response.status_code == 201
+    portfolio = portfolio_response.json()
+    
+    # Then create a program
     program_data = {
         "name": f"Test Program {uuid4()}",
         "business_sponsor": "John Doe",
         "program_manager": "Jane Smith",
         "technical_lead": "Bob Johnson",
         "start_date": "2024-01-01",
-        "end_date": "2024-12-31"
+        "end_date": "2024-12-31",
+        "portfolio_id": portfolio["id"]
     }
     
     response = client.post(

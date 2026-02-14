@@ -357,12 +357,15 @@ class TestProgramAPICRUD:
             headers={"Authorization": "Bearer fake-token"}
         )
         assert create_response.status_code == 201
-        program_id = create_response.json()["id"]
+        created_program = create_response.json()
+        program_id = created_program["id"]
+        version = created_program["version"]
         
         # Update the program
         update_data = {
             "description": "Updated description",
-            "program_manager": "New Manager"
+            "program_manager": "New Manager",
+            "version": version
         }
         
         update_response = client.put(
@@ -376,6 +379,7 @@ class TestProgramAPICRUD:
         assert data["description"] == update_data["description"]
         assert data["program_manager"] == update_data["program_manager"]
         assert data["name"] == program_data["name"]  # Unchanged
+        assert data["version"] == version + 1  # Version incremented
     
     def test_update_program_invalid_dates(self, client, test_portfolio):
         """Test updating a program with invalid dates."""
@@ -676,11 +680,14 @@ class TestProgramPortfolioRelationship:
             headers={"Authorization": "Bearer fake-token"}
         )
         assert create_response.status_code == 201
-        program_id = create_response.json()["id"]
+        created_program = create_response.json()
+        program_id = created_program["id"]
+        version = created_program["version"]
         
         # Update to second portfolio
         update_data = {
-            "portfolio_id": portfolio2["id"]
+            "portfolio_id": portfolio2["id"],
+            "version": version
         }
         
         update_response = client.put(
@@ -692,6 +699,7 @@ class TestProgramPortfolioRelationship:
         assert update_response.status_code == 200
         data = update_response.json()
         assert data["portfolio_id"] == portfolio2["id"]
+        assert data["version"] == version + 1
         
         # Verify the change persisted
         get_response = client.get(
@@ -720,12 +728,15 @@ class TestProgramPortfolioRelationship:
             headers={"Authorization": "Bearer fake-token"}
         )
         assert create_response.status_code == 201
-        program_id = create_response.json()["id"]
+        created_program = create_response.json()
+        program_id = created_program["id"]
+        version = created_program["version"]
         
         # Try to update with invalid portfolio_id
         fake_portfolio_id = str(uuid4())
         update_data = {
-            "portfolio_id": fake_portfolio_id
+            "portfolio_id": fake_portfolio_id,
+            "version": version
         }
         
         update_response = client.put(

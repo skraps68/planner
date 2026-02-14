@@ -54,6 +54,9 @@ class DatabaseUtils:
     ) -> ModelType:
         """Update an existing record."""
         for field, value in obj_in.items():
+            # Skip version field - SQLAlchemy's version_id_col manages it automatically
+            if field == "version":
+                continue
             if hasattr(db_obj, field):
                 setattr(db_obj, field, value)
         db.add(db_obj)

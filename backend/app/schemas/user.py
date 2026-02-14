@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import EmailStr, Field
 
 from app.models.user import RoleType, ScopeType
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class UserBase(BaseSchema):
@@ -24,7 +24,7 @@ class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=255, description="Password")
 
 
-class UserUpdate(BaseSchema):
+class UserUpdate(VersionedSchema):
     """Schema for updating an existing user."""
     
     username: Optional[str] = Field(default=None, min_length=1, max_length=100, description="Username")
@@ -45,7 +45,7 @@ class UserRoleCreate(UserRoleBase):
     pass
 
 
-class UserRoleUpdate(BaseSchema):
+class UserRoleUpdate(VersionedSchema):
     """Schema for updating an existing user role."""
     
     role_type: Optional[RoleType] = Field(default=None, description="Role type")
@@ -67,7 +67,7 @@ class ScopeAssignmentCreate(ScopeAssignmentBase):
     pass
 
 
-class ScopeAssignmentUpdate(BaseSchema):
+class ScopeAssignmentUpdate(VersionedSchema):
     """Schema for updating an existing scope assignment."""
     
     scope_type: Optional[ScopeType] = Field(default=None, description="Scope type")
@@ -76,20 +76,20 @@ class ScopeAssignmentUpdate(BaseSchema):
     is_active: Optional[bool] = Field(default=None, description="Whether the scope assignment is active")
 
 
-class ScopeAssignmentResponse(ScopeAssignmentBase, TimestampMixin):
+class ScopeAssignmentResponse(ScopeAssignmentBase, TimestampMixin, VersionedSchema):
     """Schema for scope assignment response."""
     
     program_name: Optional[str] = Field(default=None, description="Program name")
     project_name: Optional[str] = Field(default=None, description="Project name")
 
 
-class UserRoleResponse(UserRoleBase, TimestampMixin):
+class UserRoleResponse(UserRoleBase, TimestampMixin, VersionedSchema):
     """Schema for user role response."""
     
     scope_assignments: Optional[List[ScopeAssignmentResponse]] = Field(default=None, description="Scope assignments")
 
 
-class UserResponse(UserBase, TimestampMixin):
+class UserResponse(UserBase, TimestampMixin, VersionedSchema):
     """Schema for user response."""
     
     user_roles: Optional[List[UserRoleResponse]] = Field(default=None, description="User roles")

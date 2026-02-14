@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -21,6 +22,7 @@ from app.schemas.resource import (
 )
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.resource import worker_service, worker_type_service
+from app.core.exceptions import ConflictError
 
 router = APIRouter()
 
@@ -233,6 +235,18 @@ async def update_worker_type(
         response.current_rate = str(current_rate.rate_amount) if current_rate else None
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        current_worker_type = worker_type_service.get_worker_type(db, worker_type_id)
+        if current_worker_type:
+            current_state = WorkerTypeResponse.model_validate(current_worker_type).model_dump()
+            raise ConflictError("worker_type", str(worker_type_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Worker type with ID {worker_type_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(
@@ -516,6 +530,18 @@ async def update_worker(
         response.current_rate = str(current_rate.rate_amount) if current_rate else None
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        current_worker = worker_service.get_worker(db, worker_id)
+        if current_worker:
+            current_state = WorkerResponse.model_validate(current_worker).model_dump()
+            raise ConflictError("worker", str(worker_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Worker with ID {worker_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(

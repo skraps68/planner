@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy import Column, DateTime, String, Text, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
 from sqlalchemy.types import TypeDecorator, CHAR
@@ -112,6 +112,16 @@ class BaseModel(Base):
         onupdate=datetime.utcnow,
         nullable=False
     )
+    version = Column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default='1'
+    )
+    
+    __mapper_args__ = {
+        "version_id_col": version
+    }
     
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(id={self.id})>"

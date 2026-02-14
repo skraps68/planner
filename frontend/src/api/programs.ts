@@ -11,7 +11,9 @@ export interface ProgramCreateRequest {
   portfolio_id: string
 }
 
-export interface ProgramUpdateRequest extends Partial<ProgramCreateRequest> {}
+export interface ProgramUpdateRequest extends Partial<ProgramCreateRequest> {
+  version: number
+}
 
 export interface ProgramListParams {
   skip?: number

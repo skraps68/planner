@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -24,6 +25,7 @@ from app.schemas.project import (
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.project import project_service, phase_service
 from app.services.reporting import reporting_service
+from app.core.exceptions import ConflictError
 
 router = APIRouter()
 
@@ -301,6 +303,18 @@ async def update_project(
             response.phase_adjustments = project._phase_adjustments
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        current_project = project_service.get_project(db, project_id)
+        if current_project:
+            current_state = ProjectResponse.model_validate(current_project).model_dump()
+            raise ConflictError("project", str(project_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project with ID {project_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(
@@ -507,6 +521,19 @@ async def update_phase_budget(
         )
         
         return ProjectPhaseResponse.model_validate(phase)
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        from app.repositories.project import project_phase_repository
+        current_phase = project_phase_repository.get(db, phase_id)
+        if current_phase:
+            current_state = ProjectPhaseResponse.model_validate(current_phase).model_dump()
+            raise ConflictError("project_phase", str(phase_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Phase with ID {phase_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(

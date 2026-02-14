@@ -11,6 +11,7 @@ export interface WorkerUpdateInput {
   external_id?: string
   name?: string
   worker_type_id?: string
+  version: number
 }
 
 export interface WorkerTypeCreateInput {
@@ -21,6 +22,7 @@ export interface WorkerTypeCreateInput {
 export interface WorkerTypeUpdateInput {
   type?: string
   description?: string
+  version: number
 }
 
 export const workersApi = {

@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class ActualBase(BaseSchema):
@@ -45,7 +45,7 @@ class ActualCreate(BaseSchema):
     allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage (0-100)")
 
 
-class ActualUpdate(BaseSchema):
+class ActualUpdate(VersionedSchema):
     """Schema for updating an existing actual."""
     
     project_id: Optional[UUID] = Field(default=None, description="Project ID")
@@ -70,7 +70,7 @@ class ActualUpdate(BaseSchema):
         return v
 
 
-class ActualResponse(ActualBase, TimestampMixin):
+class ActualResponse(ActualBase, TimestampMixin, VersionedSchema):
     """Schema for actual response."""
     
     project_name: Optional[str] = Field(default=None, description="Project name")

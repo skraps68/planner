@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -16,11 +17,16 @@ from app.schemas.assignment import (
     ResourceAssignmentResponse,
     ResourceAssignmentListResponse,
     AssignmentConflict,
-    AssignmentConflictResponse
+    AssignmentConflictResponse,
+    BulkUpdateResult,
+    BulkUpdateSuccess,
+    BulkUpdateFailure,
+    BulkAssignmentUpdate
 )
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.assignment import assignment_service
 from app.services.phase_service import PhaseService
+from app.core.exceptions import ConflictError
 
 router = APIRouter()
 
@@ -257,6 +263,19 @@ async def update_assignment(
         response.phase_name = _get_phase_name_for_assignment(db, assignment)
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        from app.repositories.resource_assignment import resource_assignment_repository
+        current_assignment = resource_assignment_repository.get(db, assignment_id)
+        if current_assignment:
+            current_state = ResourceAssignmentResponse.model_validate(current_assignment).model_dump()
+            raise ConflictError("resource_assignment", str(assignment_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Assignment with ID {assignment_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(
@@ -511,6 +530,71 @@ async def import_assignments(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to import assignments: {str(e)}"
+        )
+
+
+@router.post(
+    "/bulk-update",
+    response_model=BulkUpdateResult,
+    summary="Bulk update resource assignments",
+    description="Update multiple resource assignments in a single request with partial success support"
+)
+async def bulk_update_assignments(
+    updates: List[BulkAssignmentUpdate],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update multiple resource assignments in a single request.
+    
+    Each assignment is updated individually. If one update fails (e.g., due to version conflict),
+    other updates can still succeed. This allows partial success in bulk operations.
+    
+    Request body should be a list of BulkAssignmentUpdate objects, each containing:
+    - id: Assignment ID (required)
+    - version: Current version number (required for optimistic locking)
+    - capital_percentage: Optional new capital percentage
+    - expense_percentage: Optional new expense percentage
+    
+    Returns:
+    - succeeded: List of successfully updated assignments with new version numbers
+    - failed: List of failed updates with error details and current state (for conflicts)
+    """
+    try:
+        # Convert Pydantic models to dictionaries for service layer
+        update_dicts = [update.model_dump(exclude_unset=True) for update in updates]
+        
+        # Call service layer bulk update
+        results = assignment_service.bulk_update_assignments(
+            db=db,
+            updates=update_dicts,
+            user_id=current_user.id
+        )
+        
+        # Convert results to response models
+        succeeded = [
+            BulkUpdateSuccess(id=item["id"], version=item["version"])
+            for item in results["succeeded"]
+        ]
+        
+        failed = [
+            BulkUpdateFailure(
+                id=item["id"],
+                error=item["error"],
+                message=item["message"],
+                current_state=item.get("current_state")
+            )
+            for item in results["failed"]
+        ]
+        
+        return BulkUpdateResult(succeeded=succeeded, failed=failed)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process bulk update: {str(e)}"
         )
 
 

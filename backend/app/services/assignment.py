@@ -285,7 +285,8 @@ class AssignmentService:
         assignment_id: UUID,
         capital_percentage: Optional[Decimal] = None,
         expense_percentage: Optional[Decimal] = None,
-        user_id: Optional[UUID] = None
+        user_id: Optional[UUID] = None,
+        expected_version: Optional[int] = None
     ) -> ResourceAssignment:
         """
         Update assignment with validation.
@@ -296,17 +297,26 @@ class AssignmentService:
             capital_percentage: Optional new capital percentage
             expense_percentage: Optional new expense percentage
             user_id: Optional user ID for scope validation
+            expected_version: Optional expected version for optimistic locking
             
         Returns:
             Updated assignment
             
         Raises:
             ValueError: If validation fails or assignment not found
+            StaleDataError: If expected_version doesn't match current version
         """
         # Get existing assignment
         assignment = self.repository.get(db, assignment_id)
         if not assignment:
             raise ValueError(f"Assignment with ID {assignment_id} not found")
+        
+        # Check version if provided (for optimistic locking)
+        if expected_version is not None and assignment.version != expected_version:
+            from sqlalchemy.orm.exc import StaleDataError
+            raise StaleDataError(
+                f"UPDATE statement on table 'resource_assignments' expected to update 1 row(s); 0 were matched."
+            )
         
         # Validate scope access if user_id provided
         if user_id:
@@ -502,6 +512,109 @@ class AssignmentService:
                 })
         
         return conflicts
+    
+    def bulk_update_assignments(
+        self,
+        db: Session,
+        updates: List[Dict[str, Any]],
+        user_id: Optional[UUID] = None
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Update multiple assignments, tracking succeeded and failed updates separately.
+        
+        Each update is processed individually. If one fails, others can still succeed.
+        This allows partial success in bulk operations.
+        
+        Args:
+            db: Database session
+            updates: List of update dictionaries, each containing:
+                - id: Assignment ID (UUID)
+                - version: Current version number (int)
+                - capital_percentage: Optional new capital percentage (Decimal)
+                - expense_percentage: Optional new expense percentage (Decimal)
+            user_id: Optional user ID for scope validation
+            
+        Returns:
+            Dictionary with two keys:
+            - "succeeded": List of dicts with "id" and "version" (new version)
+            - "failed": List of dicts with "id", "error", "message", and optional "current_state"
+        """
+        from sqlalchemy.orm.exc import StaleDataError
+        
+        results = {
+            "succeeded": [],
+            "failed": []
+        }
+        
+        for update_data in updates:
+            assignment_id = update_data.get("id")
+            
+            try:
+                # Extract update fields
+                capital_percentage = update_data.get("capital_percentage")
+                expense_percentage = update_data.get("expense_percentage")
+                expected_version = update_data.get("version")
+                
+                # Perform update (this will raise StaleDataError if version mismatch)
+                updated_assignment = self.update_assignment(
+                    db=db,
+                    assignment_id=assignment_id,
+                    capital_percentage=capital_percentage,
+                    expense_percentage=expense_percentage,
+                    user_id=user_id,
+                    expected_version=expected_version
+                )
+                
+                # Success - add to succeeded list
+                results["succeeded"].append({
+                    "id": str(assignment_id),
+                    "version": updated_assignment.version
+                })
+                
+            except StaleDataError:
+                # Version conflict - rollback and fetch current state
+                db.rollback()
+                try:
+                    current_assignment = self.repository.get(db, assignment_id)
+                    if current_assignment:
+                        from app.schemas.assignment import ResourceAssignmentResponse
+                        current_state = ResourceAssignmentResponse.model_validate(current_assignment).model_dump()
+                        results["failed"].append({
+                            "id": str(assignment_id),
+                            "error": "conflict",
+                            "message": f"Assignment {assignment_id} was modified by another user",
+                            "current_state": current_state
+                        })
+                    else:
+                        results["failed"].append({
+                            "id": str(assignment_id),
+                            "error": "not_found",
+                            "message": f"Assignment {assignment_id} not found"
+                        })
+                except Exception as e:
+                    results["failed"].append({
+                        "id": str(assignment_id),
+                        "error": "conflict",
+                        "message": f"Version conflict occurred but could not fetch current state: {str(e)}"
+                    })
+                    
+            except ValueError as e:
+                # Validation error
+                results["failed"].append({
+                    "id": str(assignment_id),
+                    "error": "validation",
+                    "message": str(e)
+                })
+                
+            except Exception as e:
+                # Other errors
+                results["failed"].append({
+                    "id": str(assignment_id),
+                    "error": "unknown",
+                    "message": f"Failed to update assignment: {str(e)}"
+                })
+        
+        return results
     
     def _can_access_project(self, db: Session, user_id: UUID, project_id: UUID) -> bool:
         """

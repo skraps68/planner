@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -19,6 +20,7 @@ from app.schemas.resource import (
 )
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.resource import resource_service
+from app.core.exceptions import ConflictError
 
 router = APIRouter()
 
@@ -203,6 +205,18 @@ async def update_resource(
         response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        current_resource = resource_service.get_resource(db, resource_id)
+        if current_resource:
+            current_state = ResourceResponse.model_validate(current_resource).model_dump()
+            raise ConflictError("resource", str(resource_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Resource with ID {resource_id} not found"
+            )
         
     except ValueError as e:
         raise HTTPException(

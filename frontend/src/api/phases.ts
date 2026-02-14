@@ -20,6 +20,7 @@ export interface PhaseUpdateRequest {
   capital_budget?: number
   expense_budget?: number
   total_budget?: number
+  version: number
 }
 
 export interface PhaseBatchItem {

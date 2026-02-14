@@ -403,6 +403,43 @@ class ConcurrencyError(DatabaseError):
         )
 
 
+class ConflictError(AppException):
+    """
+    Raised when optimistic locking detects a version conflict.
+    
+    This exception is raised when an update request contains a version number
+    that doesn't match the current database version, indicating that another
+    user has modified the entity since it was last read.
+    """
+    
+    def __init__(
+        self,
+        entity_type: str,
+        entity_id: str,
+        current_state: Dict[str, Any],
+        message: Optional[str] = None
+    ):
+        """
+        Initialize ConflictError.
+        
+        Args:
+            entity_type: Type of entity (e.g., "portfolio", "project")
+            entity_id: ID of the entity that has a conflict
+            current_state: Current state of the entity in the database
+            message: Optional custom error message
+        """
+        msg = message or f"The {entity_type} was modified by another user. Please refresh and try again."
+        
+        details = {
+            "error": "conflict",
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "current_state": current_state
+        }
+        
+        super().__init__(msg, status_code=409, error_code="CONFLICT", details=details)
+
+
 # External Service Exceptions
 
 class ExternalServiceError(AppException):

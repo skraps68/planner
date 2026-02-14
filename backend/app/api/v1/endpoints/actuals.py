@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.api.deps import get_db, get_current_user
 from app.models.user import User
@@ -27,6 +28,7 @@ from app.services.variance_analysis import variance_analysis_service
 from app.core.exceptions import (
     BusinessRuleViolationError,
     ImportError as ImportException,
+    ConflictError
 )
 
 router = APIRouter()
@@ -260,6 +262,19 @@ async def update_actual(
                 response.program_name = actual.project.program.name
         
         return response
+    
+    except StaleDataError:
+        # Version conflict detected - fetch current state and raise ConflictError
+        from app.repositories.actual import actual_repository
+        current_actual = actual_repository.get(db, actual_id)
+        if current_actual:
+            current_state = ActualResponse.model_validate(current_actual).model_dump()
+            raise ConflictError("actual", str(actual_id), current_state)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Actual with ID {actual_id} not found"
+            )
         
     except (BusinessRuleViolationError, ImportException) as e:
         # These exceptions are already handled by global error handlers

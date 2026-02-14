@@ -8,6 +8,7 @@ export interface Portfolio {
   reporting_start_date: string
   reporting_end_date: string
   program_count?: number
+  version: number
   created_at: string
   updated_at: string
   created_by?: string
@@ -28,4 +29,5 @@ export interface PortfolioUpdate {
   owner?: string
   reporting_start_date?: string
   reporting_end_date?: string
+  version: number
 }

@@ -27,6 +27,12 @@ class TimestampMixin(BaseSchema):
     updated_at: datetime
 
 
+class VersionedSchema(BaseSchema):
+    """Base schema for entities with optimistic locking version control."""
+    
+    version: int = Field(description="Version number for optimistic locking")
+
+
 class PaginationParams(BaseSchema):
     """Pagination parameters for list endpoints."""
     

@@ -13,6 +13,7 @@ export interface Program {
     id: string
     name: string
   }
+  version: number
   created_at: string
   updated_at: string
 }
@@ -27,6 +28,7 @@ export interface Project {
   start_date: string
   end_date: string
   cost_center_code: string
+  version: number
   created_at: string
   updated_at: string
   phases?: ProjectPhase[]
@@ -42,6 +44,7 @@ export interface ProjectPhase {
   capital_budget: number
   expense_budget: number
   total_budget: number
+  version: number
   created_at: string
   updated_at: string
   assignment_count?: number
@@ -63,6 +66,7 @@ export interface Resource {
   name: string
   resource_type: 'LABOR' | 'NON_LABOR'
   description?: string
+  version: number
   created_at: string
   updated_at: string
 }
@@ -72,6 +76,7 @@ export interface Worker {
   external_id: string
   name: string
   worker_type_id: string
+  version: number
   created_at: string
   updated_at: string
 }
@@ -80,6 +85,7 @@ export interface WorkerType {
   id: string
   type: string
   description: string
+  version: number
   created_at: string
   updated_at: string
 }
@@ -90,6 +96,7 @@ export interface Rate {
   rate_amount: number
   start_date: string
   end_date?: string
+  version: number
   created_at: string
 }
 
@@ -102,6 +109,7 @@ export interface ResourceAssignment {
   assignment_date: string
   capital_percentage: number
   expense_percentage: number
+  version: number
   created_at: string
   updated_at: string
 }
@@ -116,6 +124,7 @@ export interface Actual {
   actual_cost: number
   capital_amount: number
   expense_amount: number
+  version: number
   created_at: string
   updated_at: string
   project_name?: string

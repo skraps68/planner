@@ -83,6 +83,15 @@ export interface ExceptionalVariancesResponse {
   exceptions: ExceptionalVariance[]
 }
 
+export interface ActualUpdateInput {
+  project_id?: string
+  external_worker_id?: string
+  worker_name?: string
+  actual_date?: string
+  allocation_percentage?: number
+  version: number
+}
+
 export const actualsApi = {
   // List actuals with filters
   listActuals: async (params?: {
@@ -116,7 +125,7 @@ export const actualsApi = {
   },
 
   // Update actual
-  updateActual: async (id: string, data: Partial<Actual>): Promise<Actual> => {
+  updateActual: async (id: string, data: ActualUpdateInput): Promise<Actual> => {
     const response = await apiClient.put(`/actuals/${id}`, data)
     return response.data
   },

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class PortfolioBase(BaseSchema):
@@ -33,7 +33,7 @@ class PortfolioCreate(PortfolioBase):
     pass
 
 
-class PortfolioUpdate(BaseSchema):
+class PortfolioUpdate(VersionedSchema):
     """Schema for updating an existing portfolio."""
     
     name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Portfolio name")
@@ -52,7 +52,7 @@ class PortfolioUpdate(BaseSchema):
         return v
 
 
-class PortfolioResponse(PortfolioBase, TimestampMixin):
+class PortfolioResponse(PortfolioBase, TimestampMixin, VersionedSchema):
     """Schema for portfolio response."""
     
     program_count: Optional[int] = Field(default=0, description="Number of programs in this portfolio")

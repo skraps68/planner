@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class ProjectBase(BaseSchema):
@@ -38,7 +38,7 @@ class ProjectCreate(ProjectBase):
     pass
 
 
-class ProjectUpdate(BaseSchema):
+class ProjectUpdate(VersionedSchema):
     """Schema for updating an existing project."""
     
     program_id: Optional[UUID] = Field(default=None, description="Program ID this project belongs to")
@@ -97,7 +97,7 @@ class ProjectPhaseCreate(ProjectPhaseBase):
     pass
 
 
-class ProjectPhaseUpdate(BaseSchema):
+class ProjectPhaseUpdate(VersionedSchema):
     """Schema for updating an existing project phase (deprecated - use PhaseUpdate instead)."""
     
     name: Optional[str] = Field(default=None, min_length=1, max_length=100, description="Phase name")
@@ -120,13 +120,13 @@ class ProjectPhaseUpdate(BaseSchema):
         return v
 
 
-class ProjectPhaseResponse(ProjectPhaseBase, TimestampMixin):
+class ProjectPhaseResponse(ProjectPhaseBase, TimestampMixin, VersionedSchema):
     """Schema for project phase response (deprecated - use PhaseResponse instead)."""
     id: UUID
     assignment_count: Optional[int] = Field(default=0, description="Number of assignments in this phase")
 
 
-class ProjectResponse(ProjectBase, TimestampMixin):
+class ProjectResponse(ProjectBase, TimestampMixin, VersionedSchema):
     """Schema for project response."""
     
     program_name: Optional[str] = Field(default=None, description="Program name")

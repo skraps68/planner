@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import Field, field_validator
 
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class ResourceAssignmentBase(BaseSchema):
@@ -39,7 +39,7 @@ class ResourceAssignmentCreate(ResourceAssignmentBase):
     pass
 
 
-class ResourceAssignmentUpdate(BaseSchema):
+class ResourceAssignmentUpdate(VersionedSchema):
     """Schema for updating an existing resource assignment."""
     
     resource_id: Optional[UUID] = Field(default=None, description="Resource ID")
@@ -62,7 +62,28 @@ class ResourceAssignmentUpdate(BaseSchema):
         return v
 
 
-class ResourceAssignmentResponse(ResourceAssignmentBase, TimestampMixin):
+class BulkAssignmentUpdate(VersionedSchema):
+    """Schema for a single assignment update in a bulk operation."""
+    
+    id: UUID = Field(description="Assignment ID to update")
+    capital_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Capital percentage (0-100)")
+    expense_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Expense percentage (0-100)")
+    
+    @field_validator('expense_percentage')
+    @classmethod
+    def validate_allocation_sum(cls, v, info):
+        """Validate that capital_percentage + expense_percentage <= 100."""
+        if v is not None and 'capital_percentage' in info.data and info.data['capital_percentage'] is not None:
+            total = info.data['capital_percentage'] + v
+            if total > 100:
+                raise ValueError(
+                    f'Capital percentage + expense percentage cannot exceed 100 '
+                    f'(got {total})'
+                )
+        return v
+
+
+class ResourceAssignmentResponse(ResourceAssignmentBase, TimestampMixin, VersionedSchema):
     """Schema for resource assignment response."""
     
     resource_name: Optional[str] = Field(default=None, description="Resource name")
@@ -143,3 +164,26 @@ class AssignmentConflictResponse(BaseSchema):
     
     has_conflicts: bool = Field(description="Whether conflicts were found")
     conflicts: List[AssignmentConflict] = Field(description="List of conflicts found")
+
+
+class BulkUpdateSuccess(BaseSchema):
+    """Schema for a successful bulk update item."""
+    
+    id: UUID = Field(description="Assignment ID")
+    version: int = Field(description="New version number after update")
+
+
+class BulkUpdateFailure(BaseSchema):
+    """Schema for a failed bulk update item."""
+    
+    id: UUID = Field(description="Assignment ID")
+    error: str = Field(description="Error type (e.g., 'conflict', 'not_found', 'validation')")
+    message: str = Field(description="Error message")
+    current_state: Optional[dict] = Field(default=None, description="Current state of the entity (for conflicts)")
+
+
+class BulkUpdateResult(BaseSchema):
+    """Schema for bulk update result with partial success support."""
+    
+    succeeded: List[BulkUpdateSuccess] = Field(description="List of successfully updated assignments")
+    failed: List[BulkUpdateFailure] = Field(description="List of failed assignment updates")

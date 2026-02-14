@@ -6,6 +6,7 @@ export interface User {
   email: string
   is_active: boolean
   user_roles: UserRole[]
+  version: number
   created_at: string
   updated_at: string
 }
@@ -16,6 +17,7 @@ export interface UserRole {
   role_type: string
   is_active: boolean
   scope_assignments: ScopeAssignment[]
+  version: number
   created_at: string
   updated_at: string
 }
@@ -29,6 +31,7 @@ export interface ScopeAssignment {
   program_name?: string
   project_name?: string
   is_active: boolean
+  version: number
   created_at: string
   updated_at: string
 }
@@ -44,6 +47,7 @@ export interface UserUpdate {
   username?: string
   email?: string
   is_active?: boolean
+  version: number
 }
 
 export interface UserRoleCreate {

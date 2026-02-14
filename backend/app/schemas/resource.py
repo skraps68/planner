@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.models.resource import ResourceType
-from .base import BaseSchema, TimestampMixin, PaginatedResponse
+from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 
 class ResourceBase(BaseSchema):
@@ -23,7 +23,7 @@ class ResourceCreate(ResourceBase):
     pass
 
 
-class ResourceUpdate(BaseSchema):
+class ResourceUpdate(VersionedSchema):
     """Schema for updating an existing resource."""
     
     name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Resource name")
@@ -31,7 +31,7 @@ class ResourceUpdate(BaseSchema):
     description: Optional[str] = Field(default=None, max_length=1000, description="Resource description")
 
 
-class ResourceResponse(ResourceBase, TimestampMixin):
+class ResourceResponse(ResourceBase, TimestampMixin, VersionedSchema):
     """Schema for resource response."""
     
     assignment_count: Optional[int] = Field(default=0, description="Number of assignments for this resource")
@@ -54,14 +54,14 @@ class WorkerTypeCreate(WorkerTypeBase):
     pass
 
 
-class WorkerTypeUpdate(BaseSchema):
+class WorkerTypeUpdate(VersionedSchema):
     """Schema for updating an existing worker type."""
     
     type: Optional[str] = Field(default=None, min_length=1, max_length=100, description="Worker type name")
     description: Optional[str] = Field(default=None, min_length=1, max_length=1000, description="Worker type description")
 
 
-class WorkerTypeResponse(WorkerTypeBase, TimestampMixin):
+class WorkerTypeResponse(WorkerTypeBase, TimestampMixin, VersionedSchema):
     """Schema for worker type response."""
     
     worker_count: Optional[int] = Field(default=0, description="Number of workers of this type")
@@ -81,7 +81,7 @@ class WorkerCreate(WorkerBase):
     pass
 
 
-class WorkerUpdate(BaseSchema):
+class WorkerUpdate(VersionedSchema):
     """Schema for updating an existing worker."""
     
     worker_type_id: Optional[UUID] = Field(default=None, description="Worker type ID")
@@ -89,7 +89,7 @@ class WorkerUpdate(BaseSchema):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Worker name")
 
 
-class WorkerResponse(WorkerBase, TimestampMixin):
+class WorkerResponse(WorkerBase, TimestampMixin, VersionedSchema):
     """Schema for worker response."""
     
     worker_type_name: Optional[str] = Field(default=None, description="Worker type name")

@@ -10,6 +10,7 @@ export interface ResourceCreateInput {
 export interface ResourceUpdateInput {
   name?: string
   description?: string
+  version: number
 }
 
 export const resourcesApi = {
