@@ -19,7 +19,6 @@ import {
   Snackbar,
 } from '@mui/material'
 import { assignmentsApi, BulkUpdateFailure } from '../../api/assignments'
-import { ResourceAssignment } from '../../types'
 import {
   transformToGrid,
   getCellValue,
@@ -30,6 +29,8 @@ import { validatePercentage, validateCellEdit } from '../../utils/cellValidation
 import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
 import BulkConflictDialog from './BulkConflictDialog'
+import { useProjectAssignments, useInvalidateAssignments } from '../../hooks/useAssignments'
+import { usePersistedEdits } from '../../hooks/usePersistedEdits'
 
 interface EditableCellProps {
   value: number
@@ -40,6 +41,75 @@ interface EditableCellProps {
   onChange: (newValue: number) => void
   onBlur: () => void
 }
+
+// Memoized cell wrapper to prevent unnecessary re-renders
+interface CellWrapperProps {
+  resourceId: string
+  resourceName: string
+  date: Date
+  costTreatment: 'capital' | 'expense'
+  isEditMode: boolean
+  gridData: GridData
+  editedCells: Map<string, CellEdit>
+  validationErrors: Map<string, string>
+  onCellChange: (resourceId: string, date: Date, costTreatment: 'capital' | 'expense', newValue: number) => void
+  onCellBlur: (resourceId: string, date: Date, costTreatment: 'capital' | 'expense') => void
+}
+
+const CellWrapper: React.FC<CellWrapperProps> = React.memo(({
+  resourceId,
+  date,
+  costTreatment,
+  isEditMode,
+  gridData,
+  editedCells,
+  validationErrors,
+  onCellChange,
+  onCellBlur,
+}) => {
+  const key = getCellKey(resourceId, date, costTreatment)
+  const edit = editedCells.get(key)
+  const value = edit ? edit.newValue : Math.round(getCellValue(gridData, resourceId, date, costTreatment))
+  const hasError = validationErrors.has(key)
+  const errorMessage = validationErrors.get(key)
+  const isEdited = editedCells.has(key)
+
+  return (
+    <EditableCell
+      value={value}
+      isEditMode={isEditMode}
+      hasError={hasError}
+      errorMessage={errorMessage}
+      isEdited={isEdited}
+      onChange={(newValue) => onCellChange(resourceId, date, costTreatment, newValue)}
+      onBlur={() => onCellBlur(resourceId, date, costTreatment)}
+    />
+  )
+}, (prevProps, nextProps) => {
+  // Only re-render if these specific props change
+  if (prevProps.isEditMode !== nextProps.isEditMode) return false
+  if (prevProps.date !== nextProps.date) return false
+  if (prevProps.resourceId !== nextProps.resourceId) return false
+  if (prevProps.costTreatment !== nextProps.costTreatment) return false
+  
+  // Check if this specific cell's edit status changed
+  const key = getCellKey(prevProps.resourceId, prevProps.date, prevProps.costTreatment)
+  const prevEdit = prevProps.editedCells.get(key)
+  const nextEdit = nextProps.editedCells.get(key)
+  if (prevEdit?.newValue !== nextEdit?.newValue) return false
+  
+  // Check if this specific cell's validation error changed
+  const prevError = prevProps.validationErrors.get(key)
+  const nextError = nextProps.validationErrors.get(key)
+  if (prevError !== nextError) return false
+  
+  // Check if the underlying data changed
+  const prevValue = getCellValue(prevProps.gridData, prevProps.resourceId, prevProps.date, prevProps.costTreatment)
+  const nextValue = getCellValue(nextProps.gridData, nextProps.resourceId, nextProps.date, nextProps.costTreatment)
+  if (prevValue !== nextValue) return false
+  
+  return true // Props are equal, skip re-render
+})
 
 const EditableCell: React.FC<EditableCellProps> = React.memo(({
   value,
@@ -63,29 +133,15 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setInputValue(newValue)
-    
-    // Clear local error on change
     setLocalError(undefined)
-    
-    // Parse and validate numeric input
-    const numericValue = parseFloat(newValue)
-    if (!isNaN(numericValue)) {
-      // Validate range
-      const validation = validatePercentage(numericValue)
-      if (!validation.isValid) {
-        setLocalError(validation.errorMessage)
-      } else {
-        onChange(numericValue)
-      }
-    } else if (newValue === '') {
-      // Empty input is valid (0%)
-      onChange(0)
-    }
+    // Don't validate on every keystroke - wait for blur for instant typing
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      // Commit the value before blurring
+      commitValue()
       setIsFocused(false)
       onBlur()
     } else if (e.key === 'Escape') {
@@ -99,25 +155,53 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
     // Tab key will naturally trigger blur and move to next cell
   }
 
+  const commitValue = () => {
+    const numericValue = parseFloat(inputValue)
+    if (!isNaN(numericValue)) {
+      const validation = validatePercentage(numericValue)
+      if (validation.isValid) {
+        // Only call onChange if the value actually changed
+        if (numericValue !== value) {
+          onChange(numericValue)
+        }
+        setLocalError(undefined)
+      } else {
+        setLocalError(validation.errorMessage)
+      }
+    } else if (inputValue === '') {
+      // Only call onChange if the value actually changed
+      if (value !== 0) {
+        onChange(0)
+      }
+      setLocalError(undefined)
+    } else {
+      setLocalError('Value must be a number')
+    }
+  }
+
   const handleBlur = () => {
     setIsFocused(false)
+    // Commit immediately - no setTimeout to avoid queuing delays during rapid tabbing
+    commitValue()
     onBlur()
   }
 
   const handleFocus = () => {
-    setIsFocused(true)
-    // Select all text when focusing
-    // Use setTimeout to ensure the TextField has rendered and the input is available
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.select()
-      }
-    }, 0)
+    // Do NOT automatically show TextField on focus
+    // This allows instant tab navigation without re-render blocking
+    // TextField will only show when user clicks or starts typing
   }
 
   const handleClick = () => {
     if (isEditMode && !isFocused) {
-      handleFocus()
+      // Show TextField on click
+      setIsFocused(true)
+      // Select all text when focusing (after TextField renders)
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.select()
+        }
+      }, 0)
     }
   }
 
@@ -128,8 +212,15 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
       if (e.key === 'Tab') {
         return
       }
+      // For any other key, show the TextField
       e.preventDefault()
-      handleFocus()
+      setIsFocused(true)
+      // The TextField will render and receive focus
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.select()
+        }
+      }, 0)
     }
   }
 
@@ -167,14 +258,15 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   // This prevents rendering thousands of input/TextField components at once
   if (!isFocused) {
     const cellContent = (
-      <span
+      <Box
+        component="span"
         ref={spanRef}
         tabIndex={0}
         role="button"
         onClick={handleClick}
         onKeyDown={handleSpanKeyDown}
         onFocus={handleFocus}
-        style={{
+        sx={{
           display: 'inline-block',
           width: '50px',
           textAlign: 'center',
@@ -183,16 +275,21 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
           border: displayError ? '1px solid #d32f2f' : '1px solid #e0e0e0',
           backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.3)' : 'transparent',
           cursor: 'text',
-          outline: 'none',
           borderRadius: '4px',
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05) inset',
+          // Focus styling - visible outline when tabbing
+          '&:focus': {
+            outline: '2px solid #1976d2',
+            outlineOffset: '1px',
+            boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.2)',
+          },
         }}
         aria-label="Allocation percentage"
         aria-invalid={displayError}
         aria-describedby={displayError ? 'cell-error' : undefined}
       >
         {formatPercentage(value)}
-      </span>
+      </Box>
     )
 
     if (displayError && displayErrorMessage) {
@@ -298,12 +395,16 @@ const ResourceAssignmentCalendar = ({
   onSaveError,
 }: ResourceAssignmentCalendarProps) => {
   const { user } = useAuth()
-  const [assignments, setAssignments] = useState<ResourceAssignment[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Use React Query hook for assignments data
+  const { data: assignments = [], isLoading, error: queryError, refetch } = useProjectAssignments(projectId)
+  const { invalidateProject } = useInvalidateAssignments()
+  
+  // Use persisted edits hook to maintain unsaved changes across navigation
+  const { editedCells, setEditedCells, clearEdits } = usePersistedEdits(projectId)
+  
   const [isEditMode, setIsEditMode] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [editedCells, setEditedCells] = useState<Map<string, CellEdit>>(new Map())
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -319,23 +420,20 @@ const ResourceAssignmentCalendar = ({
     return hasPermission(user, 'manage_resources').hasPermission
   }, [user])
 
-  // Memoize fetchAssignments to prevent recreation on every render
-  const fetchAssignments = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const data = await assignmentsApi.getByProject(projectId)
-      setAssignments(data)
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to load assignments'
-      setError(errorMessage)
-      // Note: We intentionally don't include onSaveError in dependencies
-      // to prevent unnecessary refetches when parent re-renders
+  // Handle query errors
+  useEffect(() => {
+    if (queryError) {
+      const errorMessage = (queryError as any).response?.data?.detail || 'Failed to load assignments'
       onSaveError?.(errorMessage)
-    } finally {
-      setIsLoading(false)
     }
-  }, [projectId]) // Removed onSaveError from dependencies
+  }, [queryError, onSaveError])
+
+  // Auto-restore edit mode if there are persisted edits
+  useEffect(() => {
+    if (editedCells.size > 0 && !isEditMode && canEdit) {
+      setIsEditMode(true)
+    }
+  }, [editedCells.size, isEditMode, canEdit])
 
   const handleEditClick = useCallback(() => {
     if (!canEdit) {
@@ -362,7 +460,7 @@ const ResourceAssignmentCalendar = ({
     const scrollTop = scrollContainerRef.current?.scrollTop || 0
     
     setIsEditMode(false)
-    setEditedCells(new Map())
+    clearEdits() // Clear persisted edits
     setValidationErrors(new Map())
     
     // Restore scroll position after state update
@@ -372,7 +470,7 @@ const ResourceAssignmentCalendar = ({
         scrollContainerRef.current.scrollTop = scrollTop
       }
     })
-  }, [])
+  }, [clearEdits])
 
   const handleSaveClick = useCallback(async () => {
     // Check permissions before save
@@ -523,51 +621,10 @@ const ResourceAssignmentCalendar = ({
       // Check if there were any conflicts
       if (bulkResult.failed && bulkResult.failed.length > 0) {
         // Handle conflicts - show which assignments failed
-        const failedIds = bulkResult.failed.map((f: any) => f.id)
-        const failedCount = bulkResult.failed.length
         const successCount = bulkResult.succeeded.length + createResults.length
         
-        // Update local state with successful updates
-        setAssignments((prevAssignments) => {
-          const updatedAssignments = [...prevAssignments]
-          
-          // Apply successful updates
-          for (const success of bulkResult.succeeded) {
-            const index = updatedAssignments.findIndex((a) => a.id === success.id)
-            if (index >= 0) {
-              // Find the edit for this assignment
-              const assignment = updatedAssignments[index]
-              const dateStr = assignment.assignment_date
-              const key = `${assignment.resource_id}:${dateStr}`
-              const edits = editsByResourceDate.get(key) || []
-              
-              let capitalPercentage = assignment.capital_percentage
-              let expensePercentage = assignment.expense_percentage
-              
-              for (const edit of edits) {
-                if (edit.costTreatment === 'capital') {
-                  capitalPercentage = Math.round(edit.newValue)
-                } else {
-                  expensePercentage = Math.round(edit.newValue)
-                }
-              }
-              
-              updatedAssignments[index] = {
-                ...assignment,
-                capital_percentage: capitalPercentage,
-                expense_percentage: expensePercentage,
-                version: success.version,
-              }
-            }
-          }
-          
-          // Add created assignments
-          for (const created of createResults) {
-            updatedAssignments.push(created)
-          }
-          
-          return updatedAssignments
-        })
+        // Invalidate cache to refresh with latest data
+        await invalidateProject(projectId)
         
         // Remove successful edits from editedCells
         setEditedCells((prev) => {
@@ -606,49 +663,11 @@ const ResourceAssignmentCalendar = ({
         
         // Don't exit edit mode - keep failed edits visible
       } else {
-        // All updates succeeded
-        setAssignments((prevAssignments) => {
-          const updatedAssignments = [...prevAssignments]
-          
-          // Apply all successful updates
-          for (const success of bulkResult.succeeded) {
-            const index = updatedAssignments.findIndex((a) => a.id === success.id)
-            if (index >= 0) {
-              const assignment = updatedAssignments[index]
-              const dateStr = assignment.assignment_date
-              const key = `${assignment.resource_id}:${dateStr}`
-              const edits = editsByResourceDate.get(key) || []
-              
-              let capitalPercentage = assignment.capital_percentage
-              let expensePercentage = assignment.expense_percentage
-              
-              for (const edit of edits) {
-                if (edit.costTreatment === 'capital') {
-                  capitalPercentage = Math.round(edit.newValue)
-                } else {
-                  expensePercentage = Math.round(edit.newValue)
-                }
-              }
-              
-              updatedAssignments[index] = {
-                ...assignment,
-                capital_percentage: capitalPercentage,
-                expense_percentage: expensePercentage,
-                version: success.version,
-              }
-            }
-          }
-          
-          // Add created assignments
-          for (const created of createResults) {
-            updatedAssignments.push(created)
-          }
-          
-          return updatedAssignments
-        })
+        // All updates succeeded - invalidate cache to refresh
+        await invalidateProject(projectId)
         
         // Clear all edits and exit edit mode
-        setEditedCells(new Map())
+        clearEdits() // Clear persisted edits
         setValidationErrors(new Map())
         setIsEditMode(false)
         setSaveSuccess(true)
@@ -679,39 +698,33 @@ const ResourceAssignmentCalendar = ({
     } finally {
       setIsSaving(false)
     }
-  }, [canEdit, editedCells, assignments, projectId, onSaveSuccess, onSaveError, fetchAssignments])
+  }, [canEdit, editedCells, assignments, projectId, onSaveSuccess, onSaveError, invalidateProject, clearEdits])
   
   const handleConflictRefreshAndRetry = useCallback(async () => {
     // Close the dialog
     setConflictDialogOpen(false)
     
     // Refresh assignments to get latest data
-    await fetchAssignments()
+    await refetch()
     
     // The failed edits are still in editedCells, so user can see them highlighted
     // and can click Save again to retry
-  }, [fetchAssignments])
+  }, [refetch])
   
   const handleConflictCancel = useCallback(() => {
     // Close the dialog
     setConflictDialogOpen(false)
     
     // Clear all edits and exit edit mode
-    setEditedCells(new Map())
+    clearEdits() // Clear persisted edits
     setValidationErrors(new Map())
     setIsEditMode(false)
-  }, [])
+  }, [clearEdits])
   
   // Transform data to grid structure
   // Memoized to avoid recalculation on every render
   const gridData: GridData | null = useMemo(() => {
-    console.log('🎯 Grid data transformation starting')
-    console.log('  - Project start date:', projectStartDate)
-    console.log('  - Project end date:', projectEndDate)
-    console.log('  - Assignments count:', assignments.length)
-    
     if (!projectStartDate || !projectEndDate) {
-      console.log('⚠️ Missing project dates')
       return null
     }
 
@@ -729,20 +742,15 @@ const ResourceAssignmentCalendar = ({
         parseUTCDate(projectEndDate)
       )
       
-      console.log('✅ Grid data created:')
-      console.log('  - Resources:', result.resources.length)
-      console.log('  - Dates:', result.dates.length)
-      console.log('  - Cells:', result.cells.size)
-      
       return result
     } catch (err) {
-      console.error('❌ Error transforming grid data:', err)
+      console.error('Error transforming grid data:', err)
       return null
     }
   }, [assignments, projectStartDate, projectEndDate])
 
-  // NOT memoized - we want this to always have access to current state
-  const handleCellChange = (
+  // Memoized to prevent recreation on every render
+  const handleCellChange = useCallback((
     resourceId: string,
     date: Date,
     costTreatment: 'capital' | 'expense',
@@ -757,20 +765,24 @@ const ResourceAssignmentCalendar = ({
     const validation = validatePercentage(roundedValue)
     
     if (!validation.isValid) {
-      // Set validation error
-      setValidationErrors((prev) => {
-        const newMap = new Map(prev)
-        newMap.set(key, validation.errorMessage || 'Invalid value')
-        return newMap
+      // Set validation error - use queueMicrotask for even faster response
+      queueMicrotask(() => {
+        setValidationErrors((prev) => {
+          const newMap = new Map(prev)
+          newMap.set(key, validation.errorMessage || 'Invalid value')
+          return newMap
+        })
       })
       return
     }
     
-    // Clear any existing validation error (will be re-set if cross-project validation fails)
-    setValidationErrors((prev) => {
-      const newMap = new Map(prev)
-      newMap.delete(key)
-      return newMap
+    // Clear any existing validation error
+    queueMicrotask(() => {
+      setValidationErrors((prev) => {
+        const newMap = new Map(prev)
+        newMap.delete(key)
+        return newMap
+      })
     })
     
     const oldValue = getCellValue(gridData!, resourceId, date, costTreatment)
@@ -778,10 +790,12 @@ const ResourceAssignmentCalendar = ({
     // If the new value equals the original value, remove from edited cells
     // This handles the case where user changes a value then changes it back
     if (roundedValue === Math.round(oldValue)) {
-      setEditedCells((prev) => {
-        const newMap = new Map(prev)
-        newMap.delete(key)
-        return newMap
+      queueMicrotask(() => {
+        setEditedCells((prev) => {
+          const newMap = new Map(prev)
+          newMap.delete(key)
+          return newMap
+        })
       })
       return
     }
@@ -794,66 +808,23 @@ const ResourceAssignmentCalendar = ({
       newValue: roundedValue,
     }
     
-    setEditedCells((prev) => {
-      const newMap = new Map(prev)
-      newMap.set(key, edit)
-      return newMap
-    })
-    
-    // Note: Cross-project validation is now deferred to handleCellBlur
-    // This improves responsiveness by not blocking on API calls during typing
-  }
-
-  const handleCellBlur = useCallback(async (
-    resourceId: string,
-    date: Date,
-    costTreatment: 'capital' | 'expense'
-  ) => {
-    const key = getCellKey(resourceId, date, costTreatment)
-    const edit = editedCells.get(key)
-    
-    // Only validate if there's an edit - this prevents validation on initial render
-    // when entering edit mode
-    if (!edit) {
-      return
-    }
-    
-    // Perform cross-project allocation validation
-    try {
-      const validationResult = await validateCellEdit(
-        resourceId,
-        date,
-        costTreatment,
-        edit.newValue,
-        projectId
-      )
-      
-      if (!validationResult.isValid) {
-        // Set validation error but keep the edited value
-        // User can see the error and decide whether to fix it or revert manually
-        setValidationErrors((prev) => {
-          const newMap = new Map(prev)
-          newMap.set(key, validationResult.errorMessage || 'Validation failed')
-          return newMap
-        })
-      } else {
-        // Clear any existing validation error
-        setValidationErrors((prev) => {
-          const newMap = new Map(prev)
-          newMap.delete(key)
-          return newMap
-        })
-      }
-    } catch (error) {
-      console.error('Error validating cell:', error)
-      // Set a generic error but keep the edited value
-      setValidationErrors((prev) => {
+    queueMicrotask(() => {
+      setEditedCells((prev) => {
         const newMap = new Map(prev)
-        newMap.set(key, 'Failed to validate allocation')
+        newMap.set(key, edit)
         return newMap
       })
-    }
-  }, [editedCells, projectId])
+    })
+    
+    // Note: Cross-project validation is deferred to save time
+    // This ensures instant typing and tabbing without API call delays
+  }, [gridData])
+
+  const handleCellBlur = useCallback(() => {
+    // Blur handler is now a no-op for performance
+    // Cross-project validation is deferred to save time to avoid blocking tabbing
+    // This ensures instant tabbing between cells without API call delays
+  }, [])
 
   // NOT memoized - we want this to run on every render to pick up state changes
   const getDisplayValue = (
@@ -872,10 +843,6 @@ const ResourceAssignmentCalendar = ({
     const value = getCellValue(gridData!, resourceId, date, costTreatment)
     return Math.round(value)
   }
-
-  useEffect(() => {
-    fetchAssignments()
-  }, [fetchAssignments])
 
   // Format date for column headers
   // Memoized to prevent recreation on every render
@@ -896,8 +863,9 @@ const ResourceAssignmentCalendar = ({
   }
 
   // Error state
-  if (error) {
-    return <Alert severity="error">{error}</Alert>
+  if (queryError) {
+    const errorMessage = (queryError as any).response?.data?.detail || 'Failed to load assignments'
+    return <Alert severity="error">{errorMessage}</Alert>
   }
 
   // Empty state: missing project dates
@@ -1148,12 +1116,10 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
-                    const value = getDisplayValue(resource.resourceId, date, 'capital')
                     const key = getCellKey(resource.resourceId, date, 'capital')
-                    const hasError = validationErrors.has(key)
-                    const errorMessage = validationErrors.get(key)
-                    const isEdited = editedCells.has(key)
                     const isSaturday = date.getUTCDay() === 6
+                    const isEdited = editedCells.has(key)
+                    const value = getDisplayValue(resource.resourceId, date, 'capital')
                     
                     return (
                       <TableCell
@@ -1173,16 +1139,17 @@ const ResourceAssignmentCalendar = ({
                         role="gridcell"
                         aria-label={`${resource.resourceName} capital allocation on ${formatDate(date)}: ${value}%`}
                       >
-                        <EditableCell
-                          value={value}
+                        <CellWrapper
+                          resourceId={resource.resourceId}
+                          resourceName={resource.resourceName}
+                          date={date}
+                          costTreatment="capital"
                           isEditMode={isEditMode}
-                          hasError={hasError}
-                          errorMessage={errorMessage}
-                          isEdited={isEdited}
-                          onChange={(newValue) =>
-                            handleCellChange(resource.resourceId, date, 'capital', newValue)
-                          }
-                          onBlur={() => handleCellBlur(resource.resourceId, date, 'capital')}
+                          gridData={gridData}
+                          editedCells={editedCells}
+                          validationErrors={validationErrors}
+                          onCellChange={handleCellChange}
+                          onCellBlur={handleCellBlur}
                         />
                       </TableCell>
                     )
@@ -1213,12 +1180,10 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
-                    const value = getDisplayValue(resource.resourceId, date, 'expense')
                     const key = getCellKey(resource.resourceId, date, 'expense')
-                    const hasError = validationErrors.has(key)
-                    const errorMessage = validationErrors.get(key)
-                    const isEdited = editedCells.has(key)
                     const isSaturday = date.getUTCDay() === 6
+                    const isEdited = editedCells.has(key)
+                    const value = getDisplayValue(resource.resourceId, date, 'expense')
                     
                     return (
                       <TableCell
@@ -1240,16 +1205,17 @@ const ResourceAssignmentCalendar = ({
                         role="gridcell"
                         aria-label={`${resource.resourceName} expense allocation on ${formatDate(date)}: ${value}%`}
                       >
-                        <EditableCell
-                          value={value}
+                        <CellWrapper
+                          resourceId={resource.resourceId}
+                          resourceName={resource.resourceName}
+                          date={date}
+                          costTreatment="expense"
                           isEditMode={isEditMode}
-                          hasError={hasError}
-                          errorMessage={errorMessage}
-                          isEdited={isEdited}
-                          onChange={(newValue) =>
-                            handleCellChange(resource.resourceId, date, 'expense', newValue)
-                          }
-                          onBlur={() => handleCellBlur(resource.resourceId, date, 'expense')}
+                          gridData={gridData}
+                          editedCells={editedCells}
+                          validationErrors={validationErrors}
+                          onCellChange={handleCellChange}
+                          onCellBlur={handleCellBlur}
                         />
                       </TableCell>
                     )
