@@ -59,11 +59,28 @@
 
 - add some drag capabilities for editing resource assignments to make it easier to enter the data, e.g. drag 100% or some fixed percent to the right or left.
 
-- add chatbot to do all major actions and check permissions
+- add chatbot to do all major actions, analysis, check permissions, etc.
 
 - need to show percentages somewhere on the assignments page in real time as user is editing so they know how much is left for other projects and/or BAU bucket
 
 - need to lock the date row in the assignments table, but before that need to optimize the columns width (use numbers in header), show year somewhere, and figure out how to display overall allocation as well as cap/exp split efficiently
+
+- add ability to add a resource in the assignments tab after clicking edit
+
+- add impact analysis at the top of the assignments tab so that user can tell in real time what the impact of their unsaved edits will be at the project finance level (day delta by resource type, $ delta by resource type, $ delta to phase variation, $ delta to project variation)
+
+- add total resource count row at top of assignments table
+
+- add visualization above the assignments table showing graph of total resources over  time
+
+- add toggle switch to go between days/weeks/months in the assignments table - all totals and visualization should change along with the time period
+
+- add coloring to distiguish between actuals and forecast in assignments table
+
+- change all budgeting logic to flow from budget assignments, which will be just like forecast assignments, but which will become "deactivated" over time as actuals for equivalent days are loaded
+
+- need a way to highlight resource acutual that differ from original forecast (in the finacials tab?)
+
 
 -------------------------------
 
