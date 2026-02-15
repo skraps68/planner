@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Card,
@@ -14,7 +14,7 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material'
-import { assignmentsApi } from '../../api/assignments'
+import { useResourceAssignments } from '../../hooks/useAssignments'
 import { ResourceAssignment } from '../../types'
 
 interface AssignmentCalendarProps {
@@ -29,26 +29,11 @@ interface DayAssignment {
 
 const AssignmentCalendar = ({ resourceId }: AssignmentCalendarProps) => {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [assignments, setAssignments] = useState<ResourceAssignment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchAssignments()
-  }, [resourceId, currentDate])
-
-  const fetchAssignments = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await assignmentsApi.getByResource(resourceId)
-      setAssignments(data)
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load assignments')
-    } finally {
-      setLoading(false)
-    }
-  }
+  
+  // Use React Query hook for assignments data
+  const { data: assignments = [], isLoading: loading, error: queryError } = useResourceAssignments(resourceId)
+  
+  const error = queryError ? (queryError as any).response?.data?.detail || 'Failed to load assignments' : null
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear()
@@ -63,8 +48,8 @@ const AssignmentCalendar = ({ resourceId }: AssignmentCalendarProps) => {
 
   const getAssignmentsForDate = (date: Date): DayAssignment => {
     const dateStr = date.toISOString().split('T')[0]
-    const dayAssignments = assignments.filter((a: ResourceAssignment) => a.assignment_date === dateStr)
-    const totalAllocation = dayAssignments.reduce((sum: number, a: ResourceAssignment) => sum + a.allocation_percentage, 0)
+    const dayAssignments = assignments.filter((a) => a.assignment_date === dateStr)
+    const totalAllocation = dayAssignments.reduce((sum, a) => sum + a.capital_percentage + a.expense_percentage, 0)
 
     return {
       date: dateStr,

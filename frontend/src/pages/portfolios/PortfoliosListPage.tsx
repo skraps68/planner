@@ -90,8 +90,24 @@ const PortfoliosListPage: React.FC = () => {
         ]}
       />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Portfolios</Typography>
+      <ScopeFilterBanner entityType="portfolios" />
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+        <Paper sx={{ p: 2, flex: '0 0 50%' }}>
+          <TextField
+            fullWidth
+            placeholder="Search portfolios..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Paper>
         <PermissionButton
           permission="create_portfolios"
           variant="contained"
@@ -101,24 +117,6 @@ const PortfoliosListPage: React.FC = () => {
           Create Portfolio
         </PermissionButton>
       </Box>
-
-      <ScopeFilterBanner entityType="portfolios" />
-
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <TextField
-          fullWidth
-          placeholder="Search portfolios..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Paper>
 
       <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid

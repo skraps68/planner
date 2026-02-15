@@ -9,10 +9,6 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Grid,
   Tabs,
   Tab,
@@ -23,12 +19,11 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
 } from '@mui/material'
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
 import { resourcesApi } from '../../api/resources'
-import { assignmentsApi } from '../../api/assignments'
-import { Resource, ResourceAssignment } from '../../types'
+import { useResourceAssignments } from '../../hooks/useAssignments'
+import { Resource } from '../../types'
 import AssignmentCalendar from '../../components/resources/AssignmentCalendar'
 import AllocationConflictView from '../../components/resources/AllocationConflictView'
 import ConflictDialog from '../../components/common/ConflictDialog'
@@ -54,7 +49,6 @@ const ResourceDetailPage = () => {
   const navigate = useNavigate()
   const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [resource, setResource] = useState<Resource | null>(null)
-  const [assignments, setAssignments] = useState<ResourceAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,11 +60,16 @@ const ResourceDetailPage = () => {
   })
 
   const isNewResource = id === 'new'
+  
+  // Use React Query hook for assignments data (only when not creating new resource)
+  const { data: assignments = [] } = useResourceAssignments(
+    !isNewResource ? id : undefined,
+    { enabled: !isNewResource && !!id }
+  )
 
   useEffect(() => {
     if (!isNewResource && id) {
       fetchResource()
-      fetchAssignments()
     } else {
       setLoading(false)
     }
@@ -91,15 +90,6 @@ const ResourceDetailPage = () => {
       setError(err.response?.data?.detail || 'Failed to load resource')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchAssignments = async () => {
-    try {
-      const data = await assignmentsApi.getByResource(id!)
-      setAssignments(data)
-    } catch (err: any) {
-      console.error('Failed to load assignments:', err)
     }
   }
 
@@ -279,7 +269,7 @@ const ResourceDetailPage = () => {
                           <TableCell>
                             {new Date(assignment.assignment_date).toLocaleDateString()}
                           </TableCell>
-                          <TableCell>{assignment.allocation_percentage}%</TableCell>
+                          <TableCell>{assignment.capital_percentage + assignment.expense_percentage}%</TableCell>
                           <TableCell>{assignment.capital_percentage}%</TableCell>
                           <TableCell>{assignment.expense_percentage}%</TableCell>
                         </TableRow>
@@ -311,10 +301,13 @@ const ResourceDetailPage = () => {
           // Reload the resource data
           fetchResource()
           // Pre-fill form with attempted changes and new version
-          setFormData({
-            ...conflictState.attemptedChanges,
-            version: conflictState.currentState.version,
-          })
+          if (conflictState.attemptedChanges && conflictState.currentState) {
+            setFormData({
+              name: conflictState.attemptedChanges.name || formData.name,
+              description: conflictState.attemptedChanges.description || formData.description,
+              version: conflictState.currentState.version,
+            })
+          }
           clearConflict()
         }}
         onCancel={() => {

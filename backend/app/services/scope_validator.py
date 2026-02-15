@@ -20,14 +20,23 @@ class ScopeValidatorService:
         self.scope_assignment_repo = scope_assignment_repository
         self.project_repo = project_repository
         self.program_repo = program_repository
+        self._cache_service = None  # Lazy load to avoid circular imports
     
-    def get_user_accessible_portfolios(
+    @property
+    def cache_service(self):
+        """Lazy load cache service to avoid circular imports."""
+        if self._cache_service is None:
+            from app.services.permission_cache import permission_cache_service
+            self._cache_service = permission_cache_service
+        return self._cache_service
+    
+    def _compute_accessible_portfolios(
         self,
         db: Session,
         user_id: UUID
     ) -> List[UUID]:
         """
-        Get all portfolio IDs that a user has access to.
+        Compute all portfolio IDs that a user has access to (internal method).
         
         Args:
             db: Database session
@@ -69,13 +78,31 @@ class ScopeValidatorService:
         
         return list(accessible_portfolios)
     
-    def get_user_accessible_programs(
+    def get_user_accessible_portfolios(
         self,
         db: Session,
         user_id: UUID
     ) -> List[UUID]:
         """
-        Get all program IDs that a user has access to.
+        Get all portfolio IDs that a user has access to.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            
+        Returns:
+            List of portfolio IDs the user can access
+        """
+        # Note: Portfolios are not cached separately, compute directly
+        return self._compute_accessible_portfolios(db, user_id)
+    
+    def _compute_accessible_programs(
+        self,
+        db: Session,
+        user_id: UUID
+    ) -> List[UUID]:
+        """
+        Compute all program IDs that a user has access to (internal method).
         
         Args:
             db: Database session
@@ -111,13 +138,32 @@ class ScopeValidatorService:
         
         return list(accessible_programs)
     
-    def get_user_accessible_projects(
+    def get_user_accessible_programs(
         self,
         db: Session,
         user_id: UUID
     ) -> List[UUID]:
         """
-        Get all project IDs that a user has access to.
+        Get all program IDs that a user has access to.
+        Uses cache when available for improved performance.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            
+        Returns:
+            List of program IDs the user can access
+        """
+        # Try to get from cache first
+        return self.cache_service.get_or_compute_accessible_programs(db, user_id)
+    
+    def _compute_accessible_projects(
+        self,
+        db: Session,
+        user_id: UUID
+    ) -> List[UUID]:
+        """
+        Compute all project IDs that a user has access to (internal method).
         
         Args:
             db: Database session
@@ -153,6 +199,25 @@ class ScopeValidatorService:
                     accessible_projects.add(scope.project_id)
         
         return list(accessible_projects)
+    
+    def get_user_accessible_projects(
+        self,
+        db: Session,
+        user_id: UUID
+    ) -> List[UUID]:
+        """
+        Get all project IDs that a user has access to.
+        Uses cache when available for improved performance.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            
+        Returns:
+            List of project IDs the user can access
+        """
+        # Try to get from cache first
+        return self.cache_service.get_or_compute_accessible_projects(db, user_id)
     
     def can_access_portfolio(
         self,

@@ -110,8 +110,24 @@ const ProjectsListPage: React.FC = () => {
         ]}
       />
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Projects</Typography>
+      <ScopeFilterBanner entityType="projects" />
+
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+        <Paper sx={{ p: 2, flex: '0 0 50%' }}>
+          <TextField
+            fullWidth
+            placeholder="Search projects..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Paper>
         <PermissionButton
           permission="create_projects"
           variant="contained"
@@ -121,24 +137,6 @@ const ProjectsListPage: React.FC = () => {
           Create Project
         </PermissionButton>
       </Box>
-
-      <ScopeFilterBanner entityType="projects" />
-
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <TextField
-          fullWidth
-          placeholder="Search projects..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Paper>
 
       <Paper sx={{ height: 600, width: '100%' }}>
         <DataGrid

@@ -23,6 +23,15 @@ class RoleManagementService:
         self.user_role_repo = user_role_repository
         self.scope_assignment_repo = scope_assignment_repository
         self.scope_validator = scope_validator_service
+        self._cache_service = None  # Lazy load to avoid circular imports
+    
+    @property
+    def cache_service(self):
+        """Lazy load cache service to avoid circular imports."""
+        if self._cache_service is None:
+            from app.services.permission_cache import permission_cache_service
+            self._cache_service = permission_cache_service
+        return self._cache_service
     
     def assign_role(
         self,
@@ -67,6 +76,10 @@ class RoleManagementService:
         db.add(user_role)
         db.commit()
         db.refresh(user_role)
+        
+        # Invalidate user's cache since roles changed
+        self.cache_service.invalidate_user_cache(user_id)
+        
         return user_role
     
     def remove_role(
@@ -92,6 +105,10 @@ class RoleManagementService:
             if role.role_type == role_type:
                 role.is_active = False
                 db.commit()
+                
+                # Invalidate user's cache since roles changed
+                self.cache_service.invalidate_user_cache(user_id)
+                
                 return True
         
         return False
@@ -117,6 +134,10 @@ class RoleManagementService:
         
         user_role.is_active = True
         db.commit()
+        
+        # Invalidate user's cache since roles changed
+        self.cache_service.invalidate_user_cache(user_role.user_id)
+        
         return True
     
     def deactivate_role(
@@ -140,6 +161,10 @@ class RoleManagementService:
         
         user_role.is_active = False
         db.commit()
+        
+        # Invalidate user's cache since roles changed
+        self.cache_service.invalidate_user_cache(user_role.user_id)
+        
         return True
     
     def assign_scope(
@@ -191,6 +216,10 @@ class RoleManagementService:
         db.add(scope_assignment)
         db.commit()
         db.refresh(scope_assignment)
+        
+        # Invalidate user's cache since scopes changed
+        self.cache_service.invalidate_user_cache(user_role.user_id)
+        
         return scope_assignment
     
     def remove_scope(
@@ -212,8 +241,16 @@ class RoleManagementService:
         if not scope_assignment:
             return False
         
+        # Get user_id before deactivating
+        user_role = self.user_role_repo.get(db, scope_assignment.user_role_id)
+        
         scope_assignment.is_active = False
         db.commit()
+        
+        # Invalidate user's cache since scopes changed
+        if user_role:
+            self.cache_service.invalidate_user_cache(user_role.user_id)
+        
         return True
     
     def activate_scope(
@@ -235,8 +272,16 @@ class RoleManagementService:
         if not scope_assignment:
             return False
         
+        # Get user_id before activating
+        user_role = self.user_role_repo.get(db, scope_assignment.user_role_id)
+        
         scope_assignment.is_active = True
         db.commit()
+        
+        # Invalidate user's cache since scopes changed
+        if user_role:
+            self.cache_service.invalidate_user_cache(user_role.user_id)
+        
         return True
     
     def deactivate_scope(
@@ -258,8 +303,16 @@ class RoleManagementService:
         if not scope_assignment:
             return False
         
+        # Get user_id before deactivating
+        user_role = self.user_role_repo.get(db, scope_assignment.user_role_id)
+        
         scope_assignment.is_active = False
         db.commit()
+        
+        # Invalidate user's cache since scopes changed
+        if user_role:
+            self.cache_service.invalidate_user_cache(user_role.user_id)
+        
         return True
     
     def get_user_roles(

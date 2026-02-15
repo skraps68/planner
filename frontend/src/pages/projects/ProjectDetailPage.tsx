@@ -315,16 +315,12 @@ const ProjectDetailPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
-      <ScopeBreadcrumbs items={breadcrumbItems} />
+      <ScopeBreadcrumbs 
+        items={breadcrumbItems} 
+        statusChip={<Chip label={status} color={statusColor} />}
+      />
 
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ flexGrow: 1 }}>
-          {project.name}
-        </Typography>
-        <Chip label={status} color={statusColor} />
-      </Box>
-
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
           <Tab label="Assignments" />

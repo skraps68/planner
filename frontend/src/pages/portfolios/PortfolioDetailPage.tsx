@@ -17,6 +17,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Chip,
 } from '@mui/material'
 import { Edit, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
@@ -211,23 +212,33 @@ const PortfolioDetailPage: React.FC = () => {
     )
   }
 
+  // Determine portfolio status based on reporting dates
+  const now = new Date()
+  const reportingStartDate = new Date(portfolio.reporting_start_date)
+  const reportingEndDate = new Date(portfolio.reporting_end_date)
+
+  let status = 'Active'
+  let statusColor: 'success' | 'warning' | 'default' = 'success'
+
+  if (now < reportingStartDate) {
+    status = 'Planned'
+    statusColor = 'warning'
+  } else if (now > reportingEndDate) {
+    status = 'Completed'
+    statusColor = 'default'
+  }
+
   return (
     <Box>
-      {/* Breadcrumbs */}
+      {/* Breadcrumbs with status chip */}
       <ScopeBreadcrumbs
         items={[
           { label: 'Home', path: '/dashboard' },
           { label: 'Portfolios', path: '/portfolios' },
           { label: portfolio.name },
         ]}
+        statusChip={<Chip label={status} color={statusColor} />}
       />
-
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ flexGrow: 1 }}>
-          {portfolio.name}
-        </Typography>
-      </Box>
 
       {/* Portfolio Info Section */}
       <Paper sx={{ p: 3, mb: 3 }}>

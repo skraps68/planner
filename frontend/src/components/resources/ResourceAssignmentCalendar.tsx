@@ -125,10 +125,31 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const spanRef = React.useRef<HTMLSpanElement>(null)
+  const capturedKeyRef = React.useRef<string | null>(null)
 
   useEffect(() => {
     setInputValue(value.toString())
   }, [value])
+
+  // Handle captured key when TextField becomes focused
+  useEffect(() => {
+    if (isFocused && inputRef.current) {
+      if (capturedKeyRef.current) {
+        // Position cursor at the end after the captured key
+        // Use setTimeout to ensure the input value has been updated
+        setTimeout(() => {
+          if (inputRef.current) {
+            const length = inputRef.current.value.length
+            inputRef.current.setSelectionRange(length, length)
+          }
+        }, 0)
+        capturedKeyRef.current = null // Clear captured key after handling
+      } else {
+        // If no captured key (clicked or non-printable key), select all text
+        inputRef.current.select()
+      }
+    }
+  }, [isFocused]) // Only run when isFocused changes, not on every inputValue change
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
@@ -156,6 +177,12 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   }
 
   const commitValue = () => {
+    // Early exit if value hasn't changed - skip all validation
+    if (inputValue === value.toString()) {
+      setLocalError(undefined)
+      return
+    }
+
     const numericValue = parseFloat(inputValue)
     if (!isNaN(numericValue)) {
       const validation = validatePercentage(numericValue)
@@ -180,9 +207,9 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   }
 
   const handleBlur = () => {
-    setIsFocused(false)
     // Commit immediately - no setTimeout to avoid queuing delays during rapid tabbing
     commitValue()
+    setIsFocused(false)
     onBlur()
   }
 
@@ -190,18 +217,14 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
     // Do NOT automatically show TextField on focus
     // This allows instant tab navigation without re-render blocking
     // TextField will only show when user clicks or starts typing
+    // Keep this empty to avoid any state updates during rapid tabbing
   }
 
   const handleClick = () => {
     if (isEditMode && !isFocused) {
       // Show TextField on click
+      capturedKeyRef.current = null // Clear any captured key - clicking should select all
       setIsFocused(true)
-      // Select all text when focusing (after TextField renders)
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.select()
-        }
-      }, 0)
     }
   }
 
@@ -212,15 +235,20 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
       if (e.key === 'Tab') {
         return
       }
-      // For any other key, show the TextField
+      
+      // For any other key, show the TextField and pass the key to it
       e.preventDefault()
+      
+      // If it's a printable character, capture it to replace the current value
+      if (e.key.length === 1) {
+        capturedKeyRef.current = e.key
+        setInputValue(e.key)
+      } else {
+        // For non-printable keys (Backspace, Delete, etc.), just focus without replacing
+        capturedKeyRef.current = null
+      }
+      
       setIsFocused(true)
-      // The TextField will render and receive focus
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.select()
-        }
-      }, 0)
     }
   }
 
@@ -282,6 +310,8 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
             outline: '2px solid #1976d2',
             outlineOffset: '1px',
             boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.2)',
+            backgroundColor: '#1976d2',
+            color: '#ffffff',
           },
         }}
         aria-label="Allocation percentage"

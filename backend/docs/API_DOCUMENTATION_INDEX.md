@@ -99,6 +99,13 @@ Other endpoints are documented through the interactive Swagger UI at `/docs`. Na
   - Exception handling patterns
   - Custom exception classes
 
+- **[Caching Integration](./CACHING_INTEGRATION.md)** ⭐ NEW
+  - Redis caching for permissions and scope resolution
+  - Cache invalidation strategy
+  - Performance benefits
+  - Graceful degradation
+  - Configuration and monitoring
+
 - **[Middleware Documentation](./MIDDLEWARE_DOCUMENTATION.md)**
   - Security headers
   - Rate limiting

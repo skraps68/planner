@@ -413,8 +413,8 @@ class PermissionCacheService:
         if cached_programs is not None:
             return cached_programs
         
-        # Compute accessible programs
-        programs = self.scope_validator.get_user_accessible_programs(db, user_id)
+        # Compute accessible programs using internal method
+        programs = self.scope_validator._compute_accessible_programs(db, user_id)
         
         # Cache the result
         self.cache_accessible_programs(user_id, programs)
@@ -441,8 +441,8 @@ class PermissionCacheService:
         if cached_projects is not None:
             return cached_projects
         
-        # Compute accessible projects
-        projects = self.scope_validator.get_user_accessible_projects(db, user_id)
+        # Compute accessible projects using internal method
+        projects = self.scope_validator._compute_accessible_projects(db, user_id)
         
         # Cache the result
         self.cache_accessible_projects(user_id, projects)

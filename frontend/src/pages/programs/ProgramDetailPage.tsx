@@ -313,14 +313,10 @@ const ProgramDetailPage: React.FC = () => {
 
   return (
     <Box>
-      <ScopeBreadcrumbs items={breadcrumbItems} />
-
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ flexGrow: 1 }}>
-          {program.name}
-        </Typography>
-        <Chip label={status} color={statusColor} />
-      </Box>
+      <ScopeBreadcrumbs 
+        items={breadcrumbItems}
+        statusChip={<Chip label={status} color={statusColor} />}
+      />
 
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>

@@ -21,9 +21,10 @@ interface BreadcrumbItem {
 interface ScopeBreadcrumbsProps {
   items: BreadcrumbItem[]
   showScopeIndicator?: boolean
+  statusChip?: React.ReactNode
 }
 
-const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeIndicator = true }) => {
+const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeIndicator = true, statusChip }) => {
   const navigate = useNavigate()
   const user = useSelector((state: RootState) => state.auth.user)
   const scopeContext = getScopeContext(user)
@@ -32,27 +33,29 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-      <Breadcrumbs separator={<NavigateNext fontSize="small" />} aria-label="breadcrumb">
-        {items.map((item, index) => {
-          const isLast = index === items.length - 1
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Breadcrumbs separator={<NavigateNext fontSize="small" />} aria-label="breadcrumb">
+          {items.map((item, index) => {
+            const isLast = index === items.length - 1
 
-          if (isLast || !item.path) {
-            return (
-              <Typography
-                key={index}
-                color="text.primary"
-                sx={{
-                  fontWeight: isLast ? 600 : 400,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                }}
-              >
-                {item.isScope && <Lock fontSize="small" />}
-                {item.label}
-              </Typography>
-            )
-          }
+            if (isLast || !item.path) {
+              return (
+                <Typography
+                  key={index}
+                  color="text.primary"
+                  sx={{
+                    fontWeight: isLast ? 600 : 400,
+                    fontSize: isLast ? '1.5rem' : 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                  }}
+                >
+                  {item.isScope && <Lock fontSize="small" />}
+                  {item.label}
+                </Typography>
+              )
+            }
 
           return (
             <Link
@@ -73,6 +76,8 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
           )
         })}
       </Breadcrumbs>
+      {statusChip && <Box sx={{ ml: 1 }}>{statusChip}</Box>}
+      </Box>
       {showScopeIndicator && scopeContext.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {hasGlobalScope ? (
