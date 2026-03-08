@@ -66,7 +66,7 @@ export const workersApi = {
 
 export const workerTypesApi = {
   list: async (params?: { page?: number; size?: number; search?: string }) => {
-    const response = await apiClient.get<WorkerType[]>('/workers/types', {
+    const response = await apiClient.get<WorkerType[]>('/workers/types/', {
       params,
     })
     return response.data
@@ -83,7 +83,7 @@ export const workerTypesApi = {
   },
 
   create: async (data: WorkerTypeCreateInput) => {
-    const response = await apiClient.post<WorkerType>('/workers/types', data)
+    const response = await apiClient.post<WorkerType>('/workers/types/', data)
     return response.data
   },
 

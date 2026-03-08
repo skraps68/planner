@@ -25,7 +25,7 @@ export interface ProgramListParams {
 
 export const programsApi = {
   list: async (params?: ProgramListParams): Promise<PaginatedResponse<Program>> => {
-    const response = await apiClient.get('/programs', { params })
+    const response = await apiClient.get('/programs/', { params })
     return response.data
   },
 
@@ -35,7 +35,7 @@ export const programsApi = {
   },
 
   create: async (data: ProgramCreateRequest): Promise<Program> => {
-    const response = await apiClient.post('/programs', data)
+    const response = await apiClient.post('/programs/', data)
     return response.data
   },
 

@@ -79,7 +79,7 @@ export const usersApi = {
     limit?: number
     is_active?: boolean
   }): Promise<UserListResponse> => {
-    const response = await apiClient.get('/users', { params })
+    const response = await apiClient.get('/users/', { params })
     return response.data
   },
 
@@ -89,7 +89,7 @@ export const usersApi = {
   },
 
   createUser: async (userData: UserCreate): Promise<User> => {
-    const response = await apiClient.post('/users', userData)
+    const response = await apiClient.post('/users/', userData)
     return response.data
   },
 

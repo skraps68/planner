@@ -44,7 +44,7 @@ export const auditApi = {
     start_date?: string
     end_date?: string
   }): Promise<AuditLogListResponse> => {
-    const response = await apiClient.get('/audit', { params })
+    const response = await apiClient.get('/audit/', { params })
     return response.data
   },
 

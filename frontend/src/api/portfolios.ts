@@ -12,7 +12,7 @@ export interface PortfolioListParams {
 
 export const portfoliosApi = {
   list: async (params?: PortfolioListParams): Promise<PaginatedResponse<Portfolio>> => {
-    const response = await apiClient.get('/portfolios', { params })
+    const response = await apiClient.get('/portfolios/', { params })
     return response.data
   },
 
@@ -22,7 +22,7 @@ export const portfoliosApi = {
   },
 
   create: async (data: PortfolioCreate): Promise<Portfolio> => {
-    const response = await apiClient.post('/portfolios', data)
+    const response = await apiClient.post('/portfolios/', data)
     return response.data
   },
 

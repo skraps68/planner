@@ -35,7 +35,7 @@ export interface ProjectListParams {
 
 export const projectsApi = {
   list: async (params?: ProjectListParams): Promise<PaginatedResponse<Project>> => {
-    const response = await apiClient.get('/projects', { params })
+    const response = await apiClient.get('/projects/', { params })
     return response.data
   },
 
@@ -45,7 +45,7 @@ export const projectsApi = {
   },
 
   create: async (data: ProjectCreateRequest): Promise<Project> => {
-    const response = await apiClient.post('/projects', data)
+    const response = await apiClient.post('/projects/', data)
     return response.data
   },
 

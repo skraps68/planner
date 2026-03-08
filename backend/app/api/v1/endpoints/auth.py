@@ -70,14 +70,31 @@ def login(
     # Get available scopes
     scope_summary = scope_validator_service.get_scope_summary(db, user.id)
     available_scopes = []
-    
-    for scope_info in scope_summary.get("scopes", []):
-        user_scope = UserScope(
-            scope_type=ScopeType(scope_info["scope_type"]),
-            scope_id=UUID(scope_info["scope_id"]) if scope_info.get("scope_id") else None,
-            scope_name=scope_info.get("scope_name")
-        )
-        available_scopes.append(user_scope)
+
+    if scope_summary.get("has_global_scope"):
+        available_scopes.append(UserScope(scope_type=ScopeType.GLOBAL, scope_id=None, scope_name=None))
+    else:
+        user_roles = role_management_service.get_user_roles(db, user.id, active_only=True)
+        for role in user_roles:
+            role_scopes = role_management_service.get_role_scopes(db, role.id, active_only=True)
+            for scope in role_scopes:
+                scope_id = None
+                scope_name = None
+                if scope.scope_type == ScopeType.PROGRAM and scope.program_id:
+                    from app.repositories.program import program_repository
+                    program = program_repository.get(db, scope.program_id)
+                    scope_id = scope.program_id
+                    scope_name = program.name if program else None
+                elif scope.scope_type == ScopeType.PROJECT and scope.project_id:
+                    from app.repositories.project import project_repository
+                    project = project_repository.get(db, scope.project_id)
+                    scope_id = scope.project_id
+                    scope_name = project.name if project else None
+                available_scopes.append(UserScope(
+                    scope_type=scope.scope_type,
+                    scope_id=scope_id,
+                    scope_name=scope_name
+                ))
     
     # Create tokens
     access_token = authentication_service.create_access_token(
