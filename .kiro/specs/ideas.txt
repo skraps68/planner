@@ -81,6 +81,13 @@
 
 - need a way to highlight resource acutual that differ from original forecast (in the finacials tab?)
 
+- in the resource allocations, change the project code to the project name
+
+- in a project allocations tab, the worker resources should show their overall (total) alllocation so that the user can tell how much allocation is left for the current project
+
+- also, the worker name/allocation should be a hyperlink that allows the user to jump to the allocations for that worker across all projects
+
+- that screen should replace the current vertical view of a worker's allocations and be a project-based table, i.e. project on y-axis, dates on x-axis, across all projects
 
 -------------------------------
 
