@@ -275,10 +275,15 @@ class ForecastingService:
                 return None
             
             # For labor resources, try to get actual worker rate
-            # Check if this is a labor resource (has worker_id)
-            if hasattr(resource, 'worker_id') and resource.worker_id:
-                # Get the worker
-                worker = worker_repository.get(db, resource.worker_id)
+            if resource.resource_type.value == 'LABOR':
+                # Find worker by matching resource name to worker name
+                from sqlalchemy import select
+                from app.models.resource import Worker
+                
+                worker = db.execute(
+                    select(Worker).where(Worker.name == resource.name)
+                ).scalar_one_or_none()
+                
                 if worker:
                     # Get the rate for the assignment date
                     rate = rate_repository.get_active_rate(
@@ -288,25 +293,31 @@ class ForecastingService:
                     )
                     
                     if rate:
-                        # Calculate cost: daily_rate * allocation_percentage / 100
-                        cost = (rate.rate_amount * assignment.allocation_percentage) / Decimal('100.00')
+                        # Calculate total allocation from capital + expense percentages
+                        total_allocation = assignment.capital_percentage + assignment.expense_percentage
+                        # Calculate cost: daily_rate * total_allocation / 100
+                        cost = (rate.rate_amount * total_allocation) / Decimal('100.00')
                         return cost.quantize(Decimal('0.01'))
             
             # If we can't determine exact rate, use a default daily rate
             # This ensures forecast calculations work even without worker linkage
             # Default: $1000/day for labor resources, $500/day for non-labor
-            if resource.resource_type.value == 'labor':
+            if resource.resource_type.value == 'LABOR':
                 default_rate = Decimal('1000.00')
             else:
                 default_rate = Decimal('500.00')
             
-            cost = (default_rate * assignment.allocation_percentage) / Decimal('100.00')
+            # Calculate total allocation from capital + expense percentages
+            total_allocation = assignment.capital_percentage + assignment.expense_percentage
+            cost = (default_rate * total_allocation) / Decimal('100.00')
             return cost.quantize(Decimal('0.01'))
             
         except Exception as e:
             # If anything fails, use a conservative default
             default_rate = Decimal('1000.00')
-            cost = (default_rate * assignment.allocation_percentage) / Decimal('100.00')
+            # Calculate total allocation from capital + expense percentages
+            total_allocation = assignment.capital_percentage + assignment.expense_percentage
+            cost = (default_rate * total_allocation) / Decimal('100.00')
             return cost.quantize(Decimal('0.01'))
     
     def calculate_program_forecast(

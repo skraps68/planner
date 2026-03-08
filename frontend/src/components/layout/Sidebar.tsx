@@ -88,7 +88,9 @@ const Sidebar: React.FC = () => {
 
   const renderNavItem = (item: NavItem) => {
     const accessCheck = checkItemAccess(item)
-    const isSelected = location.pathname.startsWith(item.path)
+    // Exact match or path segment match (e.g., /portfolio/123 matches /portfolio, but /portfolios doesn't)
+    const isSelected = location.pathname === item.path || 
+                      location.pathname.startsWith(item.path + '/')
     const indentAmount = (item.indent || 0) * 8 // 8px per indent level
 
     const button = (
