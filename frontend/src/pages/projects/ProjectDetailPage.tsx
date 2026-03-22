@@ -108,7 +108,7 @@ const ProjectDetailPage: React.FC = () => {
   const { data: forecastData } = useQuery({
     queryKey: ['forecast', 'project', id, selectedPhaseId],
     queryFn: async () => {
-      const data = await getProjectForecast(id!, selectedPhaseId || undefined)
+      const data = await getProjectForecast(id!, new Date().toISOString().split('T')[0], selectedPhaseId || undefined)
       return transformForecastData(data)
     },
     enabled: !!id && tabValue === 2,
@@ -510,6 +510,10 @@ const ProjectDetailPage: React.FC = () => {
           projectEndDate={project.end_date}
           onSaveSuccess={handleAssignmentSaveSuccess}
           onSaveError={handleAssignmentSaveError}
+          projectBreadcrumbItems={[
+            ...breadcrumbItems.slice(0, -1),
+            { label: project.name, path: `/projects/${id}?tab=1`, state: navigationState || undefined },
+          ]}
         />
       </TabPanel>
 

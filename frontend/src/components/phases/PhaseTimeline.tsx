@@ -68,6 +68,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   const [dragPhases, setDragPhases] = useState<Partial<ProjectPhase>[]>([])
   const dragPhasesRef = useRef<Partial<ProjectPhase>[]>([])
   const timelineRef = useRef<HTMLDivElement>(null)
+  const isResizingRef = useRef(false)
 
   // Store color assignments for each phase ID to keep colors consistent
   const phaseColorMapRef = useRef<Map<string, string>>(new Map())
@@ -224,6 +225,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
       if (!enableResize) return
 
       e.stopPropagation()
+      isResizingRef.current = true
       setIsDragging(true)
       // Initialize dragPhases with current phases
       const initialPhases = [...phases]
@@ -374,6 +376,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
     setDragInfo(null)
     setDragPhases([])
     dragPhasesRef.current = []
+    isResizingRef.current = false
   }, [isDragging, onPhaseResize, phases])
 
   // Add/remove event listeners for drag
@@ -392,6 +395,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   const handleDragStart = useCallback(
     (e: React.DragEvent, phaseId: string) => {
       if (!enableReorder || phases.length <= 1) return
+      if (isResizingRef.current) { e.preventDefault(); return }
 
       e.dataTransfer.effectAllowed = 'move'
       e.dataTransfer.setData('text/plain', phaseId)
@@ -673,19 +677,17 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                   ? 'move' 
                   : 'pointer',
             opacity: isBeingDragged ? 0.5 : 1,
-            transition: isDragging || dragDropState.isDragging ? 'none' : 'all 0.2s',
-            boxShadow: isBeingDragged 
-              ? '0 4px 8px rgba(0,0,0,0.3)' 
-              : isKeyboardReordering 
-                ? '0 0 0 3px rgba(25, 118, 210, 0.3)' 
+            transition: isDragging || dragDropState.isDragging ? 'none' : 'box-shadow 0.2s',
+            boxShadow: isBeingDragged
+              ? '0 4px 8px rgba(0,0,0,0.3)'
+              : isKeyboardReordering
+                ? '0 0 0 3px rgba(25, 118, 210, 0.3)'
                 : 'none',
             '&:hover': {
-              opacity: isBeingDragged ? 0.5 : 0.85,
-              transform: isDragging || dragDropState.isDragging ? 'none' : 'translateY(-2px)',
-              boxShadow: isBeingDragged 
-                ? '0 4px 8px rgba(0,0,0,0.3)' 
-                : enableReorder && phases.length > 1 
-                  ? '0 2px 4px rgba(0,0,0,0.2)' 
+              boxShadow: isBeingDragged
+                ? '0 4px 8px rgba(0,0,0,0.3)'
+                : enableReorder && phases.length > 1
+                  ? '0 2px 4px rgba(0,0,0,0.2)'
                   : 'none',
             },
             '&:active': {
@@ -712,8 +714,6 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                 borderRadius: '4px 0 0 4px',
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                  width: 12,
-                  left: -6,
                 },
                 zIndex: 2,
               }}
@@ -751,8 +751,6 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                 borderRadius: '0 4px 4px 0',
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                  width: 12,
-                  right: -6,
                 },
                 zIndex: 2,
               }}

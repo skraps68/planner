@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import * as React from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -401,12 +402,19 @@ const EditableCell: React.FC<EditableCellProps> = React.memo(({
   )
 })
 
+interface BreadcrumbItem {
+  label: string
+  path?: string
+  state?: Record<string, unknown>
+}
+
 interface ResourceAssignmentCalendarProps {
   projectId: string
   projectStartDate: string
   projectEndDate: string
   onSaveSuccess?: () => void
   onSaveError?: (error: string) => void
+  projectBreadcrumbItems?: BreadcrumbItem[]
 }
 
 interface CellEdit {
@@ -423,8 +431,10 @@ const ResourceAssignmentCalendar = ({
   projectEndDate,
   onSaveSuccess,
   onSaveError,
+  projectBreadcrumbItems,
 }: ResourceAssignmentCalendarProps) => {
   const { user } = useAuth()
+  const navigate = useNavigate()
   
   // Use React Query hook for assignments data
   const { data: assignments = [], isLoading, error: queryError, refetch } = useProjectAssignments(projectId)
@@ -550,12 +560,15 @@ const ResourceAssignmentCalendar = ({
         
         // Perform cross-project allocation validation
         try {
+          const resourceName = gridData?.resources.find(r => r.resourceId === edit.resourceId)?.resourceName
           const validationResult = await validateCellEdit(
             edit.resourceId,
             edit.date,
             edit.costTreatment,
             edit.newValue,
-            projectId
+            projectId,
+            undefined,
+            resourceName
           )
           
           if (!validationResult.isValid) {
@@ -1100,6 +1113,57 @@ const ResourceAssignmentCalendar = ({
             </TableRow>
           </TableHead>
           <TableBody>
+            {/* Labor Totals Row */}
+            <TableRow role="row">
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 0,
+                  backgroundColor: '#e8f5e9',
+                  fontWeight: 'bold',
+                  zIndex: 2,
+                  borderRight: '2px solid',
+                  borderColor: 'divider',
+                }}
+                role="rowheader"
+              >
+                Labor Totals
+              </TableCell>
+              <TableCell
+                sx={{
+                  position: 'sticky',
+                  left: 200,
+                  backgroundColor: '#e8f5e9',
+                  fontWeight: 'bold',
+                  zIndex: 2,
+                  borderRight: '2px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                Heads
+              </TableCell>
+              {gridData.dates.map((date, dateIndex) => {
+                const total = gridData.resources.reduce((sum, resource) => {
+                  return sum + getDisplayValue(resource.resourceId, date, 'capital') + getDisplayValue(resource.resourceId, date, 'expense')
+                }, 0)
+                const isSaturday = date.getUTCDay() === 6
+                return (
+                  <TableCell
+                    key={dateIndex}
+                    align="center"
+                    sx={{
+                      backgroundColor: '#e8f5e9',
+                      fontWeight: 'bold',
+                      padding: '6px 4px',
+                      ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
+                    }}
+                    role="gridcell"
+                  >
+                    {total > 0 ? (total / 100).toFixed(1) : ''}
+                  </TableCell>
+                )
+              })}
+            </TableRow>
             {gridData.resources.map((resource) => (
               <React.Fragment key={resource.resourceId}>
                 {/* Capital Row */}
@@ -1121,7 +1185,20 @@ const ResourceAssignmentCalendar = ({
                     role="rowheader"
                     aria-label={`${resource.resourceName} - Capital and Expense allocations`}
                   >
-                    <Typography variant="body2" fontWeight="medium">
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      component="a"
+                      onClick={() => navigate(`/resources/${resource.resourceId}`, {
+                        state: { fromProjectBreadcrumbs: projectBreadcrumbItems },
+                      })}
+                      sx={{
+                        cursor: 'pointer',
+                        color: 'primary.main',
+                        textDecoration: 'underline',
+                        '&:hover': { color: 'primary.dark' },
+                      }}
+                    >
                       {resource.resourceName}
                     </Typography>
                   </TableCell>
@@ -1142,7 +1219,7 @@ const ResourceAssignmentCalendar = ({
                     aria-label="Capital"
                   >
                     <Typography variant="caption" color="primary">
-                      Cap
+                      Cap %
                     </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
@@ -1206,7 +1283,7 @@ const ResourceAssignmentCalendar = ({
                     aria-label="Expense"
                   >
                     <Typography variant="caption" color="secondary">
-                      Exp
+                      Exp %
                     </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {

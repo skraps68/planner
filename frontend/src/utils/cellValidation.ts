@@ -98,7 +98,8 @@ export async function validateCellEdit(
   costTreatment: 'capital' | 'expense',
   newValue: number,
   currentProjectId: string,
-  existingAssignments?: any[]
+  existingAssignments?: any[],
+  resourceName?: string
 ): Promise<AllocationValidationResult> {
   // First validate the percentage range (0-100)
   const rangeValidation = validatePercentage(newValue)
@@ -206,20 +207,22 @@ export async function validateCellEdit(
     
     // Validate cross-project constraint: total allocation across all projects <= 100
     if (totalAllocation > 100) {
-      // Calculate current total (excluding this project)
       const currentTotalOtherProjects = totalAllocation - newProjectTotal
-      
-      const breakdownText = projectBreakdown
-        .map(p => {
-          const projectLabel = p.projectName || p.projectId
-          const total = p.capitalPercentage + p.expensePercentage
-          return `${projectLabel}: ${total}% (Capital: ${p.capitalPercentage}%, Expense: ${p.expensePercentage}%)`
-        })
+      const available = Math.max(0, 100 - currentTotalOtherProjects)
+      const who = resourceName || 'This resource'
+
+      const otherProjectNames = projectBreakdown
+        .filter(p => p.projectId !== currentProjectId && (p.capitalPercentage + p.expensePercentage) > 0)
+        .map(p => p.projectName || p.projectId)
         .join(', ')
-      
+
+      const otherProjectsClause = otherProjectNames
+        ? ` (allocated to: ${otherProjectNames})`
+        : ''
+
       return {
         isValid: false,
-        errorMessage: `Total allocation across all projects would exceed 100% (current: ${currentTotalOtherProjects.toFixed(1)}%, this project: ${newProjectTotal.toFixed(1)}%, total: ${totalAllocation.toFixed(1)}%). Breakdown: ${breakdownText}`,
+        errorMessage: `${who} has only ${available.toFixed(0)}% capacity available on this date — ${currentTotalOtherProjects.toFixed(0)}% is already allocated to other projects${otherProjectsClause}.`,
         totalAllocation,
         projectBreakdown
       }
