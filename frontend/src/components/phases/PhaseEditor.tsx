@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Box, Button, CircularProgress } from '@mui/material'
-import { Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { ProjectPhase, PhaseValidationError } from '../../types'
 import { phasesApi } from '../../api/phases'
 import { validatePhases, getNextDay, getPreviousDay } from '../../utils/phaseValidation'
 import PhaseTimeline from './PhaseTimeline'
 import PhaseList from './PhaseList'
 import ValidationErrorDisplay from './ValidationErrorDisplay'
+import { useAuth } from '../../contexts/AuthContext'
+import { hasPermission } from '../../utils/permissions'
 
 interface PhaseEditorProps {
   projectId: string
@@ -29,6 +31,9 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   onSaveError,
   onProjectDateChange,
 }) => {
+  const { user } = useAuth()
+  const canEdit = useMemo(() => hasPermission(user, 'edit_projects').hasPermission, [user])
+  const [isEditMode, setIsEditMode] = useState(false)
   const [phases, setPhases] = useState<Partial<ProjectPhase>[]>([])
   const [originalPhases, setOriginalPhases] = useState<Partial<ProjectPhase>[]>([])
   const [changedFields, setChangedFields] = useState<Record<string, Set<string>>>({}) // Track which fields changed per phase
@@ -389,6 +394,7 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
       // Reload phases
       await loadPhases()
       setHasChanges(false)
+      setIsEditMode(false)
 
       if (onSave) {
         onSave()
@@ -413,6 +419,7 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     setDeletedPhaseIds(new Set())
     setHasChanges(false)
     setValidationErrors([])
+    setIsEditMode(false)
 
     if (onCancel) {
       onCancel()
@@ -432,6 +439,35 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   // Filter out deleted phases for timeline display
   const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
 
+  const timelineFooter = !isEditMode ? (
+    canEdit ? (
+      <Button variant="contained" size="small" onClick={() => setIsEditMode(true)}>
+        <EditIcon sx={{ mr: 1 }} />
+        Edit Timeline
+      </Button>
+    ) : undefined
+  ) : (
+    <Box sx={{ display: 'flex', gap: 2 }}>
+      <Button variant="outlined" size="small" onClick={handleCancel} disabled={isSaving}>
+        <CancelIcon sx={{ mr: 1 }} />
+        Cancel
+      </Button>
+      <Button
+        variant="contained"
+        size="small"
+        onClick={handleSave}
+        disabled={isSaving || hasValidationErrors || !hasChanges}
+      >
+        {isSaving ? (
+          <CircularProgress size={16} sx={{ mr: 1 }} />
+        ) : (
+          <SaveIcon sx={{ mr: 1 }} />
+        )}
+        Save Changes
+      </Button>
+    </Box>
+  )
+
   return (
     <Box>
       <ValidationErrorDisplay errors={validationErrors} />
@@ -442,9 +478,10 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         projectEndDate={projectEndDate}
         validationErrors={validationErrors}
         onPhaseResize={handlePhaseResize}
-        enableResize={true}
+        enableResize={isEditMode}
         onPhaseReorder={handlePhaseReorder}
-        enableReorder={true}
+        enableReorder={isEditMode}
+        footer={timelineFooter}
       />
 
       <PhaseList
@@ -456,25 +493,6 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         changedFields={changedFields}
         deletedPhaseIds={deletedPhaseIds}
       />
-
-      <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
-        <Button variant="outlined" onClick={handleCancel} disabled={isSaving || !hasChanges}>
-          <CancelIcon sx={{ mr: 1 }} />
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={isSaving || hasValidationErrors || !hasChanges}
-        >
-          {isSaving ? (
-            <CircularProgress size={20} sx={{ mr: 1 }} />
-          ) : (
-            <SaveIcon sx={{ mr: 1 }} />
-          )}
-          Save Changes
-        </Button>
-      </Box>
     </Box>
   )
 }

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { truncateAtLoop } from '../../utils/breadcrumbs'
 import {
   Box,
   Button,
@@ -11,21 +12,26 @@ import {
   Alert,
   Grid,
   Paper,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
 } from '@mui/material'
-import { Edit as EditIcon } from '@mui/icons-material'
+import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { resourcesApi } from '../../api/resources'
-import { assignmentsApi } from '../../api/assignments'
+import { assignmentsApi, BulkAssignmentUpdate } from '../../api/assignments'
 import { Resource, ResourceAssignment } from '../../types'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../../contexts/AuthContext'
+import { hasPermission } from '../../utils/permissions'
+import { validatePercentage } from '../../utils/cellValidation'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
 
@@ -59,233 +65,436 @@ function dateKey(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-const ResourceAllocationCalendar: React.FC<{ resourceId: string }> = ({ resourceId }) => {
+interface BreadcrumbItem {
+  label: string
+  path?: string
+  state?: any
+}
+
+// ─── Inline editable cell ────────────────────────────────────────────────────
+
+// Shared fixed dimensions for all three cell states — never changes
+const CELL_STYLE: React.CSSProperties = {
+  display: 'inline-block',
+  width: 46,
+  boxSizing: 'border-box',
+  textAlign: 'center',
+  fontSize: '0.875rem',
+  padding: '2px 4px',
+  border: '1px solid transparent',
+  borderRadius: '4px',
+}
+
+const AllocationCell: React.FC<{
+  value: number
+  isEditMode: boolean
+  isEdited: boolean
+  hasError: boolean
+  errorMessage?: string
+  onChange: (v: number) => void
+}> = ({ value, isEditMode, isEdited, hasError, errorMessage, onChange }) => {
+  const [focused, setFocused] = useState(false)
+  const [inputValue, setInputValue] = useState(value.toString())
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!focused) setInputValue(value.toString())
+  }, [value, focused])
+
+  const commit = () => {
+    const num = parseFloat(inputValue)
+    if (!isNaN(num)) {
+      const r = validatePercentage(num)
+      if (r.isValid) onChange(num)
+    } else if (inputValue.trim() === '') {
+      onChange(0)
+    }
+  }
+
+  const formatted = value === 0 ? '' : `${Math.round(value)}`
+  const bg = isEdited ? 'rgba(255,182,193,0.3)' : 'transparent'
+  const borderColor = hasError ? '#d32f2f' : '#e0e0e0'
+
+  if (!isEditMode) {
+    return <span style={CELL_STYLE}>{formatted}</span>
+  }
+
+  if (focused) {
+    return (
+      <input
+        ref={inputRef}
+        value={inputValue}
+        autoFocus
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={() => { commit(); setFocused(false) }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Tab') { commit(); setFocused(false) }
+          if (e.key === 'Escape') { setInputValue(value.toString()); setFocused(false) }
+        }}
+        style={{
+          ...CELL_STYLE,
+          border: `1px solid ${hasError ? '#d32f2f' : '#1976d2'}`,
+          outline: 'none',
+          backgroundColor: bg,
+        }}
+      />
+    )
+  }
+
+  const span = (
+    <Box
+      component="span"
+      tabIndex={0}
+      onClick={() => { setInputValue(value === 0 ? '' : String(Math.round(value))); setFocused(true) }}
+      onKeyDown={(e) => {
+        if (e.key === 'Tab') return
+        if (e.key.length === 1 || e.key === 'Backspace') {
+          setInputValue(e.key.length === 1 ? e.key : '')
+          setFocused(true)
+        }
+      }}
+      sx={{
+        ...CELL_STYLE,
+        border: `1px solid ${borderColor}`,
+        cursor: 'text',
+        backgroundColor: bg,
+        '&:focus': { outline: '2px solid #1976d2', outlineOffset: '1px' },
+      }}
+    >
+      {formatted}
+    </Box>
+  )
+
+  return hasError && errorMessage ? <Tooltip title={errorMessage} arrow>{span}</Tooltip> : span
+}
+
+// ─── Resource Allocation Calendar ────────────────────────────────────────────
+
+const ResourceAllocationCalendar: React.FC<{
+  resourceId: string
+  resourceBreadcrumbItems?: BreadcrumbItem[]
+}> = ({ resourceId, resourceBreadcrumbItems }) => {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const canEdit = useMemo(() => hasPermission(user, 'manage_resources').hasPermission, [user])
+
   const { data: assignments = [], isLoading, error } = useQuery({
     queryKey: ['assignments', 'resource', resourceId],
     queryFn: () => assignmentsApi.getByResource(resourceId),
     staleTime: 5 * 60 * 1000,
   })
 
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  // editedCells key: "${projectId}:${dateStr}:capital|expense"
+  const [editedCells, setEditedCells] = useState<Map<string, number>>(new Map())
+  const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const ck = (projectId: string, dateStr: string, type: 'capital' | 'expense') =>
+    `${projectId}:${dateStr}:${type}`
+
   const { dates, projects, cellMap } = useMemo(() => {
     const dates = buildDateRange(assignments)
-
-    // Deduplicate projects
     const projectMap = new Map<string, string>()
     assignments.forEach((a) => {
-      if (!projectMap.has(a.project_id)) {
+      if (!projectMap.has(a.project_id))
         projectMap.set(a.project_id, (a as any).project_name || a.project_id)
-      }
     })
     const projects: ProjectRow[] = Array.from(projectMap.entries()).map(([id, name]) => ({
       projectId: id,
       projectName: name,
     }))
-
-    // Build lookup: projectId + dateStr → { capital, expense }
     const cellMap = new Map<string, { capital: number; expense: number }>()
     assignments.forEach((a) => {
-      const key = `${a.project_id}::${a.assignment_date}`
-      cellMap.set(key, {
+      cellMap.set(`${a.project_id}::${a.assignment_date}`, {
         capital: Math.round(Number(a.capital_percentage)),
         expense: Math.round(Number(a.expense_percentage)),
       })
     })
-
     return { dates, projects, cellMap }
   }, [assignments])
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (error) {
-    return <Alert severity="error">Failed to load assignments</Alert>
-  }
-
-  if (assignments.length === 0) {
-    return (
-      <Alert severity="info">
-        This resource has no assignments yet.
-      </Alert>
-    )
-  }
-
-  const getCell = (projectId: string, date: Date, type: 'capital' | 'expense'): number => {
+  const getStored = (projectId: string, date: Date, type: 'capital' | 'expense'): number => {
     const cell = cellMap.get(`${projectId}::${dateKey(date)}`)
     return cell ? cell[type] : 0
   }
 
+  const getCell = (projectId: string, date: Date, type: 'capital' | 'expense'): number => {
+    const key = ck(projectId, dateKey(date), type)
+    return editedCells.has(key) ? editedCells.get(key)! : getStored(projectId, date, type)
+  }
+
+  const handleCellChange = useCallback((projectId: string, dateStr: string, type: 'capital' | 'expense', value: number) => {
+    const key = ck(projectId, dateStr, type)
+    setEditedCells((prev) => {
+      const next = new Map(prev)
+      const cell = cellMap.get(`${projectId}::${dateStr}`)
+      const old = cell ? cell[type] : 0
+      if (Math.round(value) === old) { next.delete(key) } else { next.set(key, value) }
+      return next
+    })
+    setValidationErrors((prev) => { const next = new Map(prev); next.delete(key); return next })
+  }, [cellMap])
+
+  const handleCancel = useCallback(() => {
+    setEditedCells(new Map())
+    setValidationErrors(new Map())
+    setIsEditMode(false)
+    setSaveError(null)
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    if (editedCells.size === 0) { setIsEditMode(false); return }
+
+    const errors = new Map<string, string>()
+
+    // 1. Basic range validation (0–100 per cell)
+    for (const [key, value] of editedCells) {
+      const r = validatePercentage(value)
+      if (!r.isValid) errors.set(key, r.errorMessage || 'Invalid')
+    }
+
+    // 2. Per-project: capital + expense ≤ 100 per project-date
+    //    Build effective values (stored + edits) for every project × date we might touch
+    const effectiveByProjectDate = new Map<string, { capital: number; expense: number }>()
+    for (const date of dates) {
+      const dStr = dateKey(date)
+      for (const project of projects) {
+        const capKey = ck(project.projectId, dStr, 'capital')
+        const expKey = ck(project.projectId, dStr, 'expense')
+        const stored = cellMap.get(`${project.projectId}::${dStr}`)
+        const cap = editedCells.has(capKey) ? editedCells.get(capKey)! : (stored?.capital ?? 0)
+        const exp = editedCells.has(expKey) ? editedCells.get(expKey)! : (stored?.expense ?? 0)
+        effectiveByProjectDate.set(`${project.projectId}:${dStr}`, { capital: cap, expense: exp })
+        if (cap + exp > 100) {
+          const msg = `Capital + expense cannot exceed 100% for "${project.projectName}" on this date (would be ${Math.round(cap + exp)}%)`
+          if (editedCells.has(capKey)) errors.set(capKey, msg)
+          if (editedCells.has(expKey)) errors.set(expKey, msg)
+        }
+      }
+    }
+
+    // 3. Cross-project: total across all projects ≤ 100 per date
+    for (const date of dates) {
+      const dStr = dateKey(date)
+      const total = projects.reduce((sum, p) => {
+        const v = effectiveByProjectDate.get(`${p.projectId}:${dStr}`) ?? { capital: 0, expense: 0 }
+        return sum + v.capital + v.expense
+      }, 0)
+      if (total > 100) {
+        const msg = `Total allocation across all projects exceeds 100% on this date (would be ${Math.round(total)}%)`
+        for (const project of projects) {
+          const capKey = ck(project.projectId, dStr, 'capital')
+          const expKey = ck(project.projectId, dStr, 'expense')
+          if (editedCells.has(capKey) && !errors.has(capKey)) errors.set(capKey, msg)
+          if (editedCells.has(expKey) && !errors.has(expKey)) errors.set(expKey, msg)
+        }
+      }
+    }
+
+    if (errors.size > 0) { setValidationErrors(errors); return }
+
+    setIsSaving(true)
+    try {
+      // Group edits by project:date
+      const grouped = new Map<string, { capital?: number; expense?: number }>()
+      for (const [key, value] of editedCells) {
+        const [projectId, dateStr, type] = key.split(':')
+        const gk = `${projectId}:${dateStr}`
+        if (!grouped.has(gk)) grouped.set(gk, {})
+        grouped.get(gk)![type as 'capital' | 'expense'] = value
+      }
+
+      const bulkUpdates: BulkAssignmentUpdate[] = []
+      for (const [gk, edits] of grouped) {
+        const [projectId, dateStr] = gk.split(':')
+        const existing = assignments.find(
+          (a) => a.project_id === projectId && a.assignment_date === dateStr
+        )
+        if (!existing) continue
+        const cell = cellMap.get(`${projectId}::${dateStr}`)
+        bulkUpdates.push({
+          id: existing.id,
+          capital_percentage: Math.round(edits.capital ?? cell?.capital ?? 0),
+          expense_percentage: Math.round(edits.expense ?? cell?.expense ?? 0),
+          version: existing.version,
+        })
+      }
+
+      if (bulkUpdates.length > 0) await assignmentsApi.bulkUpdate(bulkUpdates)
+
+      await queryClient.invalidateQueries({ queryKey: ['assignments', 'resource', resourceId] })
+      setEditedCells(new Map())
+      setValidationErrors(new Map())
+      setIsEditMode(false)
+      setSaveSuccess(true)
+    } catch (err: any) {
+      setSaveError(err.response?.data?.detail || 'Failed to save assignments')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [editedCells, assignments, cellMap, dates, projects, queryClient, resourceId])
+
+  if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
+  if (error) return <Alert severity="error">Failed to load assignments</Alert>
+  if (assignments.length === 0) return <Alert severity="info">This resource has no assignments yet.</Alert>
+
+  const hasEdits = editedCells.size > 0
+
   return (
-    <Box sx={{ overflowX: 'auto', width: '100%' }}>
-      <TableContainer component={Paper}>
-        <Table size="small" stickyHeader sx={{ tableLayout: 'auto' }}>
-          <TableHead>
-            <TableRow>
-              {/* Project column header */}
-              <TableCell
-                sx={{
-                  position: 'sticky', left: 0, zIndex: 4,
-                  backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 200,
-                }}
-              >
-                Project
-              </TableCell>
-              {/* Type column header */}
-              <TableCell
-                sx={{
-                  position: 'sticky', left: 200, zIndex: 4,
-                  backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 60,
-                }}
-              >
-                Type
-              </TableCell>
-              {/* Date column headers */}
-              {dates.map((date, i) => {
-                const isSaturday = date.getUTCDay() === 6
-                return (
-                  <TableCell
-                    key={i}
-                    align="center"
-                    sx={{
-                      backgroundColor: '#A5C1D8', fontWeight: 'bold',
-                      minWidth: 50, padding: '6px 4px',
-                      ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
-                    }}
-                  >
+    <Paper sx={{ p: 2 }}>
+      <Box sx={{ overflowX: 'auto', width: '100%' }}>
+        <TableContainer>
+          <Table size="small" stickyHeader sx={{ tableLayout: 'auto' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 200 }}>
+                  Project
+                </TableCell>
+                <TableCell sx={{ position: 'sticky', left: 200, zIndex: 4, backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 60 }}>
+                  Type
+                </TableCell>
+                {dates.map((date, i) => (
+                  <TableCell key={i} align="center" sx={{
+                    backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 50, padding: '6px 4px',
+                    ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                  }}>
                     {formatColDate(date)}
                   </TableCell>
-                )
-              })}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {/* Total Allocation row */}
-            <TableRow>
-              <TableCell
-                sx={{
-                  position: 'sticky', left: 0, zIndex: 2,
-                  backgroundColor: '#e8f5e9', fontWeight: 'bold',
-                  borderRight: '2px solid', borderColor: 'divider',
-                }}
-              >
-                Total Allocation
-              </TableCell>
-              <TableCell
-                sx={{
-                  position: 'sticky', left: 200, zIndex: 2,
-                  backgroundColor: '#e8f5e9', fontWeight: 'bold',
-                  borderRight: '2px solid', borderColor: 'divider',
-                }}
-              >
-                %
-              </TableCell>
-              {dates.map((date, i) => {
-                const total = projects.reduce((sum, p) => {
-                  return sum + getCell(p.projectId, date, 'capital') + getCell(p.projectId, date, 'expense')
-                }, 0)
-                const isSaturday = date.getUTCDay() === 6
-                return (
-                  <TableCell
-                    key={i}
-                    align="center"
-                    sx={{
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {/* Total Allocation row */}
+              <TableRow>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '2px solid', borderColor: 'divider' }}>
+                  Total Allocation
+                </TableCell>
+                <TableCell sx={{ position: 'sticky', left: 200, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '2px solid', borderColor: 'divider' }}>
+                  %
+                </TableCell>
+                {dates.map((date, i) => {
+                  const total = projects.reduce(
+                    (sum, p) => sum + getCell(p.projectId, date, 'capital') + getCell(p.projectId, date, 'expense'),
+                    0
+                  )
+                  const rounded = Math.round(total)
+                  const color = rounded >= 100 ? '#d32f2f' : rounded > 0 ? '#2e7d32' : undefined
+                  return (
+                    <TableCell key={i} align="center" sx={{
                       backgroundColor: '#e8f5e9', fontWeight: 'bold', padding: '6px 4px',
-                      ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
-                    }}
-                  >
-                    {total > 0 ? Math.round(total) : ''}
-                  </TableCell>
-                )
-              })}
-            </TableRow>
+                      ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                    }}>
+                      {rounded > 0 && <span style={{ fontSize: '0.875rem', color }}>{rounded}</span>}
+                    </TableCell>
+                  )
+                })}
+              </TableRow>
 
-            {/* One pair of rows per project */}
-            {projects.map((project) => (
-              <React.Fragment key={project.projectId}>
-                {/* Capital row */}
-                <TableRow>
-                  <TableCell
-                    rowSpan={2}
-                    sx={{
+              {/* One pair of rows per project */}
+              {projects.map((project) => (
+                <React.Fragment key={project.projectId}>
+                  <TableRow>
+                    <TableCell rowSpan={2} sx={{
                       position: 'sticky', left: 0, zIndex: 2,
                       backgroundColor: 'background.paper', fontWeight: 'medium',
                       borderRight: '2px solid', borderColor: 'divider',
                       borderBottom: '2px solid', verticalAlign: 'middle',
-                    }}
-                  >
-                    <Typography variant="body2" fontWeight="medium">
-                      {project.projectName}
-                    </Typography>
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      position: 'sticky', left: 200, zIndex: 2,
-                      backgroundColor: 'background.paper',
-                      borderRight: '2px solid', borderColor: 'divider',
-                      minWidth: 60, padding: '6px 8px',
-                    }}
-                  >
-                    <Typography variant="caption" color="primary">Cap %</Typography>
-                  </TableCell>
-                  {dates.map((date, i) => {
-                    const val = getCell(project.projectId, date, 'capital')
-                    const isSaturday = date.getUTCDay() === 6
-                    return (
-                      <TableCell
-                        key={i}
-                        align="center"
-                        sx={{
-                          backgroundColor: val > 0 ? 'action.hover' : 'background.paper',
-                          padding: '6px 4px',
-                          ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
-                        }}
+                    }}>
+                      <Typography variant="body2" fontWeight="medium" component="a"
+                        onClick={() => navigate(`/projects/${project.projectId}?tab=1`, {
+                          state: resourceBreadcrumbItems ? { fromResourceBreadcrumbs: resourceBreadcrumbItems } : undefined,
+                        })}
+                        sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}
                       >
-                        <span style={{ fontSize: '0.875rem' }}>{val > 0 ? val : ''}</span>
-                      </TableCell>
-                    )
-                  })}
-                </TableRow>
-                {/* Expense row */}
-                <TableRow>
-                  <TableCell
-                    sx={{
-                      position: 'sticky', left: 200, zIndex: 2,
-                      backgroundColor: 'background.paper',
-                      borderRight: '2px solid', borderColor: 'divider',
-                      borderBottom: '2px solid', minWidth: 60, padding: '6px 8px',
-                    }}
-                  >
-                    <Typography variant="caption" color="secondary">Exp %</Typography>
-                  </TableCell>
-                  {dates.map((date, i) => {
-                    const val = getCell(project.projectId, date, 'expense')
-                    const isSaturday = date.getUTCDay() === 6
-                    return (
-                      <TableCell
-                        key={i}
-                        align="center"
-                        sx={{
+                        {project.projectName}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ position: 'sticky', left: 200, zIndex: 2, backgroundColor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', minWidth: 60, padding: '6px 8px' }}>
+                      <Typography variant="caption" color="primary">Cap %</Typography>
+                    </TableCell>
+                    {dates.map((date, i) => {
+                      const dStr = dateKey(date)
+                      const val = getCell(project.projectId, date, 'capital')
+                      const key = ck(project.projectId, dStr, 'capital')
+                      return (
+                        <TableCell key={i} align="center" sx={{
+                          backgroundColor: val > 0 ? 'action.hover' : 'background.paper', padding: '6px 4px',
+                          ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                        }}>
+                          <AllocationCell
+                            value={val}
+                            isEditMode={isEditMode}
+                            isEdited={editedCells.has(key)}
+                            hasError={validationErrors.has(key)}
+                            errorMessage={validationErrors.get(key)}
+                            onChange={(v) => handleCellChange(project.projectId, dStr, 'capital', v)}
+                          />
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                  <TableRow>
+                    <TableCell sx={{ position: 'sticky', left: 200, zIndex: 2, backgroundColor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', borderBottom: '2px solid', minWidth: 60, padding: '6px 8px' }}>
+                      <Typography variant="caption" color="secondary">Exp %</Typography>
+                    </TableCell>
+                    {dates.map((date, i) => {
+                      const dStr = dateKey(date)
+                      const val = getCell(project.projectId, date, 'expense')
+                      const key = ck(project.projectId, dStr, 'expense')
+                      return (
+                        <TableCell key={i} align="center" sx={{
                           backgroundColor: val > 0 ? 'action.hover' : 'background.paper',
-                          borderBottom: '2px solid', borderColor: 'divider',
-                          padding: '6px 4px',
-                          ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
-                        }}
-                      >
-                        <span style={{ fontSize: '0.875rem' }}>{val > 0 ? val : ''}</span>
-                      </TableCell>
-                    )
-                  })}
-                </TableRow>
-              </React.Fragment>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
+                          borderBottom: '2px solid', borderColor: 'divider', padding: '6px 4px',
+                          ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                        }}>
+                          <AllocationCell
+                            value={val}
+                            isEditMode={isEditMode}
+                            isEdited={editedCells.has(key)}
+                            hasError={validationErrors.has(key)}
+                            errorMessage={validationErrors.get(key)}
+                            onChange={(v) => handleCellChange(project.projectId, dStr, 'expense', v)}
+                          />
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+
+      {/* Controls */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+        {!isEditMode ? (
+          canEdit && (
+            <Button variant="outlined" size="small" startIcon={<EditIcon />} onClick={() => setIsEditMode(true)}>
+              Edit
+            </Button>
+          )
+        ) : (
+          <>
+            <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button variant="contained" size="small" startIcon={isSaving ? <CircularProgress size={14} /> : <SaveIcon />}
+              onClick={handleSave} disabled={isSaving || !hasEdits}>
+              Save Changes
+            </Button>
+          </>
+        )}
+      </Box>
+
+      {saveError && <Alert severity="error" sx={{ mt: 1 }} onClose={() => setSaveError(null)}>{saveError}</Alert>}
+      <Snackbar open={saveSuccess} autoHideDuration={3000} onClose={() => setSaveSuccess(false)}
+        message="Assignments saved successfully" anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
+    </Paper>
   )
 }
 
@@ -295,7 +504,10 @@ const ResourceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const fromProjectBreadcrumbs = (location.state as any)?.fromProjectBreadcrumbs as Array<{ label: string; path?: string; state?: any }> | undefined
+  const rawFromProjectBreadcrumbs = (location.state as any)?.fromProjectBreadcrumbs as Array<{ label: string; path?: string; state?: any }> | undefined
+  const fromProjectBreadcrumbs = rawFromProjectBreadcrumbs
+    ? truncateAtLoop(rawFromProjectBreadcrumbs, location.pathname)
+    : undefined
   const { conflictState, handleError, clearConflict } = useConflictHandler()
 
   const isNew = id === 'new'
@@ -516,7 +728,18 @@ const ResourceDetailPage: React.FC = () => {
 
       {/* Allocation calendar */}
       <Typography variant="h6" sx={{ mb: 1 }}>Assignments</Typography>
-      <ResourceAllocationCalendar resourceId={id!} />
+      <ResourceAllocationCalendar
+        resourceId={id!}
+        resourceBreadcrumbItems={
+          fromProjectBreadcrumbs
+            ? [...fromProjectBreadcrumbs, { label: resource?.name || '…', path: `/resources/${id}`, state: { fromProjectBreadcrumbs } }]
+            : [
+                { label: 'Home', path: '/dashboard' },
+                { label: 'Resources', path: '/resources' },
+                { label: resource?.name || '…', path: `/resources/${id}` },
+              ]
+        }
+      />
 
       {/* Conflict Dialog */}
       <ConflictDialog

@@ -12,6 +12,7 @@ interface PhaseTimelineProps {
   enableResize?: boolean
   onPhaseReorder?: (reorderedPhases: Partial<ProjectPhase>[]) => void
   enableReorder?: boolean
+  footer?: React.ReactNode
 }
 
 interface DragDropState {
@@ -56,6 +57,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   enableResize = false,
   onPhaseReorder,
   enableReorder = false,
+  footer,
 }) => {
   // Existing resize drag state
   const [isDragging, setIsDragging] = useState(false)
@@ -1284,6 +1286,11 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
           {renderBoundaryDates()}
         </Box>
       </Box>
+      {footer && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          {footer}
+        </Box>
+      )}
     </Paper>
   )
 }
