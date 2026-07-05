@@ -9,6 +9,7 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  Snackbar,
   FormControl,
   InputLabel,
   Select,
@@ -27,10 +28,20 @@ const WorkerDetailPage = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean
+    message: string
+    severity: 'success' | 'error'
+  }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  })
   const [formData, setFormData] = useState({
     external_id: '',
     name: '',
     worker_type_id: '',
+    version: 0,
   })
 
   const isNewWorker = id === 'new'
@@ -54,6 +65,7 @@ const WorkerDetailPage = () => {
         external_id: data.external_id,
         name: data.name,
         worker_type_id: data.worker_type_id,
+        version: data.version,
       })
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load worker')
@@ -81,7 +93,8 @@ const WorkerDetailPage = () => {
         navigate('/workers')
       } else {
         await workersApi.update(id!, formData)
-        fetchWorker()
+        await fetchWorker()
+        setSnackbar({ open: true, message: 'Worker saved successfully', severity: 'success' })
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to save worker')
@@ -99,25 +112,25 @@ const WorkerDetailPage = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/workers')} sx={{ mr: 2 }}>
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/workers')} sx={{ mr: 1.5 }}>
           Back
         </Button>
-        <Typography variant="h4">
+        <Typography variant="h5">
           {isNewWorker ? 'Create Worker' : 'Worker Details'}
         </Typography>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 1.5 }}>
           {error}
         </Alert>
       )}
 
       <Card>
         <CardContent>
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -165,6 +178,17 @@ const WorkerDetailPage = () => {
           </Grid>
         </CardContent>
       </Card>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

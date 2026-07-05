@@ -190,8 +190,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
   };
 
   return (
-    <Paper elevation={2} sx={{ p: 3, mt: 3 }}>
-      <Typography variant="h6" sx={{ mb: 3 }}>
+    <Paper elevation={2} sx={{ p: 2, mt: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
         Budget vs Current Forecast
       </Typography>
       <Grid container spacing={3}>

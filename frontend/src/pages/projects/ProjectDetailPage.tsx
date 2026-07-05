@@ -38,7 +38,7 @@ interface TabPanelProps {
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
   return (
-    <div hidden={value !== index} style={{ paddingTop: 24, maxWidth: '100%', overflow: 'hidden' }}>
+    <div hidden={value !== index} style={{ paddingTop: 12, maxWidth: '100%', overflow: 'hidden' }}>
       {value === index && children}
     </div>
   )
@@ -340,7 +340,7 @@ const ProjectDetailPage: React.FC = () => {
       <TabPanel value={tabValue} index={0}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Paper sx={{ p: 3, mb: 3 }}>
+            <Paper sx={{ p: 2, mb: 2 }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
@@ -527,8 +527,8 @@ const ProjectDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={phases}

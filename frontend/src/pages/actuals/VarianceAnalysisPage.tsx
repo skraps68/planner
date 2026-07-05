@@ -194,7 +194,7 @@ const VarianceAnalysisPage = () => {
     const unworkedAssignment = varianceByType.unworked_assignment || 0
 
     return (
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 2 }}>
         <Grid item xs={12} md={2.4}>
           <Card>
             <CardContent>
@@ -278,9 +278,9 @@ const VarianceAnalysisPage = () => {
     ]
 
     return (
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 2 }}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Variance Distribution
             </Typography>
@@ -306,7 +306,7 @@ const VarianceAnalysisPage = () => {
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Variance Breakdown
             </Typography>
@@ -452,7 +452,7 @@ const VarianceAnalysisPage = () => {
 
     return (
       <Box>
-        <Alert severity="warning" sx={{ mb: 3 }}>
+        <Alert severity="warning" sx={{ mb: 2 }}>
           Found {exceptionsData.total_exceptions} exceptional variances that exceed high thresholds
           (Allocation: {exceptionsData.thresholds.allocation_threshold}%, Cost:{' '}
           {exceptionsData.thresholds.cost_threshold}%)
@@ -516,7 +516,7 @@ const VarianceAnalysisPage = () => {
         Variance Analysis
       </Typography>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
           Analysis Parameters
         </Typography>
@@ -589,7 +589,7 @@ const VarianceAnalysisPage = () => {
       </Paper>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -599,13 +599,13 @@ const VarianceAnalysisPage = () => {
           {renderSummaryCards()}
           {renderVarianceChart()}
 
-          <Paper sx={{ mb: 3 }}>
+          <Paper sx={{ mb: 2 }}>
             <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
               <Tab label="All Variances" />
               <Tab label="Exceptional Variances" />
             </Tabs>
 
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ p: 2 }}>
               <TabPanel value={tabValue} index={0}>
                 {renderVarianceTable()}
               </TabPanel>

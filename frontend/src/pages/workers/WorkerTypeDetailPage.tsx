@@ -39,7 +39,7 @@ const TabPanel = (props: TabPanelProps) => {
   const { children, value, index, ...other } = props
   return (
     <div hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ pt: 1.5 }}>{children}</Box>}
     </div>
   )
 }
@@ -143,18 +143,18 @@ const WorkerTypeDetailPage = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/workers')} sx={{ mr: 2 }}>
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/workers')} sx={{ mr: 1.5 }}>
           Back
         </Button>
-        <Typography variant="h4">
+        <Typography variant="h5">
           {isNewWorkerType ? 'Create Worker Type' : 'Worker Type Details'}
         </Typography>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 1.5 }}>
           {error}
         </Alert>
       )}

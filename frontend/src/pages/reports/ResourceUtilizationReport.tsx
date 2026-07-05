@@ -137,7 +137,7 @@ const ResourceUtilizationReport: React.FC = () => {
   }
 
   const renderChart = () => (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>
         Resource Utilization Overview
       </Typography>
@@ -210,7 +210,7 @@ const ResourceUtilizationReport: React.FC = () => {
     const maxUtilization = Math.max(...utilizationData.map(d => d.utilization_percentage), 1)
     
     return (
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
           Resource Utilization Heatmap
         </Typography>
@@ -251,7 +251,7 @@ const ResourceUtilizationReport: React.FC = () => {
         </Grid>
         
         {/* Legend */}
-        <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ width: 20, height: 20, backgroundColor: '#f44336' }} />
             <Typography variant="caption">0-20%</Typography>
@@ -286,7 +286,7 @@ const ResourceUtilizationReport: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Resource Utilization Report</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -309,7 +309,7 @@ const ResourceUtilizationReport: React.FC = () => {
       </Box>
 
       {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <TextField
@@ -360,14 +360,14 @@ const ResourceUtilizationReport: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
       {/* Summary Stats */}
       {summaryStats && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={3} sx={{ mb: 2 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>

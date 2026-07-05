@@ -48,7 +48,7 @@ const RoleScopesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [newScope, setNewScope] = useState({
-    scope_type: 'PROGRAM' as 'PROGRAM' | 'PROJECT' | 'GLOBAL',
+    scope_type: 'program' as 'program' | 'project' | 'global',
     program_id: '',
     project_id: '',
     is_active: true,
@@ -85,14 +85,14 @@ const RoleScopesPage: React.FC = () => {
     try {
       const scopeData: ScopeAssignmentCreate = {
         scope_type: newScope.scope_type,
-        program_id: newScope.scope_type === 'PROGRAM' ? newScope.program_id : undefined,
-        project_id: newScope.scope_type === 'PROJECT' ? newScope.project_id : undefined,
+        program_id: newScope.scope_type === 'program' ? newScope.program_id : undefined,
+        project_id: newScope.scope_type === 'project' ? newScope.project_id : undefined,
         is_active: newScope.is_active,
       }
       await usersApi.assignScope(roleId, scopeData)
       setAddDialogOpen(false)
       setNewScope({
-        scope_type: 'PROGRAM',
+        scope_type: 'program',
         program_id: '',
         project_id: '',
         is_active: true,
@@ -118,11 +118,11 @@ const RoleScopesPage: React.FC = () => {
 
   const getScopeTypeLabel = (scopeType: string): string => {
     switch (scopeType) {
-      case 'PROGRAM':
+      case 'program':
         return 'Program'
-      case 'PROJECT':
+      case 'project':
         return 'Project'
-      case 'GLOBAL':
+      case 'global':
         return 'Global'
       default:
         return scopeType
@@ -131,11 +131,11 @@ const RoleScopesPage: React.FC = () => {
 
   const getScopeTypeColor = (scopeType: string): 'primary' | 'success' | 'error' => {
     switch (scopeType) {
-      case 'PROGRAM':
+      case 'program':
         return 'primary'
-      case 'PROJECT':
+      case 'project':
         return 'success'
-      case 'GLOBAL':
+      case 'global':
         return 'error'
       default:
         return 'primary'
@@ -208,17 +208,17 @@ const RoleScopesPage: React.FC = () => {
                       }
                       secondary={
                         <Box sx={{ mt: 0.5 }}>
-                          {scope.scope_type === 'PROGRAM' && scope.program_name && (
+                          {scope.scope_type === 'program' && scope.program_name && (
                             <Typography variant="body2">
                               Program: {scope.program_name}
                             </Typography>
                           )}
-                          {scope.scope_type === 'PROJECT' && scope.project_name && (
+                          {scope.scope_type === 'project' && scope.project_name && (
                             <Typography variant="body2">
                               Project: {scope.project_name}
                             </Typography>
                           )}
-                          {scope.scope_type === 'GLOBAL' && (
+                          {scope.scope_type === 'global' && (
                             <Typography variant="body2">
                               Full system access
                             </Typography>
@@ -251,20 +251,20 @@ const RoleScopesPage: React.FC = () => {
                 onChange={(e) =>
                   setNewScope((prev) => ({
                     ...prev,
-                    scope_type: e.target.value as 'PROGRAM' | 'PROJECT' | 'GLOBAL',
+                    scope_type: e.target.value as 'program' | 'project' | 'global',
                     program_id: '',
                     project_id: '',
                   }))
                 }
                 label="Scope Type"
               >
-                <MenuItem value="PROGRAM">Program</MenuItem>
-                <MenuItem value="PROJECT">Project</MenuItem>
-                <MenuItem value="GLOBAL">Global</MenuItem>
+                <MenuItem value="program">Program</MenuItem>
+                <MenuItem value="project">Project</MenuItem>
+                <MenuItem value="global">Global</MenuItem>
               </Select>
             </FormControl>
 
-            {newScope.scope_type === 'PROGRAM' && (
+            {newScope.scope_type === 'program' && (
               <Autocomplete
                 options={programs}
                 getOptionLabel={(option) => option.name}
@@ -278,7 +278,7 @@ const RoleScopesPage: React.FC = () => {
               />
             )}
 
-            {newScope.scope_type === 'PROJECT' && (
+            {newScope.scope_type === 'project' && (
               <Autocomplete
                 options={projects}
                 getOptionLabel={(option) => option.name}
@@ -292,7 +292,7 @@ const RoleScopesPage: React.FC = () => {
               />
             )}
 
-            {newScope.scope_type === 'GLOBAL' && (
+            {newScope.scope_type === 'global' && (
               <Alert severity="warning">
                 Global scope grants full system access. Use with caution.
               </Alert>
@@ -317,8 +317,8 @@ const RoleScopesPage: React.FC = () => {
             onClick={handleAddScope}
             variant="contained"
             disabled={
-              (newScope.scope_type === 'PROGRAM' && !newScope.program_id) ||
-              (newScope.scope_type === 'PROJECT' && !newScope.project_id)
+              (newScope.scope_type === 'program' && !newScope.program_id) ||
+              (newScope.scope_type === 'project' && !newScope.project_id)
             }
           >
             Add Scope

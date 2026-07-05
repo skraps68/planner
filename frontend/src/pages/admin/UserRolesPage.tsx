@@ -35,12 +35,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { usersApi, User, UserRole, UserRoleCreate } from '../../api/users'
 
 const ROLE_TYPES = [
-  { value: 'ADMIN', label: 'Admin', color: 'error' as const },
-  { value: 'PROGRAM_MANAGER', label: 'Program Manager', color: 'primary' as const },
-  { value: 'PROJECT_MANAGER', label: 'Project Manager', color: 'success' as const },
-  { value: 'FINANCE_MANAGER', label: 'Finance Manager', color: 'secondary' as const },
-  { value: 'RESOURCE_MANAGER', label: 'Resource Manager', color: 'warning' as const },
-  { value: 'VIEWER', label: 'Viewer', color: 'info' as const },
+  { value: 'admin', label: 'Admin', color: 'error' as const },
+  { value: 'program_manager', label: 'Program Manager', color: 'primary' as const },
+  { value: 'project_manager', label: 'Project Manager', color: 'success' as const },
+  { value: 'finance_manager', label: 'Finance Manager', color: 'secondary' as const },
+  { value: 'resource_manager', label: 'Resource Manager', color: 'warning' as const },
+  { value: 'viewer', label: 'Viewer', color: 'info' as const },
 ]
 
 const UserRolesPage: React.FC = () => {

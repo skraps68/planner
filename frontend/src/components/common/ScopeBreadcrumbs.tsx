@@ -32,7 +32,7 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
   const hasGlobalScope = user?.activeRole?.scopes.some((scope) => scope.scope_type === 'GLOBAL') || false
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <Breadcrumbs separator={<NavigateNext fontSize="small" />} aria-label="breadcrumb">
           {items.map((item, index) => {
@@ -45,7 +45,7 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
                   color="text.primary"
                   sx={{
                     fontWeight: isLast ? 600 : 400,
-                    fontSize: isLast ? '1.5rem' : 'inherit',
+                    fontSize: isLast ? '1.1rem' : '0.8rem',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
@@ -68,6 +68,7 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
                 display: 'flex',
                 alignItems: 'center',
                 gap: 0.5,
+                fontSize: '0.8rem',
               }}
             >
               {item.isScope && <Lock fontSize="small" />}

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
@@ -36,6 +36,12 @@ class AuditLogRepository(BaseRepository[AuditLog]):
         """Get all audit logs for a specific user."""
         return db.query(AuditLog).filter(
             AuditLog.user_id == user_id
+        ).order_by(AuditLog.created_at.desc()).all()
+
+    def get_by_user_or_target(self, db: Session, user_id: UUID) -> List[AuditLog]:
+        """Get all audit logs where the user is either the actor or the subject."""
+        return db.query(AuditLog).filter(
+            or_(AuditLog.user_id == user_id, AuditLog.entity_id == user_id)
         ).order_by(AuditLog.created_at.desc()).all()
     
     def get_by_operation(self, db: Session, operation: str) -> List[AuditLog]:

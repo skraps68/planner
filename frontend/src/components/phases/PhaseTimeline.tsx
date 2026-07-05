@@ -1226,7 +1226,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   }
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
+    <Paper sx={{ p: 2, mb: 2 }}>
       {/* Screen reader announcements */}
       <Box
         role="status"
@@ -1274,8 +1274,8 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
             border: '1px solid #e0e0e0',
             cursor: isDragging ? 'ew-resize' : 'default',
             userSelect: 'none',
-            mb: 3,
-            mt: 3,
+            mb: 2,
+            mt: 2,
           }}
         >
           {sortedPhases.map((phase, index) => renderPhase(phase, index))}

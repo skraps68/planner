@@ -53,17 +53,17 @@ const UserDetailPage: React.FC = () => {
 
   const getRoleBadgeColor = (roleType: string): 'error' | 'primary' | 'success' | 'secondary' | 'warning' | 'info' => {
     switch (roleType) {
-      case 'ADMIN':
+      case 'admin':
         return 'error'
-      case 'PROGRAM_MANAGER':
+      case 'program_manager':
         return 'primary'
-      case 'PROJECT_MANAGER':
+      case 'project_manager':
         return 'success'
-      case 'FINANCE_MANAGER':
+      case 'finance_manager':
         return 'secondary'
-      case 'RESOURCE_MANAGER':
+      case 'resource_manager':
         return 'warning'
-      case 'VIEWER':
+      case 'viewer':
         return 'info'
       default:
         return 'info'
@@ -72,11 +72,11 @@ const UserDetailPage: React.FC = () => {
 
   const getScopeTypeLabel = (scopeType: string): string => {
     switch (scopeType) {
-      case 'PROGRAM':
+      case 'program':
         return 'Program'
-      case 'PROJECT':
+      case 'project':
         return 'Project'
-      case 'GLOBAL':
+      case 'global':
         return 'Global'
       default:
         return scopeType

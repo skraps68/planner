@@ -30,6 +30,7 @@ const UserFormPage: React.FC = () => {
     confirmPassword: '',
     is_active: true,
   })
+  const [version, setVersion] = useState<number | null>(null)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -45,6 +46,7 @@ const UserFormPage: React.FC = () => {
             confirmPassword: '',
             is_active: user.is_active,
           })
+          setVersion(user.version)
         } catch (err: any) {
           setError(err.response?.data?.detail || 'Failed to load user')
         } finally {
@@ -107,6 +109,7 @@ const UserFormPage: React.FC = () => {
           username: formData.username,
           email: formData.email,
           is_active: formData.is_active,
+          version: version!,
         }
         await usersApi.updateUser(id, updateData)
       } else {

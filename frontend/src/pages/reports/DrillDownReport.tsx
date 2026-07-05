@@ -211,7 +211,7 @@ const DrillDownReport: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Drill-Down Report</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -234,7 +234,7 @@ const DrillDownReport: React.FC = () => {
       </Box>
 
       {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
             <FormControl fullWidth>
@@ -302,14 +302,14 @@ const DrillDownReport: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
       {/* Summary */}
       {reportData?.summary && (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="h6" gutterBottom>
             Summary
           </Typography>

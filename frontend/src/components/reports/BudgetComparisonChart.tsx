@@ -43,7 +43,7 @@ const BudgetComparisonChart: React.FC<BudgetComparisonChartProps> = ({
   const ChartComponent = type === 'bar' ? BarChart : LineChart
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>
         {title}
       </Typography>

@@ -252,7 +252,7 @@ const BudgetVsActualDashboard: React.FC = () => {
 
         {/* Comparison Chart */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Budget vs Forecast
             </Typography>
@@ -296,7 +296,7 @@ const BudgetVsActualDashboard: React.FC = () => {
 
         {/* Breakdown Pie Charts */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Capital vs Expense Breakdown
             </Typography>
@@ -354,7 +354,7 @@ const BudgetVsActualDashboard: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
           <Typography variant="h4">Budget vs Forecast Dashboard</Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
@@ -385,7 +385,7 @@ const BudgetVsActualDashboard: React.FC = () => {
       </Box>
 
       {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={2}>
             <FormControl fullWidth>
@@ -456,7 +456,7 @@ const BudgetVsActualDashboard: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -480,7 +480,7 @@ const BudgetVsActualDashboard: React.FC = () => {
               <Grid container spacing={3}>
                 {reportData.projects.map((project: ProjectFinancialSummary) => (
                   <Grid item xs={12} key={project.project_id}>
-                    <Paper sx={{ p: 3 }}>
+                    <Paper sx={{ p: 2 }}>
                       <Typography variant="h6" gutterBottom>
                         {project.project_name}
                       </Typography>

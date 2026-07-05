@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
-  Typography,
   Paper,
   TextField,
   InputAdornment,
@@ -92,22 +91,20 @@ const PortfoliosListPage: React.FC = () => {
 
       <ScopeFilterBanner entityType="portfolios" />
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
-        <Paper sx={{ p: 2, flex: '0 0 50%' }}>
-          <TextField
-            fullWidth
-            placeholder="Search portfolios..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-          />
-        </Paper>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
+        <TextField
+          placeholder="Search portfolios..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ flex: '0 0 40%' }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
         <PermissionButton
           permission="create_portfolios"
           variant="contained"
@@ -118,7 +115,7 @@ const PortfoliosListPage: React.FC = () => {
         </PermissionButton>
       </Box>
 
-      <Paper sx={{ height: 600, width: '100%' }}>
+      <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
         <DataGrid
           rows={filteredPortfolios}
           columns={columns}
@@ -134,13 +131,6 @@ const PortfoliosListPage: React.FC = () => {
           disableRowSelectionOnClick
           onRowClick={handleRowClick}
           sx={{
-            '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: '#A5C1D8',
-              fontWeight: 'bold',
-            },
-            '& .MuiDataGrid-columnHeaderTitle': {
-              fontWeight: 'bold',
-            },
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
               transition: 'all 0.2s ease',

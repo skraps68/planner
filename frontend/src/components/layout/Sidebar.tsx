@@ -89,7 +89,7 @@ const Sidebar: React.FC = () => {
   const renderNavItem = (item: NavItem) => {
     const accessCheck = checkItemAccess(item)
     // Exact match or path segment match (e.g., /portfolio/123 matches /portfolio, but /portfolios doesn't)
-    const isSelected = location.pathname === item.path || 
+    const isSelected = location.pathname === item.path ||
                       location.pathname.startsWith(item.path + '/')
     const indentAmount = (item.indent || 0) * 8 // 8px per indent level
 
@@ -99,10 +99,10 @@ const Sidebar: React.FC = () => {
         onClick={() => accessCheck.hasAccess && navigate(item.path)}
         disabled={!accessCheck.hasAccess}
         sx={{
-          minHeight: 48,
+          minHeight: 36,
           justifyContent: sidebarOpen ? 'initial' : 'center',
-          px: 2.5,
-          pl: sidebarOpen ? 2.5 + indentAmount / 8 : 2.5, // Add indent when sidebar is open
+          px: 1.5,
+          pl: sidebarOpen ? 1.5 + indentAmount / 8 : 1.5,
           opacity: accessCheck.hasAccess ? 1 : 0.5,
           cursor: accessCheck.hasAccess ? 'pointer' : 'not-allowed',
         }}
@@ -110,15 +110,16 @@ const Sidebar: React.FC = () => {
         <ListItemIcon
           sx={{
             minWidth: 0,
-            mr: sidebarOpen ? 3 : 'auto',
+            mr: sidebarOpen ? 1.5 : 'auto',
             justifyContent: 'center',
             color: accessCheck.hasAccess ? 'inherit' : 'text.disabled',
+            '& .MuiSvgIcon-root': { fontSize: '1.1rem' },
           }}
         >
           {accessCheck.hasAccess ? item.icon : <Lock />}
         </ListItemIcon>
         {sidebarOpen && (
-          <ListItemText 
+          <ListItemText
             primary={item.text}
             sx={{
               color: accessCheck.hasAccess ? 'inherit' : 'text.disabled',
@@ -145,7 +146,7 @@ const Sidebar: React.FC = () => {
     )
   }
 
-  const drawerWidth = sidebarOpen ? 240 : 64
+  const drawerWidth = sidebarOpen ? 200 : 52
 
   return (
     <Drawer
@@ -156,7 +157,7 @@ const Sidebar: React.FC = () => {
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
-          mt: 8,
+          mt: '48px',
           transition: 'width 0.3s',
           overflowX: 'hidden',
         },

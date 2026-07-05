@@ -60,14 +60,14 @@ const ReportsIndexPage: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Reports & Analytics
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Access comprehensive reports and analytics for your programs and projects
       </Typography>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {reports.map((report) => (
           <Grid item xs={12} sm={6} md={4} key={report.path}>
             <Card
@@ -75,30 +75,30 @@ const ReportsIndexPage: React.FC = () => {
                 height: '100%',
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: 4
+                  transform: 'translateY(-2px)',
+                  boxShadow: 3
                 }
               }}
             >
               <CardActionArea
                 onClick={() => navigate(report.path)}
-                sx={{ height: '100%', p: 2 }}
+                sx={{ height: '100%', p: 1.5 }}
               >
-                <CardContent>
+                <CardContent sx={{ p: 1 }}>
                   <Box
                     sx={{
                       display: 'flex',
                       justifyContent: 'center',
-                      mb: 2,
+                      mb: 1,
                       color: report.color
                     }}
                   >
-                    {report.icon}
+                    {React.cloneElement(report.icon as React.ReactElement, { sx: { fontSize: 36 } })}
                   </Box>
-                  <Typography variant="h6" gutterBottom align="center">
+                  <Typography variant="subtitle2" gutterBottom align="center">
                     {report.title}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" align="center">
+                  <Typography variant="caption" color="text.secondary" align="center" display="block">
                     {report.description}
                   </Typography>
                 </CardContent>
@@ -109,11 +109,11 @@ const ReportsIndexPage: React.FC = () => {
       </Grid>
 
       {/* Quick Stats Section */}
-      <Box sx={{ mt: 6 }}>
-        <Typography variant="h5" gutterBottom>
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="subtitle1" gutterBottom>
           Quick Stats
         </Typography>
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>

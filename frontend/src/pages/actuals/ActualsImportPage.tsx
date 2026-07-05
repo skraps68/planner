@@ -199,7 +199,7 @@ const ActualsImportPage = () => {
         </Box>
       )}
 
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
         <Button onClick={() => navigate('/actuals')}>Cancel</Button>
         <Button
           variant="contained"
@@ -224,7 +224,7 @@ const ActualsImportPage = () => {
           Validation Results
         </Typography>
 
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 2 }}>
           <Alert severity={hasErrors || hasConflicts ? 'error' : 'success'} sx={{ mb: 2 }}>
             {hasErrors || hasConflicts ? (
               <>
@@ -258,7 +258,7 @@ const ActualsImportPage = () => {
         </Box>
 
         {hasErrors && (
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
               Validation Errors:
             </Typography>
@@ -292,7 +292,7 @@ const ActualsImportPage = () => {
         )}
 
         {hasConflicts && (
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
               Allocation Conflicts:
             </Typography>
@@ -332,7 +332,7 @@ const ActualsImportPage = () => {
           </Box>
         )}
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
           <Button onClick={handleReset}>Start Over</Button>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button onClick={() => setActiveStep(0)}>Back</Button>
@@ -355,12 +355,12 @@ const ActualsImportPage = () => {
         Review and Confirm Import
       </Typography>
 
-      <Alert severity="info" sx={{ mb: 3 }}>
+      <Alert severity="info" sx={{ mb: 2 }}>
         You are about to import {validationResult?.successful_imports} actual records.
         This action cannot be undone.
       </Alert>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle2" gutterBottom>
           Import Summary:
         </Typography>
@@ -377,7 +377,7 @@ const ActualsImportPage = () => {
         </Box>
       </Paper>
 
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
         <Button onClick={handleReset}>Cancel</Button>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button onClick={() => setActiveStep(1)}>Back</Button>
@@ -405,7 +405,7 @@ const ActualsImportPage = () => {
           Import Complete
         </Typography>
 
-        <Alert severity={success ? 'success' : 'warning'} sx={{ mb: 3 }}>
+        <Alert severity={success ? 'success' : 'warning'} sx={{ mb: 2 }}>
           {success ? (
             `Successfully imported ${importResult.successful_imports} actual records`
           ) : (
@@ -413,7 +413,7 @@ const ActualsImportPage = () => {
           )}
         </Alert>
 
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
           <Chip
             icon={<SuccessIcon />}
             label={`${importResult.successful_imports} Imported`}
@@ -428,7 +428,7 @@ const ActualsImportPage = () => {
           )}
         </Box>
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
           <Button onClick={handleReset}>Import Another File</Button>
           <Button variant="contained" onClick={() => navigate('/actuals')}>
             View Actuals
@@ -444,7 +444,7 @@ const ActualsImportPage = () => {
         Import Actuals
       </Typography>
 
-      <Paper sx={{ p: 3, mt: 3 }}>
+      <Paper sx={{ p: 2, mt: 2 }}>
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
           {steps.map((label) => (
             <Step key={label}>
@@ -454,7 +454,7 @@ const ActualsImportPage = () => {
         </Stepper>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}

@@ -114,7 +114,7 @@ const ProgramFormPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <Button
           startIcon={<ArrowBack />}
           onClick={() => navigate(isEdit ? `/programs/${id}` : '/programs')}
@@ -127,7 +127,7 @@ const ProgramFormPage: React.FC = () => {
         </Typography>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 2 }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}

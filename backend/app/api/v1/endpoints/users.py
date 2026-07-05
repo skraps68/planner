@@ -106,26 +106,29 @@ def list_users(
                     is_active=scope.is_active,
                     program_name=scope_name if scope.scope_type == ScopeType.PROGRAM else None,
                     project_name=scope_name if scope.scope_type == ScopeType.PROJECT else None,
+                    version=scope.version,
                     created_at=scope.created_at,
                     updated_at=scope.updated_at
                 ))
-            
+
             role_responses.append(UserRoleResponse(
                 id=role.id,
                 user_id=role.user_id,
                 role_type=role.role_type,
                 is_active=role.is_active,
                 scope_assignments=scope_responses,
+                version=role.version,
                 created_at=role.created_at,
                 updated_at=role.updated_at
             ))
-        
+
         user_responses.append(UserResponse(
             id=user.id,
             username=user.username,
             email=user.email,
             is_active=user.is_active,
             user_roles=role_responses,
+            version=user.version,
             created_at=user.created_at,
             updated_at=user.updated_at
         ))
@@ -203,6 +206,7 @@ def create_user(
         email=user.email,
         is_active=user.is_active,
         user_roles=[],
+        version=user.version,
         created_at=user.created_at,
         updated_at=user.updated_at
     )
@@ -258,7 +262,7 @@ def get_user(
                 project = project_repository.get(db, scope.project_id)
                 scope_name = project.name if project else None
             
-            scope_responses.append(ScopeAssignmentResponse(id=scope.id, 
+            scope_responses.append(ScopeAssignmentResponse(id=scope.id,
                 user_role_id=scope.user_role_id,
                 scope_type=scope.scope_type,
                 program_id=scope.program_id,
@@ -266,25 +270,28 @@ def get_user(
                 is_active=scope.is_active,
                 program_name=scope_name if scope.scope_type == ScopeType.PROGRAM else None,
                 project_name=scope_name if scope.scope_type == ScopeType.PROJECT else None,
+                version=scope.version,
                 created_at=scope.created_at,
                 updated_at=scope.updated_at
             ))
-        
-        role_responses.append(UserRoleResponse(id=role.id, 
+
+        role_responses.append(UserRoleResponse(id=role.id,
             user_id=role.user_id,
             role_type=role.role_type,
             is_active=role.is_active,
             scope_assignments=scope_responses,
+            version=role.version,
             created_at=role.created_at,
             updated_at=role.updated_at
         ))
-    
+
     return UserResponse(
         id=user.id,
         username=user.username,
         email=user.email,
         is_active=user.is_active,
         user_roles=role_responses,
+        version=user.version,
         created_at=user.created_at,
         updated_at=user.updated_at
     )
@@ -343,33 +350,36 @@ def update_user(
         for role in user_roles:
             scopes = role_management_service.get_role_scopes(db, role.id, active_only=False)
             scope_responses = [
-                ScopeAssignmentResponse(id=scope.id, 
+                ScopeAssignmentResponse(id=scope.id,
                     user_role_id=scope.user_role_id,
                     scope_type=scope.scope_type,
                     program_id=scope.program_id,
                     project_id=scope.project_id,
                     is_active=scope.is_active,
+                    version=scope.version,
                     created_at=scope.created_at,
                     updated_at=scope.updated_at
                 )
                 for scope in scopes
             ]
-            
-            role_responses.append(UserRoleResponse(id=role.id, 
+
+            role_responses.append(UserRoleResponse(id=role.id,
                 user_id=role.user_id,
                 role_type=role.role_type,
                 is_active=role.is_active,
                 scope_assignments=scope_responses,
+                version=role.version,
                 created_at=role.created_at,
                 updated_at=role.updated_at
             ))
-        
+
         return UserResponse(
             id=user.id,
             username=user.username,
             email=user.email,
             is_active=user.is_active,
             user_roles=role_responses,
+            version=user.version,
             created_at=user.created_at,
             updated_at=user.updated_at
         )
@@ -492,6 +502,7 @@ def assign_role_to_user(
         role_type=user_role.role_type,
         is_active=user_role.is_active,
         scope_assignments=[],
+        version=user_role.version,
         created_at=user_role.created_at,
         updated_at=user_role.updated_at
     )
@@ -538,7 +549,7 @@ def get_user_roles(
                 project = project_repository.get(db, scope.project_id)
                 scope_name = project.name if project else None
             
-            scope_responses.append(ScopeAssignmentResponse(id=scope.id, 
+            scope_responses.append(ScopeAssignmentResponse(id=scope.id,
                 user_role_id=scope.user_role_id,
                 scope_type=scope.scope_type,
                 program_id=scope.program_id,
@@ -546,19 +557,21 @@ def get_user_roles(
                 is_active=scope.is_active,
                 program_name=scope_name if scope.scope_type == ScopeType.PROGRAM else None,
                 project_name=scope_name if scope.scope_type == ScopeType.PROJECT else None,
+                version=scope.version,
                 created_at=scope.created_at,
                 updated_at=scope.updated_at
             ))
-        
-        role_responses.append(UserRoleResponse(id=role.id, 
+
+        role_responses.append(UserRoleResponse(id=role.id,
             user_id=role.user_id,
             role_type=role.role_type,
             is_active=role.is_active,
             scope_assignments=scope_responses,
+            version=role.version,
             created_at=role.created_at,
             updated_at=role.updated_at
         ))
-    
+
     return role_responses
 
 
@@ -678,6 +691,7 @@ def assign_scope_to_role(
         is_active=scope_assignment.is_active,
         program_name=scope_name if scope_assignment.scope_type == ScopeType.PROGRAM else None,
         project_name=scope_name if scope_assignment.scope_type == ScopeType.PROJECT else None,
+        version=scope_assignment.version,
         created_at=scope_assignment.created_at,
         updated_at=scope_assignment.updated_at
     )
@@ -718,7 +732,7 @@ def get_role_scopes(
             project = project_repository.get(db, scope.project_id)
             scope_name = project.name if project else None
         
-        scope_responses.append(ScopeAssignmentResponse(id=scope.id, 
+        scope_responses.append(ScopeAssignmentResponse(id=scope.id,
             user_role_id=scope.user_role_id,
             scope_type=scope.scope_type,
             program_id=scope.program_id,
@@ -726,10 +740,11 @@ def get_role_scopes(
             is_active=scope.is_active,
             program_name=scope_name if scope.scope_type == ScopeType.PROGRAM else None,
             project_name=scope_name if scope.scope_type == ScopeType.PROJECT else None,
+            version=scope.version,
             created_at=scope.created_at,
             updated_at=scope.updated_at
         ))
-    
+
     return scope_responses
 
 

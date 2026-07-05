@@ -38,10 +38,10 @@ const ScopeFilterBanner: React.FC<ScopeFilterBannerProps> = ({
   }
 
   return (
-    <Alert 
-      severity="info" 
+    <Alert
+      severity="info"
       icon={<FilterList />}
-      sx={{ mb: 2 }}
+      sx={{ mb: 1.5 }}
     >
       <AlertTitle>Filtered View</AlertTitle>
       <Box>

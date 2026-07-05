@@ -135,7 +135,7 @@ const TimeSeriesCostReport: React.FC = () => {
     const ChartComponent = chartType === 'area' ? AreaChart : LineChart
 
     return (
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6">
             {showCumulative ? 'Cumulative' : 'Period'} Cost Tracking
@@ -236,7 +236,7 @@ const TimeSeriesCostReport: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Time Series Cost Tracking</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -259,7 +259,7 @@ const TimeSeriesCostReport: React.FC = () => {
       </Box>
 
       {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={4}>
             <FormControl fullWidth>
@@ -327,14 +327,14 @@ const TimeSeriesCostReport: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
       {/* Summary Stats */}
       {summaryStats && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={3} sx={{ mb: 2 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>

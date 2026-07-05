@@ -25,7 +25,7 @@ export interface UserRole {
 export interface ScopeAssignment {
   id: string
   user_role_id: string
-  scope_type: 'PROGRAM' | 'PROJECT' | 'GLOBAL'
+  scope_type: 'program' | 'project' | 'global'
   program_id?: string
   project_id?: string
   program_name?: string
@@ -56,7 +56,7 @@ export interface UserRoleCreate {
 }
 
 export interface ScopeAssignmentCreate {
-  scope_type: 'PROGRAM' | 'PROJECT' | 'GLOBAL'
+  scope_type: 'program' | 'project' | 'global'
   program_id?: string
   project_id?: string
   is_active: boolean
@@ -79,7 +79,7 @@ export const usersApi = {
     limit?: number
     is_active?: boolean
   }): Promise<UserListResponse> => {
-    const response = await apiClient.get('/users/', { params })
+    const response = await apiClient.get('/users', { params })
     return response.data
   },
 
@@ -89,7 +89,7 @@ export const usersApi = {
   },
 
   createUser: async (userData: UserCreate): Promise<User> => {
-    const response = await apiClient.post('/users/', userData)
+    const response = await apiClient.post('/users', userData)
     return response.data
   },
 

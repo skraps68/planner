@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Button,
-  Card,
-  CardContent,
   IconButton,
   Paper,
   Table,
@@ -39,7 +37,7 @@ const TabPanel = (props: TabPanelProps) => {
   const { children, value, index, ...other } = props
   return (
     <div hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ pt: 1.5 }}>{children}</Box>}
     </div>
   )
 }
@@ -75,6 +73,8 @@ const WorkersListPage = () => {
       setLoading(false)
     }
   }
+
+  const workerTypeMap = new Map(workerTypes.map((type) => [type.id, type.type]))
 
   const fetchWorkerTypes = async () => {
     try {
@@ -131,9 +131,9 @@ const WorkersListPage = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Workers & Types</Typography>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h5">Workers & Types</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -145,44 +145,41 @@ const WorkersListPage = () => {
         </Button>
       </Box>
 
-      <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
-        <Tab label="Workers" />
-        <Tab label="Worker Types" />
-      </Tabs>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+          <Tab label="Workers" />
+          <Tab label="Worker Types" />
+        </Tabs>
+      </Box>
 
       <TabPanel value={tabValue} index={0}>
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="Search"
-                variant="outlined"
-                size="small"
-                value={search}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-                sx={{ flexGrow: 1 }}
-              />
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Worker Type</InputLabel>
-                <Select
-                  value={selectedWorkerType}
-                  label="Worker Type"
-                  onChange={(e: any) => setSelectedWorkerType(e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {workerTypes.map((type: WorkerType) => (
-                    <MenuItem key={type.id} value={type.id}>
-                      {type.type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-          </CardContent>
-        </Card>
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
+          <TextField
+            placeholder="Search workers..."
+            size="small"
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+            sx={{ flexGrow: 1 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Worker Type</InputLabel>
+            <Select
+              value={selectedWorkerType}
+              label="Worker Type"
+              onChange={(e: any) => setSelectedWorkerType(e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              {workerTypes.map((type: WorkerType) => (
+                <MenuItem key={type.id} value={type.id}>
+                  {type.type}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 1.5 }}>
             {error}
           </Alert>
         )}
@@ -220,7 +217,7 @@ const WorkersListPage = () => {
                           </Typography>
                         </TableCell>
                         <TableCell>{worker.external_id}</TableCell>
-                        <TableCell>{worker.worker_type_id}</TableCell>
+                        <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
                         <TableCell>
                           {new Date(worker.created_at).toLocaleDateString()}
                         </TableCell>

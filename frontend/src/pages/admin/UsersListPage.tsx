@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import {
+  Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   IconButton,
   Paper,
@@ -88,17 +87,17 @@ const UsersListPage: React.FC = () => {
 
   const getRoleBadgeColor = (roleType: string): 'error' | 'primary' | 'success' | 'secondary' | 'warning' | 'info' => {
     switch (roleType) {
-      case 'ADMIN':
+      case 'admin':
         return 'error'
-      case 'PROGRAM_MANAGER':
+      case 'program_manager':
         return 'primary'
-      case 'PROJECT_MANAGER':
+      case 'project_manager':
         return 'success'
-      case 'FINANCE_MANAGER':
+      case 'finance_manager':
         return 'secondary'
-      case 'RESOURCE_MANAGER':
+      case 'resource_manager':
         return 'warning'
-      case 'VIEWER':
+      case 'viewer':
         return 'info'
       default:
         return 'info'
@@ -113,8 +112,8 @@ const UsersListPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">User Management</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h5">User Management</Typography>
         <Button
           variant="contained"
           color="primary"
@@ -125,39 +124,32 @@ const UsersListPage: React.FC = () => {
         </Button>
       </Box>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <TextField
-              label="Search users"
-              variant="outlined"
-              size="small"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ flexGrow: 1 }}
+      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1.5 }}>
+        <TextField
+          placeholder="Search users..."
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ flexGrow: 1 }}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              checked={activeOnly}
+              onChange={(e) => {
+                setActiveOnly(e.target.checked)
+                setPage(0)
+              }}
             />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={activeOnly}
-                  onChange={(e) => {
-                    setActiveOnly(e.target.checked)
-                    setPage(0)
-                  }}
-                />
-              }
-              label="Active only"
-            />
-          </Box>
-        </CardContent>
-      </Card>
+          }
+          label="Active only"
+        />
+      </Box>
 
       {error && (
-        <Card sx={{ mb: 3, bgcolor: 'error.light' }}>
-          <CardContent>
-            <Typography color="error">{error}</Typography>
-          </CardContent>
-        </Card>
+        <Alert severity="error" sx={{ mb: 1.5 }}>
+          {error}
+        </Alert>
       )}
 
       <TableContainer component={Paper}>

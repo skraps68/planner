@@ -50,10 +50,10 @@ const DashboardPage: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Dashboard
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Welcome back, {user?.username}!
       </Typography>
 
@@ -62,7 +62,7 @@ const DashboardPage: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -105,7 +105,7 @@ const DashboardPage: React.FC = () => {
           </Grid>
 
           <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
+            <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Recent Activity
               </Typography>

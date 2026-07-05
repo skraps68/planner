@@ -241,8 +241,8 @@ const PortfolioDetailPage: React.FC = () => {
       />
 
       {/* Portfolio Info Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={3}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
             {/* Row 1: 4 fields */}
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" color="text.secondary">
@@ -406,7 +406,7 @@ const PortfolioDetailPage: React.FC = () => {
         </Paper>
 
       {/* Programs Section */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
           Programs
         </Typography>

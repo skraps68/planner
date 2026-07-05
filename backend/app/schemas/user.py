@@ -34,8 +34,7 @@ class UserUpdate(VersionedSchema):
 
 class UserRoleBase(BaseSchema):
     """Base user role schema with common fields."""
-    
-    user_id: UUID = Field(description="User ID")
+
     role_type: RoleType = Field(description="Role type")
     is_active: bool = Field(default=True, description="Whether the role is active")
 
@@ -54,8 +53,7 @@ class UserRoleUpdate(VersionedSchema):
 
 class ScopeAssignmentBase(BaseSchema):
     """Base scope assignment schema with common fields."""
-    
-    user_role_id: UUID = Field(description="User role ID")
+
     scope_type: ScopeType = Field(description="Scope type")
     program_id: Optional[UUID] = Field(default=None, description="Program ID (for program scope)")
     project_id: Optional[UUID] = Field(default=None, description="Project ID (for project scope)")
@@ -78,14 +76,16 @@ class ScopeAssignmentUpdate(VersionedSchema):
 
 class ScopeAssignmentResponse(ScopeAssignmentBase, TimestampMixin, VersionedSchema):
     """Schema for scope assignment response."""
-    
+
+    user_role_id: UUID = Field(description="User role ID")
     program_name: Optional[str] = Field(default=None, description="Program name")
     project_name: Optional[str] = Field(default=None, description="Project name")
 
 
 class UserRoleResponse(UserRoleBase, TimestampMixin, VersionedSchema):
     """Schema for user role response."""
-    
+
+    user_id: UUID = Field(description="User ID")
     scope_assignments: Optional[List[ScopeAssignmentResponse]] = Field(default=None, description="Scope assignments")
 
 

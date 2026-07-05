@@ -204,21 +204,22 @@ class AuditService:
         limit: Optional[int] = None
     ) -> List[AuditLog]:
         """
-        Get audit logs for a specific user's actions.
-        
+        Get audit logs related to a specific user, whether they performed
+        the action (actor) or were the subject of it (e.g. role/scope changes).
+
         Args:
             db: Database session
             user_id: User ID
             limit: Optional limit on number of results
-            
+
         Returns:
             List of AuditLog entries
         """
-        logs = self.audit_repo.get_by_user(db, user_id)
-        
+        logs = self.audit_repo.get_by_user_or_target(db, user_id)
+
         if limit:
             return logs[:limit]
-        
+
         return logs
     
     def get_recent_changes(

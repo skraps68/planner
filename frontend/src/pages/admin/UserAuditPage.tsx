@@ -133,7 +133,7 @@ const UserAuditPage: React.FC = () => {
                 <TableCell sx={{ fontWeight: 'bold' }}>Timestamp</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Operation</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Entity Type</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Entity ID</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Performed By</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -158,11 +158,7 @@ const UserAuditPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>{log.entity_type}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                        {log.entity_id.substring(0, 8)}...
-                      </Typography>
-                    </TableCell>
+                    <TableCell>{log.username || 'Unknown'}</TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => handleViewDetails(log)}>
                         <VisibilityIcon />
@@ -313,6 +309,12 @@ const UserAuditPage: React.FC = () => {
                   Entity Type
                 </Typography>
                 <Typography variant="body1">{detailsDialog.log.entity_type}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Performed By
+                </Typography>
+                <Typography variant="body1">{detailsDialog.log.username || 'Unknown'}</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">

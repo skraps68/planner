@@ -45,7 +45,7 @@ interface TabPanelProps {
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
   return (
-    <div hidden={value !== index} style={{ paddingTop: 24 }}>
+    <div hidden={value !== index} style={{ paddingTop: 12 }}>
       {value === index && children}
     </div>
   )
@@ -318,7 +318,7 @@ const ProgramDetailPage: React.FC = () => {
         statusChip={<Chip label={status} color={statusColor} />}
       />
 
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ mb: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
           <Tab label="Financials" />
@@ -328,7 +328,7 @@ const ProgramDetailPage: React.FC = () => {
       <TabPanel value={tabValue} index={0}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Paper sx={{ p: 3, mb: 3 }}>
+            <Paper sx={{ p: 2, mb: 2 }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
                   <Typography variant="caption" color="text.secondary">
@@ -491,7 +491,7 @@ const ProgramDetailPage: React.FC = () => {
               </Grid>
             </Paper>
 
-            <Paper sx={{ p: 3 }}>
+            <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
                 Projects
               </Typography>

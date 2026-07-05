@@ -25,7 +25,7 @@ interface TabPanelProps {
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
   <div hidden={value !== index}>
-    {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    {value === index && <Box sx={{ pt: 1.5 }}>{children}</Box>}
   </div>
 )
 
@@ -73,22 +73,21 @@ const ResourceTab: React.FC<{
 
   return (
     <>
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
         <TextField
           placeholder={`Search ${resourceType === 'LABOR' ? 'labor' : 'non-labor'} resources...`}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          size="small"
           sx={{ flex: '0 0 40%' }}
           InputProps={{
             startAdornment: (
-              <InputAdornment position="start"><Search /></InputAdornment>
+              <InputAdornment position="start"><Search fontSize="small" /></InputAdornment>
             ),
           }}
         />
-      </Paper>
+      </Box>
 
-      <Paper sx={{ height: 520, width: '100%' }}>
+      <Paper sx={{ height: 'calc(100vh - 240px)', width: '100%' }}>
         <DataGrid
           rows={rows}
           columns={columns}
@@ -101,8 +100,6 @@ const ResourceTab: React.FC<{
           disableRowSelectionOnClick
           onRowClick={(params) => onRowClick(params.row.id)}
           sx={{
-            '& .MuiDataGrid-columnHeaders': { backgroundColor: '#A5C1D8', fontWeight: 'bold' },
-            '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 'bold' },
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
               transition: 'all 0.2s ease',
@@ -134,7 +131,7 @@ const ResourcesListPage: React.FC = () => {
         ]}
       />
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
         <PermissionButton
           permission="manage_resources"
           variant="contained"
