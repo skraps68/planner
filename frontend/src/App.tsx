@@ -5,7 +5,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import PortfolioDashboardPage from './pages/PortfolioDashboardPage'
 import ProgramsListPage from './pages/programs/ProgramsListPage'
 import ProgramDetailPage from './pages/programs/ProgramDetailPage'
 import ProgramFormPage from './pages/programs/ProgramFormPage'
@@ -47,8 +46,7 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/portfolio" replace />} />
-                    <Route path="/portfolio" element={<PortfolioDashboardPage />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
                     <Route path="/portfolios" element={<PortfoliosListPage />} />
                     <Route path="/portfolios/new" element={<PortfolioFormPage />} />

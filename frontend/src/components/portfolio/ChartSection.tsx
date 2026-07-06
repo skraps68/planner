@@ -1,11 +1,31 @@
 import React from 'react';
 import { Paper, Typography, Grid, Box } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList } from 'recharts';
 import { FinancialTableData } from '../../utils/forecastTransform';
 import { formatCurrency } from '../../utils/currencyFormat';
 
+// Bar fills mirror the FinancialSummaryTable's Budget and Current Forecast column
+// backgrounds so the chart and table read as the same data. The Current Forecast
+// bar is one color; its Actuals/Forecast split is shown by the segment divider
+// line and the "A" / "F" letters, not by different fills. Strokes are a darker
+// shade of the same hue so the pale fills stay visible on white.
+const BUDGET_FILL = '#BBDEFB';            // table Budget column
+const BUDGET_STROKE = '#1976d2';
+const CURRENT_FORECAST_FILL = '#C8E6C9';  // table Current Forecast column
+const CURRENT_FORECAST_STROKE = '#388e3c';
+
+// Variance band (the area between the budget and current-forecast lines).
+// Under budget (good) shades pale green; over budget (bad) shades pale red,
+// echoing the success/error hues used elsewhere in the app.
+const VARIANCE_GOOD_FILL = '#E8F5E9';
+const VARIANCE_GOOD_HATCH = '#2e7d32';
+const VARIANCE_BAD_FILL = '#FFEBEE';
+const VARIANCE_BAD_HATCH = '#d32f2f';
+
 interface ChartSectionProps {
   data?: FinancialTableData | null;
+  /** Compact mode: smaller charts, tighter margins and fonts — for embedding in the financials panel */
+  compact?: boolean;
 }
 
 /**
@@ -23,7 +43,11 @@ interface ChartSectionProps {
  * 
  * Requirements: 8.1, 8.2, 8.3
  */
-const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
+const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) => {
+  // Unique prefix so the SVG hatch pattern ids don't collide when several
+  // chart sections are mounted at once
+  const hatchIdBase = React.useId();
+
   if (!data) {
     return null;
   }
@@ -80,13 +104,18 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     },
   ];
 
-  // Custom tooltip formatter
+  // Custom tooltip formatter. Text uses the stroke shades (not the pale bar
+  // fills) so it stays readable on the white tooltip background.
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
         <Paper sx={{ p: 1.5, border: '1px solid #ccc' }}>
           {payload.map((entry: any, index: number) => (
-            <Typography key={index} variant="body2" sx={{ color: entry.color }}>
+            <Typography
+              key={index}
+              variant="body2"
+              sx={{ color: entry.name === 'Budget' ? BUDGET_STROKE : CURRENT_FORECAST_STROKE }}
+            >
               {entry.name}: {formatCurrency(entry.value)}
             </Typography>
           ))}
@@ -96,24 +125,53 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     return null;
   };
 
+  // Letter marker ("A" for Actuals, "F" for Forecast) centered in a stacked-bar
+  // segment; skipped when the segment is too short to fit it.
+  const renderSegmentLetter = (letter: string) => (props: any) => {
+    const { x, y, width, height, value } = props;
+    const minHeight = compact ? 11 : 15;
+    if (!value || !height || height < minHeight) return null;
+    return (
+      <text
+        x={x + width / 2}
+        y={y + height / 2}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={CURRENT_FORECAST_STROKE}
+        fontSize={compact ? 10 : 13}
+        fontWeight="bold"
+      >
+        {letter}
+      </text>
+    );
+  };
+
   // Helper to render a chart with variance visualization
   const renderChart = (
     chartData: any[],
     budget: number,
     currentForecast: number,
-    variance: number
+    variance: number,
+    patternKey: string
   ) => {
     // When over budget (variance >= 0), show negative sign (bad)
     // When under budget (variance < 0), show positive sign (good)
     const sign = variance >= 0 ? '-' : '+';
-    const color = variance >= 0 ? '#d32f2f' : '#2e7d32';
+    const color = variance >= 0 ? VARIANCE_BAD_HATCH : VARIANCE_GOOD_HATCH;
+
+    // Variance band between the budget and current-forecast levels: light shade
+    // + faint 45° cross-hatch, green when under budget and red when over
+    const bandFill = variance >= 0 ? VARIANCE_BAD_FILL : VARIANCE_GOOD_FILL;
+    const bandHatch = variance >= 0 ? VARIANCE_BAD_HATCH : VARIANCE_GOOD_HATCH;
+    const bandLow = Math.min(budget, currentForecast);
+    const bandHigh = Math.max(budget, currentForecast);
+    const hatchId = `${hatchIdBase}-${patternKey}`;
     
     // Calculate the position of the variance label based on data values
-    // Chart height is 300px, with margins: top=20, bottom=5
-    // Actual chart area is ~275px (300 - 20 - 5)
-    const chartHeight = 300;
-    const topMargin = 20;
-    const bottomMargin = 5;
+    // Chart area = height minus top/bottom margins; label Y math below depends on these
+    const chartHeight = compact ? 170 : 300;
+    const topMargin = compact ? 12 : 20;
+    const bottomMargin = compact ? 0 : 5;
     const chartArea = chartHeight - topMargin - bottomMargin;
     
     // Find the max value to determine the scale
@@ -130,37 +188,88 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     // Calculate the midpoint between the two lines
     const midpointY = (budgetY + forecastY) / 2;
     
-    // Check if there's enough space between lines (at least 40px)
+    // Check if there's enough space between lines
     const gap = Math.abs(budgetY - forecastY);
-    const minGap = 40;
-    
+    const minGap = compact ? 28 : 40;
+
     // If gap is too small, position above the higher line (lower Y value)
-    const labelY = gap >= minGap ? midpointY : Math.min(budgetY, forecastY) - 20;
-    
+    const labelY = gap >= minGap ? midpointY : Math.min(budgetY, forecastY) - (compact ? 14 : 20);
+
     return (
       <Box sx={{ position: 'relative' }}>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
+          <BarChart
+            data={chartData}
+            margin={
+              compact
+                ? { top: topMargin, right: 8, left: 0, bottom: bottomMargin }
+                : { top: topMargin, right: 30, left: 20, bottom: bottomMargin }
+            }
+          >
+            <defs>
+              {/* Cross-hatch: pale base + faint 45° lines in the variance hue */}
+              <pattern
+                id={hatchId}
+                patternUnits="userSpaceOnUse"
+                width={6}
+                height={6}
+                patternTransform="rotate(45)"
+              >
+                <rect width={6} height={6} fill={bandFill} fillOpacity={0.55} />
+                <line x1={0} y1={0} x2={0} y2={6} stroke={bandHatch} strokeWidth={1} strokeOpacity={0.25} />
+              </pattern>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+            {/* Shaded variance band, drawn behind the bars */}
+            {bandHigh > bandLow && (
+              <ReferenceArea
+                y1={bandLow}
+                y2={bandHigh}
+                fill={`url(#${hatchId})`}
+                fillOpacity={1}
+                stroke="none"
+              />
+            )}
+            <XAxis dataKey="name" tick={{ fontSize: compact ? 10 : 12 }} />
+            <YAxis
+              tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+              tick={{ fontSize: compact ? 10 : 12 }}
+              width={compact ? 36 : 60}
+            />
             <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Bar dataKey="Budget" fill="#1976d2" />
-            <Bar dataKey="Actuals" stackId="a" fill="#66bb6a" />
-            <Bar dataKey="Forecast" stackId="a" fill="#a5d6a7" />
+            {/* Custom legend: the stacked Actuals + Forecast bar is presented as a
+                single Current Forecast column, matching the table */}
+            {/* Legend uses the darker stroke shades (not the pale bar fills) so the
+                swatches and text stay clearly readable */}
+            <Legend
+              iconSize={compact ? 8 : 14}
+              wrapperStyle={compact ? { fontSize: 11, fontWeight: 500 } : { fontWeight: 500 }}
+              payload={[
+                { value: 'Budget', type: 'square', id: 'Budget', color: BUDGET_STROKE },
+                { value: 'Current Forecast (A + F)', type: 'square', id: 'CurrentForecast', color: CURRENT_FORECAST_STROKE },
+              ]}
+            />
+            <Bar dataKey="Budget" fill={BUDGET_FILL} stroke={BUDGET_STROKE} strokeWidth={1} />
+            {/* Actuals + Forecast stack shares one fill; the segment strokes form the
+                divider line between them, and "A"/"F" mark each portion */}
+            <Bar dataKey="Actuals" stackId="a" fill={CURRENT_FORECAST_FILL} stroke={CURRENT_FORECAST_STROKE} strokeWidth={1}>
+              <LabelList dataKey="Actuals" content={renderSegmentLetter('A')} />
+            </Bar>
+            <Bar dataKey="Forecast" stackId="a" fill={CURRENT_FORECAST_FILL} stroke={CURRENT_FORECAST_STROKE} strokeWidth={1}>
+              <LabelList dataKey="Forecast" content={renderSegmentLetter('F')} />
+            </Bar>
             {/* Dashed line at budget level */}
-            <ReferenceLine 
-              y={budget} 
-              stroke="#1976d2" 
-              strokeDasharray="5 5" 
+            <ReferenceLine
+              y={budget}
+              stroke={BUDGET_STROKE}
+              strokeDasharray="5 5"
               strokeWidth={1.5}
             />
             {/* Dashed line at current forecast level */}
-            <ReferenceLine 
-              y={currentForecast} 
-              stroke="#66bb6a" 
-              strokeDasharray="5 5" 
+            <ReferenceLine
+              y={currentForecast}
+              stroke={CURRENT_FORECAST_STROKE}
+              strokeDasharray="5 5"
               strokeWidth={1.5}
             />
           </BarChart>
@@ -175,8 +284,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
             backgroundColor: 'white',
             border: '1px solid #ccc',
             borderRadius: '4px',
-            padding: '4px 8px',
-            fontSize: '13px',
+            padding: compact ? '2px 6px' : '4px 8px',
+            fontSize: compact ? '11px' : '13px',
             fontWeight: 'bold',
             color: color,
             pointerEvents: 'none',
@@ -189,36 +298,60 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data }) => {
     );
   };
 
+  const charts = (
+    <Grid container spacing={compact ? 1 : 3}>
+      {/* Total Chart */}
+      <Grid item xs={12} md={4}>
+        <Typography
+          variant={compact ? 'caption' : 'subtitle1'}
+          component="div"
+          align="center"
+          sx={{ mb: compact ? 0.5 : 2, fontWeight: 'bold' }}
+        >
+          Total
+        </Typography>
+        {renderChart(totalData, totalBudget, totalCurrentForecast, totalVariance, 'total')}
+      </Grid>
+
+      {/* Capital Chart */}
+      <Grid item xs={12} md={4}>
+        <Typography
+          variant={compact ? 'caption' : 'subtitle1'}
+          component="div"
+          align="center"
+          sx={{ mb: compact ? 0.5 : 2, fontWeight: 'bold' }}
+        >
+          Capital
+        </Typography>
+        {renderChart(capitalData, capitalBudget, capitalCurrentForecast, capitalVariance, 'capital')}
+      </Grid>
+
+      {/* Expense Chart */}
+      <Grid item xs={12} md={4}>
+        <Typography
+          variant={compact ? 'caption' : 'subtitle1'}
+          component="div"
+          align="center"
+          sx={{ mb: compact ? 0.5 : 2, fontWeight: 'bold' }}
+        >
+          Expense
+        </Typography>
+        {renderChart(expenseData, expenseBudget, expenseCurrentForecast, expenseVariance, 'expense')}
+      </Grid>
+    </Grid>
+  );
+
+  // Compact mode: no Paper wrapper or section title — embedded below the financials table
+  if (compact) {
+    return <Box sx={{ mt: 1.5 }}>{charts}</Box>;
+  }
+
   return (
     <Paper elevation={2} sx={{ p: 2, mt: 2 }}>
       <Typography variant="h6" sx={{ mb: 2 }}>
         Budget vs Current Forecast
       </Typography>
-      <Grid container spacing={3}>
-        {/* Total Chart */}
-        <Grid item xs={12} md={4}>
-          <Typography variant="subtitle1" align="center" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Total
-          </Typography>
-          {renderChart(totalData, totalBudget, totalCurrentForecast, totalVariance)}
-        </Grid>
-
-        {/* Capital Chart */}
-        <Grid item xs={12} md={4}>
-          <Typography variant="subtitle1" align="center" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Capital
-          </Typography>
-          {renderChart(capitalData, capitalBudget, capitalCurrentForecast, capitalVariance)}
-        </Grid>
-
-        {/* Expense Chart */}
-        <Grid item xs={12} md={4}>
-          <Typography variant="subtitle1" align="center" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Expense
-          </Typography>
-          {renderChart(expenseData, expenseBudget, expenseCurrentForecast, expenseVariance)}
-        </Grid>
-      </Grid>
+      {charts}
     </Paper>
   );
 };

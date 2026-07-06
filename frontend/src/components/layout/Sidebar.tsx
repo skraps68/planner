@@ -21,7 +21,6 @@ import {
   BarChart,
   AdminPanelSettings,
   Lock,
-  AttachMoney,
   BusinessCenter,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
@@ -38,7 +37,6 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { text: 'Financials', icon: <AttachMoney />, path: '/portfolio' },
   { text: 'Portfolios', icon: <BusinessCenter />, path: '/portfolios', requiredPermission: 'view_portfolios', indent: 0 },
   { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs', indent: 1 },
   { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects', indent: 2 },
@@ -107,6 +105,23 @@ const Sidebar: React.FC = () => {
           cursor: accessCheck.hasAccess ? 'pointer' : 'not-allowed',
         }}
       >
+        {/* Tree elbow: marks this item as a child of the level above
+            (Portfolio -> Program -> Project); purely visual, no expand/collapse */}
+        {sidebarOpen && (item.indent || 0) > 0 && (
+          <Box
+            sx={{
+              width: 8,
+              height: 12,
+              flexShrink: 0,
+              mr: 0.75,
+              transform: 'translateY(-5px)',
+              borderLeft: '1.5px solid',
+              borderBottom: '1.5px solid',
+              borderColor: 'action.disabled',
+              borderBottomLeftRadius: 4,
+            }}
+          />
+        )}
         <ListItemIcon
           sx={{
             minWidth: 0,

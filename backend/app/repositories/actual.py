@@ -26,9 +26,9 @@ class ActualRepository(BaseRepository[Actual]):
         ).order_by(Actual.actual_date.desc()).all()
     
     def get_by_worker(self, db: Session, external_worker_id: str) -> List[Actual]:
-        """Get all actuals for a worker."""
+        """Get all actuals for a worker (worker ID matched case-insensitively)."""
         return db.query(Actual).filter(
-            Actual.external_worker_id == external_worker_id
+            func.lower(Actual.external_worker_id) == external_worker_id.lower()
         ).order_by(Actual.actual_date.desc()).all()
     
     def get_by_date(
