@@ -88,13 +88,12 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
       if (program?.portfolio_id) portfolioIds.push(program.portfolio_id)
     }
     if (portfolioIds.length || programIds.length) expandMany(portfolioIds, programIds)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeType, activeId, programs, projects])
+  }, [activeType, activeId, programs, projects, expandMany])
 
   // Keep the active row visible within the tree pane
   useEffect(() => {
     activeRowRef.current?.scrollIntoView({ block: 'nearest' })
-  })
+  }, [activeId, activeType])
 
   const go = (path: string, state?: object) => {
     navigate(path, state ? { state } : undefined)

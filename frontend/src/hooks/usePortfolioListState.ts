@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 // Session-scoped persistence so the hierarchy looks the same when the user
 // returns from a detail page (browser back button, home link, or ✕ close).
@@ -66,20 +66,26 @@ export function usePortfolioListState(): PortfolioListState {
     )
   }, [search, expandedPortfolios, expandedPrograms])
 
+  const togglePortfolio = useCallback(
+    (id: string) => setExpandedPortfolios((prev) => toggled(prev, id)),
+    []
+  )
+  const toggleProgram = useCallback(
+    (id: string) => setExpandedPrograms((prev) => toggled(prev, id)),
+    []
+  )
+  const expandMany = useCallback((portfolioIds: string[], programIds: string[]) => {
+    if (portfolioIds.length) setExpandedPortfolios((prev) => new Set([...prev, ...portfolioIds]))
+    if (programIds.length) setExpandedPrograms((prev) => new Set([...prev, ...programIds]))
+  }, [])
+
   return {
     search,
     setSearch,
     expandedPortfolios,
     expandedPrograms,
-    togglePortfolio: (id) => setExpandedPortfolios((prev) => toggled(prev, id)),
-    toggleProgram: (id) => setExpandedPrograms((prev) => toggled(prev, id)),
-    expandMany: (portfolioIds, programIds) => {
-      if (portfolioIds.length) {
-        setExpandedPortfolios((prev) => new Set([...prev, ...portfolioIds]))
-      }
-      if (programIds.length) {
-        setExpandedPrograms((prev) => new Set([...prev, ...programIds]))
-      }
-    },
+    togglePortfolio,
+    toggleProgram,
+    expandMany,
   }
 }
