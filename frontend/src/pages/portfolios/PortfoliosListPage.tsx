@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -6,79 +6,414 @@ import {
   Paper,
   TextField,
   InputAdornment,
+  Chip,
+  Collapse,
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  CircularProgress,
 } from '@mui/material'
-import { DataGrid, GridColDef } from '@mui/x-data-grid'
-import { Add, Search } from '@mui/icons-material'
+import { Add, Search, KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
+import { programsApi } from '../../api/programs'
+import { projectsApi } from '../../api/projects'
 import { Portfolio } from '../../types/portfolio'
+import { Program, Project } from '../../types'
 import { format } from 'date-fns'
+import { TABLE_HEADER_BG } from '../../theme'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
-import { usePermissions } from '../../hooks/usePermissions'
+import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 
+const formatDate = (value: string) => format(new Date(value), 'MMM dd, yyyy')
+
+const StatusChip: React.FC<{ startDate: string; endDate: string }> = ({ startDate, endDate }) => {
+  const now = new Date()
+  let status = 'Active'
+  let color: 'success' | 'warning' | 'default' = 'success'
+  if (now < new Date(startDate)) {
+    status = 'Planned'
+    color = 'warning'
+  } else if (now > new Date(endDate)) {
+    status = 'Completed'
+    color = 'default'
+  }
+  return <Chip label={status} color={color} size="small" />
+}
+
+// Hover/click affordance shared by all clickable rows
+const clickableRowSx = {
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+  '&:hover': { backgroundColor: 'action.hover' },
+}
+
+const headerCellSx = { fontWeight: 'bold', whiteSpace: 'nowrap' }
+
+// Width of the expand-arrow column; child blocks indent by this amount so a
+// child's text always starts to the RIGHT of its parent's text
+const ARROW_COL_WIDTH = 34
+
+// Shared fixed widths for the trailing columns of all three tables. Every level
+// uses the same grid (Name flexes to absorb the nesting indent, and all tables
+// share the same right edge), so these columns line up vertically:
+//   PERSON_A: Owner / Business Sponsor / Project Manager
+//   PERSON_B: (blank) / Program Manager / Cost Center
+//   DATE:     Reporting Start|End / Start|End Date / Start|End Date
+const COL = {
+  personA: 160,
+  personB: 150,
+  date: 112,
+  status: 92,
+}
+
+// Nested group containers: indented under the parent's text, tinted and framed
+// with a colored left accent so it's obvious where each group begins and ends.
+// No right margin — all tables end flush at the same right edge so the shared
+// fixed-width columns align across nesting levels.
+const programsGroupSx = {
+  ml: `${ARROW_COL_WIDTH}px`,
+  my: 0.75,
+  border: '1px solid',
+  borderColor: 'divider',
+  borderRight: 0,
+  borderLeftWidth: 3,
+  borderLeftColor: 'primary.main',
+  backgroundColor: 'rgba(21, 101, 192, 0.03)',
+  overflow: 'hidden',
+}
+
+const projectsGroupSx = {
+  // Extra indent because the projects table has no arrow column of its own
+  ml: `${ARROW_COL_WIDTH + 14}px`,
+  my: 0.75,
+  border: '1px solid',
+  borderColor: 'divider',
+  borderRight: 0,
+  borderLeftWidth: 3,
+  borderLeftColor: 'secondary.main',
+  backgroundColor: 'rgba(123, 31, 162, 0.03)',
+  overflow: 'hidden',
+}
+
+// Session-scoped persistence so the list looks the same when the user returns
+// from a detail page (browser back button or breadcrumbs)
+const LIST_STATE_KEY = 'portfoliosListState'
+const LIST_SCROLL_KEY = 'portfoliosListScroll'
+
+interface SavedListState {
+  search: string
+  portfolios: string[]
+  programs: string[]
+}
+
+const loadSavedListState = (): SavedListState => {
+  try {
+    const raw = sessionStorage.getItem(LIST_STATE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return {
+        search: typeof parsed.search === 'string' ? parsed.search : '',
+        portfolios: Array.isArray(parsed.portfolios) ? parsed.portfolios : [],
+        programs: Array.isArray(parsed.programs) ? parsed.programs : [],
+      }
+    }
+  } catch {
+    // Corrupted saved state — start fresh
+  }
+  return { search: '', portfolios: [], programs: [] }
+}
+
+/**
+ * Consolidated Portfolios / Programs / Projects list.
+ *
+ * One nested, expandable view: portfolios at the top level, programs inside a
+ * portfolio, projects inside a program. Each level keeps its own columns
+ * (tables within tables). Rows navigate to the detail page on click; the
+ * arrow button at the start of a row is the expand/collapse control.
+ * Search and expansion state persist for the session, so returning to the
+ * list shows it exactly as it was left.
+ */
 const PortfoliosListPage: React.FC = () => {
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const savedState = useRef(loadSavedListState()).current
+  const [search, setSearch] = useState(savedState.search)
+  const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(
+    new Set(savedState.portfolios)
+  )
+  const [expandedPrograms, setExpandedPrograms] = useState<Set<string>>(
+    new Set(savedState.programs)
+  )
 
-  const { hasPermission } = usePermissions()
+  // Persist list state so back/breadcrumb navigation restores it
+  useEffect(() => {
+    sessionStorage.setItem(
+      LIST_STATE_KEY,
+      JSON.stringify({
+        search,
+        portfolios: [...expandedPortfolios],
+        programs: [...expandedPrograms],
+      })
+    )
+  }, [search, expandedPortfolios, expandedPrograms])
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['portfolios', page, pageSize, search],
-    queryFn: () =>
-      portfoliosApi.list({
-        skip: page * pageSize,
-        limit: pageSize,
-        search: search || undefined,
-      }),
+  // Remember scroll position when leaving the page (the window is the scroller)
+  useEffect(() => {
+    return () => {
+      sessionStorage.setItem(LIST_SCROLL_KEY, String(window.scrollY))
+    }
+  }, [])
+
+  const { canAccessProgram, canAccessProject } = usePermissions()
+  const { filterPrograms, filterProjects } = useScopeFilter()
+
+  const { data: portfoliosData, isLoading: portfoliosLoading } = useQuery({
+    queryKey: ['portfolios', 'consolidated-list'],
+    queryFn: () => portfoliosApi.list({ limit: 1000 }),
   })
 
-  // Filter portfolios based on search term (client-side filtering)
-  const filteredPortfolios = useMemo(() => {
-    if (!data?.items) return []
-    if (!search) return data.items
-    
-    const searchLower = search.toLowerCase()
-    return data.items.filter(
-      (portfolio) =>
-        portfolio.name.toLowerCase().includes(searchLower) ||
-        portfolio.owner.toLowerCase().includes(searchLower) ||
-        portfolio.description.toLowerCase().includes(searchLower)
-    )
-  }, [data?.items, search])
+  const { data: programsData, isLoading: programsLoading } = useQuery({
+    queryKey: ['programs', 'consolidated-list'],
+    queryFn: () => programsApi.list({ limit: 1000 }),
+  })
 
-  const columns: GridColDef<Portfolio>[] = [
-    {
-      field: 'name',
-      headerName: 'Portfolio Name',
-      flex: 1,
-      minWidth: 200,
-    },
-    {
-      field: 'owner',
-      headerName: 'Owner',
-      flex: 1,
-      minWidth: 150,
-    },
-    {
-      field: 'reporting_start_date',
-      headerName: 'Reporting Start',
-      width: 150,
-      valueFormatter: (params) => format(new Date(params.value), 'MMM dd, yyyy'),
-    },
-    {
-      field: 'reporting_end_date',
-      headerName: 'Reporting End',
-      width: 150,
-      valueFormatter: (params) => format(new Date(params.value), 'MMM dd, yyyy'),
-    },
-  ]
+  const { data: projectsData, isLoading: projectsLoading } = useQuery({
+    queryKey: ['projects', 'consolidated-list'],
+    queryFn: () => projectsApi.list({ limit: 1000 }),
+  })
 
-  const handleRowClick = (params: any) => {
-    navigate(`/portfolios/${params.row.id}`)
+  const isLoading = portfoliosLoading || programsLoading || projectsLoading
+
+  // Restore scroll position once the data (and restored expansion) has rendered
+  const scrollRestored = useRef(false)
+  useEffect(() => {
+    if (isLoading || scrollRestored.current) return
+    scrollRestored.current = true
+    const y = Number(sessionStorage.getItem(LIST_SCROLL_KEY)) || 0
+    if (y > 0) {
+      requestAnimationFrame(() => window.scrollTo(0, y))
+    }
+  }, [isLoading])
+
+  // Scope-filter programs/projects the same way the old list pages did
+  const programs = useMemo(
+    () => filterPrograms(programsData?.items || []),
+    [programsData?.items, filterPrograms]
+  )
+  const projects = useMemo(
+    () => filterProjects(projectsData?.items || []),
+    [projectsData?.items, filterProjects]
+  )
+
+  // Build the visible tree, applying the search filter across all three levels.
+  // A parent is visible when it matches or when any descendant matches; all
+  // children of a directly-matching parent stay visible.
+  const tree = useMemo(() => {
+    const searchLower = search.trim().toLowerCase()
+    const has = (...fields: (string | undefined | null)[]) =>
+      !searchLower || fields.some((f) => f?.toLowerCase().includes(searchLower))
+
+    const projectsByProgram = new Map<string, Project[]>()
+    for (const project of projects) {
+      const list = projectsByProgram.get(project.program_id) || []
+      list.push(project)
+      projectsByProgram.set(project.program_id, list)
+    }
+
+    const programsByPortfolio = new Map<string, Program[]>()
+    for (const program of programs) {
+      const key = program.portfolio_id || 'none'
+      const list = programsByPortfolio.get(key) || []
+      list.push(program)
+      programsByPortfolio.set(key, list)
+    }
+
+    const buildPrograms = (portfolioMatches: boolean, list: Program[]) =>
+      list
+        .map((program) => {
+          const programMatches = has(program.name, program.business_sponsor, program.program_manager)
+          const allProjects = projectsByProgram.get(program.id) || []
+          const visibleProjects =
+            portfolioMatches || programMatches
+              ? allProjects
+              : allProjects.filter((p) => has(p.name, p.project_manager, p.cost_center_code))
+          if (!portfolioMatches && !programMatches && visibleProjects.length === 0) return null
+          return { program, projects: visibleProjects }
+        })
+        .filter((n): n is { program: Program; projects: Project[] } => n !== null)
+
+    const portfolioNodes = (portfoliosData?.items || [])
+      .map((portfolio) => {
+        const portfolioMatches = has(portfolio.name, portfolio.owner, portfolio.description)
+        const programNodes = buildPrograms(portfolioMatches, programsByPortfolio.get(portfolio.id) || [])
+        if (!portfolioMatches && programNodes.length === 0) return null
+        return { portfolio, programs: programNodes }
+      })
+      .filter((n): n is { portfolio: Portfolio; programs: ReturnType<typeof buildPrograms> } => n !== null)
+
+    // Programs whose portfolio_id doesn't resolve (unassigned) — keep them reachable
+    const orphanPrograms = buildPrograms(false, programsByPortfolio.get('none') || [])
+
+    return { portfolioNodes, orphanPrograms }
+  }, [portfoliosData?.items, programs, projects, search])
+
+  // While searching, force everything visible open so matches are on screen
+  const searching = search.trim() !== ''
+  const isPortfolioOpen = (id: string) => searching || expandedPortfolios.has(id)
+  const isProgramOpen = (id: string) => searching || expandedPrograms.has(id)
+
+  const toggle = (set: Set<string>, id: string) => {
+    const next = new Set(set)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
   }
+
+  const openProgram = (program: Program, portfolio?: Portfolio) => {
+    if (!canAccessProgram(program.id).hasPermission) return
+    navigate(`/programs/${program.id}`, {
+      state: portfolio ? { portfolioId: portfolio.id, portfolioName: portfolio.name } : undefined,
+    })
+  }
+
+  const openProject = (project: Project, program: Program, portfolio?: Portfolio) => {
+    if (!canAccessProject(project.id, project.program_id).hasPermission) return
+    navigate(`/projects/${project.id}`, {
+      state: {
+        programId: program.id,
+        programName: program.name,
+        portfolioId: portfolio?.id,
+        portfolioName: portfolio?.name,
+      },
+    })
+  }
+
+  const renderProjectsTable = (
+    projectList: Project[],
+    program: Program,
+    portfolio?: Portfolio
+  ) => (
+    <Box sx={projectsGroupSx}>
+      {projectList.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1 }}>
+          No projects in this program
+        </Typography>
+      ) : (
+        <Table size="small" sx={{ tableLayout: 'fixed' }}>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: TABLE_HEADER_BG }}>
+              <TableCell sx={headerCellSx}>Project Name</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Project Manager</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.personB }}>Cost Center</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.date }}>Start Date</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.date }}>End Date</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.status }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {projectList.map((project) => (
+              <TableRow
+                key={project.id}
+                hover
+                onClick={() => openProject(project, program, portfolio)}
+                sx={clickableRowSx}
+              >
+                <TableCell>{project.name}</TableCell>
+                <TableCell>{project.project_manager}</TableCell>
+                <TableCell>{project.cost_center_code}</TableCell>
+                <TableCell>{formatDate(project.start_date)}</TableCell>
+                <TableCell>{formatDate(project.end_date)}</TableCell>
+                <TableCell>
+                  <StatusChip startDate={project.start_date} endDate={project.end_date} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </Box>
+  )
+
+  const renderProgramsTable = (
+    programNodes: { program: Program; projects: Project[] }[],
+    portfolio?: Portfolio
+  ) => (
+    <Box sx={programsGroupSx}>
+      {programNodes.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, py: 1 }}>
+          No programs in this portfolio
+        </Typography>
+      ) : (
+        <Table size="small" sx={{ tableLayout: 'fixed' }}>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: TABLE_HEADER_BG }}>
+              <TableCell sx={{ ...headerCellSx, width: ARROW_COL_WIDTH, px: 0.5 }} />
+              <TableCell sx={headerCellSx}>Program Name</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Business Sponsor</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.personB }}>Program Manager</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.date }}>Start Date</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.date }}>End Date</TableCell>
+              <TableCell sx={{ ...headerCellSx, width: COL.status }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {programNodes.map(({ program, projects: projectList }) => (
+              <React.Fragment key={program.id}>
+                <TableRow
+                  hover
+                  onClick={() => openProgram(program, portfolio)}
+                  sx={{
+                    ...clickableRowSx,
+                    // Echo the projects-group accent when open so the parent reads as the group header
+                    ...(isProgramOpen(program.id) && {
+                      backgroundColor: 'rgba(123, 31, 162, 0.06)',
+                    }),
+                  }}
+                >
+                  <TableCell sx={{ py: 0 }}>
+                    <IconButton
+                      aria-label={isProgramOpen(program.id) ? 'Collapse projects' : 'Expand projects'}
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setExpandedPrograms((prev) => toggle(prev, program.id))
+                      }}
+                    >
+                      {isProgramOpen(program.id) ? (
+                        <KeyboardArrowDown fontSize="small" />
+                      ) : (
+                        <KeyboardArrowRight fontSize="small" />
+                      )}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{program.name}</TableCell>
+                  <TableCell>{program.business_sponsor}</TableCell>
+                  <TableCell>{program.program_manager}</TableCell>
+                  <TableCell>{formatDate(program.start_date)}</TableCell>
+                  <TableCell>{formatDate(program.end_date)}</TableCell>
+                  <TableCell>
+                    <StatusChip startDate={program.start_date} endDate={program.end_date} />
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
+                    <Collapse in={isProgramOpen(program.id)} timeout="auto" unmountOnExit>
+                      {renderProjectsTable(projectList, program, portfolio)}
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </React.Fragment>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </Box>
+  )
 
   return (
     <Box>
@@ -89,11 +424,11 @@ const PortfoliosListPage: React.FC = () => {
         ]}
       />
 
-      <ScopeFilterBanner entityType="portfolios" />
+      <ScopeFilterBanner />
 
       <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
         <TextField
-          placeholder="Search portfolios..."
+          placeholder="Search portfolios, programs, projects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flex: '0 0 40%' }}
@@ -105,6 +440,7 @@ const PortfoliosListPage: React.FC = () => {
             ),
           }}
         />
+        <Box sx={{ flex: 1 }} />
         <PermissionButton
           permission="create_portfolios"
           variant="contained"
@@ -113,36 +449,112 @@ const PortfoliosListPage: React.FC = () => {
         >
           Create Portfolio
         </PermissionButton>
+        <PermissionButton
+          permission="create_programs"
+          variant="outlined"
+          startIcon={<Add />}
+          onClick={() => navigate('/programs/new')}
+        >
+          Create Program
+        </PermissionButton>
+        <PermissionButton
+          permission="create_projects"
+          variant="outlined"
+          startIcon={<Add />}
+          onClick={() => navigate('/projects/new')}
+        >
+          Create Project
+        </PermissionButton>
       </Box>
 
-      <Paper sx={{ height: 'calc(100vh - 200px)', width: '100%' }}>
-        <DataGrid
-          rows={filteredPortfolios}
-          columns={columns}
-          loading={isLoading}
-          pageSizeOptions={[10, 25, 50, 100]}
-          paginationModel={{ page, pageSize }}
-          onPaginationModelChange={(model) => {
-            setPage(model.page)
-            setPageSize(model.pageSize)
-          }}
-          rowCount={filteredPortfolios.length}
-          paginationMode="client"
-          disableRowSelectionOnClick
-          onRowClick={handleRowClick}
-          sx={{
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-                border: '2px solid',
-                borderColor: 'primary.main',
-              },
-            },
-          }}
-        />
-      </Paper>
+      <TableContainer component={Paper}>
+        {isLoading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Table size="small" sx={{ tableLayout: 'fixed' }}>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: TABLE_HEADER_BG }}>
+                <TableCell sx={{ ...headerCellSx, width: ARROW_COL_WIDTH, px: 0.5 }} />
+                <TableCell sx={headerCellSx}>Portfolio Name</TableCell>
+                <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Owner</TableCell>
+                {/* Filler keeps the shared column grid: programs/projects use this slot */}
+                <TableCell sx={{ ...headerCellSx, width: COL.personB }} />
+                <TableCell sx={{ ...headerCellSx, width: COL.date }}>Reporting Start</TableCell>
+                <TableCell sx={{ ...headerCellSx, width: COL.date }}>Reporting End</TableCell>
+                <TableCell sx={{ ...headerCellSx, width: COL.status }} />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {tree.portfolioNodes.length === 0 && tree.orphanPrograms.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 2 }}>
+                      {searching ? 'No matches found' : 'No portfolios found'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+              {tree.portfolioNodes.map(({ portfolio, programs: programNodes }) => (
+                <React.Fragment key={portfolio.id}>
+                  <TableRow
+                    hover
+                    onClick={() => navigate(`/portfolios/${portfolio.id}`)}
+                    sx={{
+                      ...clickableRowSx,
+                      // Echo the programs-group accent when open so the parent reads as the group header
+                      ...(isPortfolioOpen(portfolio.id) && {
+                        backgroundColor: 'rgba(21, 101, 192, 0.06)',
+                      }),
+                    }}
+                  >
+                    <TableCell sx={{ py: 0 }}>
+                      <IconButton
+                        aria-label={isPortfolioOpen(portfolio.id) ? 'Collapse programs' : 'Expand programs'}
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setExpandedPortfolios((prev) => toggle(prev, portfolio.id))
+                        }}
+                      >
+                        {isPortfolioOpen(portfolio.id) ? (
+                          <KeyboardArrowDown fontSize="small" />
+                        ) : (
+                          <KeyboardArrowRight fontSize="small" />
+                        )}
+                      </IconButton>
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{portfolio.name}</TableCell>
+                    <TableCell>{portfolio.owner}</TableCell>
+                    <TableCell />
+                    <TableCell>{formatDate(portfolio.reporting_start_date)}</TableCell>
+                    <TableCell>{formatDate(portfolio.reporting_end_date)}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
+                      <Collapse in={isPortfolioOpen(portfolio.id)} timeout="auto" unmountOnExit>
+                        {renderProgramsTable(programNodes, portfolio)}
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </React.Fragment>
+              ))}
+              {tree.orphanPrograms.length > 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} sx={{ p: 0, border: 0 }}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ pl: 2, pt: 1.5 }}>
+                      Programs without a portfolio
+                    </Typography>
+                    {renderProgramsTable(tree.orphanPrograms)}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </TableContainer>
     </Box>
   )
 }

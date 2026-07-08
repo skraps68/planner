@@ -439,7 +439,7 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   // Filter out deleted phases for timeline display
   const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
 
-  const timelineFooter = !isEditMode ? (
+  const timelineActions = !isEditMode ? (
     canEdit ? (
       <Button variant="contained" size="small" onClick={() => setIsEditMode(true)}>
         <EditIcon sx={{ mr: 1 }} />
@@ -481,7 +481,7 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         enableResize={isEditMode}
         onPhaseReorder={handlePhaseReorder}
         enableReorder={isEditMode}
-        footer={timelineFooter}
+        actions={timelineActions}
       />
 
       <PhaseList

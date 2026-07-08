@@ -204,3 +204,5 @@ terraform.tfstate*
 
 # Local development
 docker-compose.override.yml
+# Superpowers brainstorm scratch files
+.superpowers/

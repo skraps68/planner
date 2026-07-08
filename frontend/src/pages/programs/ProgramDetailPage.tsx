@@ -310,7 +310,7 @@ const ProgramDetailPage: React.FC = () => {
                 <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
                   {!isEditingInfo ? (
                     <Button
-                      variant="outlined"
+                      variant="contained"
                       size="small"
                       startIcon={<Edit />}
                       onClick={handleEditInfo}

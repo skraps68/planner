@@ -13,8 +13,6 @@ import {
 } from '@mui/material'
 import {
   Dashboard,
-  Folder,
-  Assignment,
   People,
   Work,
   Assessment,
@@ -37,9 +35,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { text: 'Portfolios', icon: <BusinessCenter />, path: '/portfolios', requiredPermission: 'view_portfolios', indent: 0 },
-  { text: 'Programs', icon: <Folder />, path: '/programs', requiredPermission: 'view_programs', indent: 1 },
-  { text: 'Projects', icon: <Assignment />, path: '/projects', requiredPermission: 'view_projects', indent: 2 },
+  // Programs and Projects are consolidated into the Portfolios nested list view
+  { text: 'Portfolios', icon: <BusinessCenter />, path: '/portfolios', requiredPermission: 'view_portfolios' },
   { text: 'Resources', icon: <People />, path: '/resources', requiredPermission: 'view_resources' },
   { text: 'Workers', icon: <Work />, path: '/workers', requiredPermission: 'view_workers' },
   { text: 'Actuals', icon: <Assessment />, path: '/actuals', requiredPermission: 'view_actuals' },

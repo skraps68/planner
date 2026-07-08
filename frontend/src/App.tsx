@@ -5,10 +5,8 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import ProgramsListPage from './pages/programs/ProgramsListPage'
 import ProgramDetailPage from './pages/programs/ProgramDetailPage'
 import ProgramFormPage from './pages/programs/ProgramFormPage'
-import ProjectsListPage from './pages/projects/ProjectsListPage'
 import ProjectDetailPage from './pages/projects/ProjectDetailPage'
 import ProjectFormPage from './pages/projects/ProjectFormPage'
 import ResourcesListPage from './pages/resources/ResourcesListPage'
@@ -51,11 +49,12 @@ function App() {
                     <Route path="/portfolios" element={<PortfoliosListPage />} />
                     <Route path="/portfolios/new" element={<PortfolioFormPage />} />
                     <Route path="/portfolios/:id" element={<PortfolioDetailPage />} />
-                    <Route path="/programs" element={<ProgramsListPage />} />
+                    {/* Program/project lists are consolidated into the Portfolios view */}
+                    <Route path="/programs" element={<Navigate to="/portfolios" replace />} />
                     <Route path="/programs/new" element={<ProgramFormPage />} />
                     <Route path="/programs/:id" element={<ProgramDetailPage />} />
                     <Route path="/programs/:id/edit" element={<ProgramFormPage />} />
-                    <Route path="/projects" element={<ProjectsListPage />} />
+                    <Route path="/projects" element={<Navigate to="/portfolios" replace />} />
                     <Route path="/projects/new" element={<ProjectFormPage />} />
                     <Route path="/projects/:id" element={<ProjectDetailPage />} />
                     <Route path="/projects/:id/edit" element={<ProjectFormPage />} />
