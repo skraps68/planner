@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Outlet, matchPath, useLocation } from 'react-router-dom'
 import { Box, Button, useMediaQuery, useTheme } from '@mui/material'
 import { ChevronLeft } from '@mui/icons-material'
@@ -35,6 +35,11 @@ const PortfolioShell: React.FC = () => {
   const theme = useTheme()
   const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
   const [treeVisibleOnNarrow, setTreeVisibleOnNarrow] = useState(false)
+  const location = useLocation()
+  // Cross-route navigation that bypasses the tree should land on content, not a stale tree view
+  useEffect(() => {
+    setTreeVisibleOnNarrow(false)
+  }, [location.pathname])
 
   if (!detail) {
     return <Outlet />
