@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { render, createTestStore } from '../../test/test-utils'
 import WaffleLauncher from './WaffleLauncher'
@@ -62,6 +62,9 @@ describe('WaffleLauncher', () => {
     await user.click(screen.getByText('Workers'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/workers')
+    await waitFor(() => {
+      expect(screen.queryByText('Dashboard')).not.toBeInTheDocument()
+    })
   })
 
   it('hides destinations the user lacks permission for', async () => {
