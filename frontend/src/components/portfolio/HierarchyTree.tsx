@@ -14,7 +14,7 @@ export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
 // Per-level row shading (blue-grey family matching the table header color):
 // portfolio rows strongest, program rows lighter, project rows unshaded
-const DEPTH_BG = ['#E3ECF4', '#F1F6FA', 'transparent']
+const DEPTH_BG = ['#C9D9E8', '#F1F6FA', 'transparent']
 
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
@@ -132,7 +132,13 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
       }}
     >
       {arrow}
-      <Typography variant="body2" noWrap title={label} sx={{ fontSize: '0.78rem' }}>
+      <Typography
+        variant="body2"
+        noWrap
+        title={label}
+        // Portfolio and program names bold; project names regular
+        sx={{ fontSize: '0.78rem', fontWeight: depth < 2 ? 600 : 400 }}
+      >
         {label}
       </Typography>
     </Box>
