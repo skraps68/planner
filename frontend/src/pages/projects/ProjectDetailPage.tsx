@@ -27,6 +27,7 @@ import { FinancialSummaryTable } from '../../components/portfolio/FinancialSumma
 import ChartSection from '../../components/portfolio/ChartSection'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
+import ProjectActualsTab from '../../components/actuals/ProjectActualsTab'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -54,7 +55,7 @@ const ProjectDetailPage: React.FC = () => {
     const params = new URLSearchParams(location.search)
     const tabParam = params.get('tab')
     const parsed = tabParam ? parseInt(tabParam, 10) : 0
-    return Math.min(Math.max(parsed, 0), 1)
+    return Math.min(Math.max(parsed, 0), 2)
   })
   const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [snackbar, setSnackbar] = useState<{
@@ -285,6 +286,7 @@ const ProjectDetailPage: React.FC = () => {
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
           <Tab label="Assignments" />
+          <Tab label="Actuals" />
         </Tabs>
       </Paper>
 
@@ -502,6 +504,10 @@ const ProjectDetailPage: React.FC = () => {
             { label: project.name, path: `/projects/${id}?tab=1` },
           ]}
         />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <ProjectActualsTab projectId={id!} />
       </TabPanel>
 
       <Snackbar
