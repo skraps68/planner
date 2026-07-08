@@ -38,6 +38,15 @@ shell**. It has two states, driven purely by whether a detail route is active:
   to a names-only tree** strip on the left; the detail page renders in a
   content pane on the right.
 
+**Slim-view (State 2) form:** a **headerless folder tree** — no per-level
+column headers and **no per-level icons**. Level is conveyed by **indentation
+depth + expand/collapse arrows** alone. The rich table's per-level header rows
+and extra columns (owner/sponsor/manager, cost center, dates, status) are not
+shown in slim mode; they are what the user returns to by closing the detail
+(✕ → State 1). The selected row is highlighted and its ancestors are
+auto-expanded so the full path (portfolio → program → project) is always
+visible.
+
 The user never sees the slim tree and the rich table at the same time — it is
 one widget at one of two widths. Selecting a row navigates to its detail route
 (→ State 2). Closing the detail (✕ or the home/logo affordance) navigates back
