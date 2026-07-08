@@ -26,7 +26,6 @@ import { Portfolio } from '../../types/portfolio'
 import { Program, Project } from '../../types'
 import { format } from 'date-fns'
 import { TABLE_HEADER_BG } from '../../theme'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
@@ -370,13 +369,6 @@ const PortfoliosListPage: React.FC = () => {
 
   return (
     <Box>
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Portfolios' },
-        ]}
-      />
-
       <ScopeFilterBanner />
 
       <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>

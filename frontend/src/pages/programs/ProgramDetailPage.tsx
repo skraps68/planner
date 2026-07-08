@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
@@ -32,17 +32,13 @@ import ChartSection from '../../components/portfolio/ChartSection'
 import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
 const ProgramDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
-
-  // Get portfolio context from navigation state
-  const navigationState = location.state as { portfolioId?: string; portfolioName?: string } | null
 
   const { canAccessProject } = usePermissions()
   const { conflictState, handleError, clearConflict } = useConflictHandler()
@@ -225,8 +221,8 @@ const ProgramDetailPage: React.FC = () => {
     if (projectAccess.hasPermission) {
       navigate(`/projects/${project.id}`, {
         state: {
-          portfolioId: navigationState?.portfolioId || program?.portfolio?.id,
-          portfolioName: navigationState?.portfolioName || program?.portfolio?.name,
+          portfolioId: program?.portfolio?.id,
+          portfolioName: program?.portfolio?.name,
           programId: program?.id,
           programName: program?.name,
         },
@@ -260,30 +256,12 @@ const ProgramDetailPage: React.FC = () => {
     statusColor = 'default'
   }
 
-  // Build breadcrumbs based on navigation context
-  const breadcrumbItems = [
-    { label: 'Home', path: '/dashboard' },
-    { label: 'Portfolios', path: '/portfolios' },
-  ]
-
-  // If we have portfolio context from navigation, show specific portfolio
-  if (navigationState?.portfolioId && navigationState?.portfolioName) {
-    breadcrumbItems.push({
-      label: navigationState.portfolioName,
-      path: `/portfolios/${navigationState.portfolioId}`,
-    })
-  } else {
-    // Otherwise show generic Programs
-    breadcrumbItems.push({ label: 'Programs', path: '/programs' })
-  }
-
-  breadcrumbItems.push({ label: program.name })
-
   return (
     <Box>
-      <ScopeBreadcrumbs 
-        items={breadcrumbItems}
+      <DetailPaneHeader
+        title={program.name}
         statusChip={<Chip label={status} color={statusColor} />}
+        onClose={() => navigate('/portfolios')}
       />
 
       {/* Combined Details + Financials split view */}

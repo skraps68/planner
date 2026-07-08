@@ -25,7 +25,7 @@ import { Portfolio, PortfolioUpdate } from '../../types/portfolio'
 import { Program } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -230,14 +230,10 @@ const PortfolioDetailPage: React.FC = () => {
 
   return (
     <Box>
-      {/* Breadcrumbs with status chip */}
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Portfolios', path: '/portfolios' },
-          { label: portfolio.name },
-        ]}
+      <DetailPaneHeader
+        title={portfolio.name}
         statusChip={<Chip label={status} color={statusColor} />}
+        onClose={() => navigate('/portfolios')}
       />
 
       {/* Portfolio Info Section */}

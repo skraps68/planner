@@ -186,11 +186,11 @@ describe('PortfoliosListPage', () => {
     expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
   })
 
-  it('should display page title', () => {
+  it('should display the list search box', () => {
     render(<PortfoliosListPage />, { store, queryClient })
-
-    // The page identifies itself via the breadcrumb trail
-    expect(screen.getByText('Portfolios')).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText('Search portfolios, programs, projects...')
+    ).toBeInTheDocument()
   })
 
   it('should display column headers', async () => {
