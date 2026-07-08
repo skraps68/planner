@@ -38,6 +38,8 @@ const renderAt = (path: string) => {
               <Route element={<PortfolioShell />}>
                 <Route path="/portfolios" element={<div data-testid="rich-list" />} />
                 <Route path="/projects/:id" element={<div data-testid="project-detail" />} />
+                <Route path="/portfolios/:id" element={<div data-testid="portfolio-detail" />} />
+                <Route path="/programs/:id" element={<div data-testid="program-detail" />} />
               </Route>
             </Routes>
           </MemoryRouter>
@@ -58,5 +60,17 @@ describe('PortfolioShell', () => {
     renderAt('/projects/pj1')
     expect(screen.getByTestId('project-detail')).toBeInTheDocument()
     expect(screen.getByTestId('hierarchy-tree')).toHaveTextContent('project:pj1')
+  })
+
+  it('renders tree + detail when a portfolio detail route is active (State 2)', () => {
+    renderAt('/portfolios/pf1')
+    expect(screen.getByTestId('portfolio-detail')).toBeInTheDocument()
+    expect(screen.getByTestId('hierarchy-tree')).toHaveTextContent('portfolio:pf1')
+  })
+
+  it('renders tree + detail when a program detail route is active (State 2)', () => {
+    renderAt('/programs/pg1')
+    expect(screen.getByTestId('program-detail')).toBeInTheDocument()
+    expect(screen.getByTestId('hierarchy-tree')).toHaveTextContent('program:pg1')
   })
 })
