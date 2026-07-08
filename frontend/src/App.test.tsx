@@ -51,26 +51,18 @@ describe('Root Routing', () => {
     })
   })
 
-  it('should redirect from "/" to the Dashboard', async () => {
-    // Render the app at the root path
+  it('should redirect from "/" to Portfolios', async () => {
     window.history.pushState({}, 'Test page', '/')
-
     render(<App />, { store })
-
-    // Wait for the redirect and component to render
     await waitFor(() => {
-      expect(screen.getByTestId('dashboard')).toBeInTheDocument()
+      expect(screen.getByTestId('portfolios-list')).toBeInTheDocument()
     })
-
-    // Verify the URL changed to /dashboard
-    expect(window.location.pathname).toBe('/dashboard')
+    expect(window.location.pathname).toBe('/portfolios')
   })
 
   it('should display the Dashboard when navigating to /dashboard', async () => {
     window.history.pushState({}, 'Test page', '/dashboard')
-
     render(<App />, { store })
-
     await waitFor(() => {
       expect(screen.getByTestId('dashboard')).toBeInTheDocument()
     })

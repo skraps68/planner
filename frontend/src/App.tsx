@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
+import PortfolioShell from './components/layout/PortfolioShell'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import ProgramDetailPage from './pages/programs/ProgramDetailPage'
@@ -44,20 +45,23 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/" element={<Navigate to="/portfolios" replace />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/portfolios" element={<PortfoliosListPage />} />
                     <Route path="/portfolios/new" element={<PortfolioFormPage />} />
-                    <Route path="/portfolios/:id" element={<PortfolioDetailPage />} />
                     {/* Program/project lists are consolidated into the Portfolios view */}
                     <Route path="/programs" element={<Navigate to="/portfolios" replace />} />
                     <Route path="/programs/new" element={<ProgramFormPage />} />
-                    <Route path="/programs/:id" element={<ProgramDetailPage />} />
                     <Route path="/programs/:id/edit" element={<ProgramFormPage />} />
                     <Route path="/projects" element={<Navigate to="/portfolios" replace />} />
                     <Route path="/projects/new" element={<ProjectFormPage />} />
-                    <Route path="/projects/:id" element={<ProjectDetailPage />} />
                     <Route path="/projects/:id/edit" element={<ProjectFormPage />} />
+                    {/* PortfolioShell: renders tree sidebar on hierarchy detail routes */}
+                    <Route element={<PortfolioShell />}>
+                      <Route path="/portfolios" element={<PortfoliosListPage />} />
+                      <Route path="/portfolios/:id" element={<PortfolioDetailPage />} />
+                      <Route path="/programs/:id" element={<ProgramDetailPage />} />
+                      <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                    </Route>
                     <Route path="/resources" element={<ResourcesListPage />} />
                     <Route path="/resources/:id" element={<ResourceDetailPage />} />
                     <Route path="/workers" element={<WorkersListPage />} />

@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           refreshToken: response.tokens.refresh_token,
         })
       )
-      navigate('/dashboard')
+      navigate('/portfolios')
     } catch (error) {
       console.error('Login failed:', error)
       throw error
