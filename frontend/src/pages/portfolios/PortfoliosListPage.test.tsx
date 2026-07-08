@@ -35,6 +35,7 @@ describe('PortfoliosListPage', () => {
       reporting_start_date: '2024-01-01',
       reporting_end_date: '2024-12-31',
       program_count: 5,
+      version: 1,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     },
@@ -46,6 +47,7 @@ describe('PortfoliosListPage', () => {
       reporting_start_date: '2024-02-01',
       reporting_end_date: '2024-11-30',
       program_count: 3,
+      version: 1,
       created_at: '2024-02-01T00:00:00Z',
       updated_at: '2024-02-01T00:00:00Z',
     },
@@ -54,6 +56,8 @@ describe('PortfoliosListPage', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
     vi.mocked(portfoliosApi.list).mockClear()
+    // List state persists in sessionStorage; isolate tests from each other
+    sessionStorage.clear()
 
     queryClient = createTestQueryClient()
 
@@ -93,7 +97,7 @@ describe('PortfoliosListPage', () => {
   it('should display search bar', () => {
     render(<PortfoliosListPage />, { store, queryClient })
 
-    const searchInput = screen.getByPlaceholderText('Search portfolios...')
+    const searchInput = screen.getByPlaceholderText('Search portfolios, programs, projects...')
     expect(searchInput).toBeInTheDocument()
   })
 
@@ -143,7 +147,7 @@ describe('PortfoliosListPage', () => {
       expect(screen.getByText('Infrastructure Modernization')).toBeInTheDocument()
     })
 
-    const searchInput = screen.getByPlaceholderText('Search portfolios...')
+    const searchInput = screen.getByPlaceholderText('Search portfolios, programs, projects...')
     await user.type(searchInput, 'Digital')
 
     await waitFor(() => {
@@ -185,8 +189,8 @@ describe('PortfoliosListPage', () => {
   it('should display page title', () => {
     render(<PortfoliosListPage />, { store, queryClient })
 
-    // Use getByRole to get the h4 element specifically
-    expect(screen.getByRole('heading', { name: 'Portfolios' })).toBeInTheDocument()
+    // The page identifies itself via the breadcrumb trail
+    expect(screen.getByText('Portfolios')).toBeInTheDocument()
   })
 
   it('should display column headers', async () => {

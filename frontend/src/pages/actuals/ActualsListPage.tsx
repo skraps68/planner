@@ -88,6 +88,12 @@ const ActualsListPage = () => {
     fetchActuals()
   }
 
+  const handleFilterKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch()
+    }
+  }
+
   const handleClearFilters = () => {
     setProjectId('all')
     setWorkerId('')
@@ -207,6 +213,7 @@ const ActualsListPage = () => {
                 label="Worker ID"
                 value={workerId}
                 onChange={(e) => setWorkerId(e.target.value)}
+                onKeyDown={handleFilterKeyDown}
                 size="small"
               />
             </Grid>
@@ -215,7 +222,7 @@ const ActualsListPage = () => {
                 label="Start Date"
                 value={startDate}
                 onChange={setStartDate}
-                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                slotProps={{ textField: { size: 'small', fullWidth: true, onKeyDown: handleFilterKeyDown } }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
@@ -223,7 +230,7 @@ const ActualsListPage = () => {
                 label="End Date"
                 value={endDate}
                 onChange={setEndDate}
-                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                slotProps={{ textField: { size: 'small', fullWidth: true, onKeyDown: handleFilterKeyDown } }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
@@ -257,12 +264,6 @@ const ActualsListPage = () => {
           paginationMode="server"
           loading={loading}
           disableRowSelectionOnClick
-          onRowClick={(params) => navigate(`/actuals/${params.id}`)}
-          sx={{
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-            },
-          }}
         />
       </Paper>
     </Box>

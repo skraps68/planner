@@ -12,7 +12,8 @@ interface PhaseTimelineProps {
   enableResize?: boolean
   onPhaseReorder?: (reorderedPhases: Partial<ProjectPhase>[]) => void
   enableReorder?: boolean
-  footer?: React.ReactNode
+  /** Action controls (e.g. Edit Timeline / Save) shown top-right, beside the title */
+  actions?: React.ReactNode
 }
 
 interface DragDropState {
@@ -57,7 +58,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   enableResize = false,
   onPhaseReorder,
   enableReorder = false,
-  footer,
+  actions,
 }) => {
   // Existing resize drag state
   const [isDragging, setIsDragging] = useState(false)
@@ -1257,9 +1258,14 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
           }
         `}
       </style>
-      <Typography variant="h6" gutterBottom>
-        Phase Timeline {enableResize && '(Interactive)'}
-      </Typography>
+      {/* Header row: title left, actions top-right (kept out of the timeline area
+          so they never overlap the last phase's boundary date) */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6" gutterBottom>
+          Phase Timeline {enableResize && '(Interactive)'}
+        </Typography>
+        {actions && <Box sx={{ flexShrink: 0, ml: 2 }}>{actions}</Box>}
+      </Box>
 
       <Box sx={{ mb: 2 }}>
         <Box
@@ -1286,11 +1292,6 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
           {renderBoundaryDates()}
         </Box>
       </Box>
-      {footer && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          {footer}
-        </Box>
-      )}
     </Paper>
   )
 }

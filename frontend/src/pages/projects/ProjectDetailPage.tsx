@@ -25,6 +25,7 @@ import { transformForecastData } from '../../utils/forecastTransform'
 import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
+import ChartSection from '../../components/portfolio/ChartSection'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
 import ConflictDialog from '../../components/common/ConflictDialog'
@@ -59,10 +60,11 @@ const ProjectDetailPage: React.FC = () => {
   } | null
   
   const [tabValue, setTabValue] = useState(() => {
-    // Check if there's a tab parameter in the URL
+    // Check if there's a tab parameter in the URL (clamped: old Financials tab index no longer exists)
     const params = new URLSearchParams(location.search)
     const tabParam = params.get('tab')
-    return tabParam ? parseInt(tabParam, 10) : 0
+    const parsed = tabParam ? parseInt(tabParam, 10) : 0
+    return Math.min(Math.max(parsed, 0), 1)
   })
   const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [snackbar, setSnackbar] = useState<{
@@ -85,6 +87,7 @@ const ProjectDetailPage: React.FC = () => {
     end_date: '',
     version: 1,
   })
+  // Financials drill-down state
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
 
   const { data: project, isLoading, refetch, isFetching } = useQuery({
@@ -99,21 +102,21 @@ const ProjectDetailPage: React.FC = () => {
     enabled: !!project?.program_id,
   })
 
-  // Fetch phases for the phase dropdown
+  // Fetch phases for the financials drill-down
   const { data: phases = [] } = useQuery({
     queryKey: ['phases', id],
     queryFn: () => phasesApi.list(id!),
-    enabled: !!id && tabValue === 2,
+    enabled: !!id,
   })
 
-  // Fetch forecast data based on selection
-  const { data: forecastData } = useQuery({
+  // Fetch forecast for the financials panel, scoped to the selected phase
+  const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
     queryKey: ['forecast', 'project', id, selectedPhaseId],
     queryFn: async () => {
       const data = await getProjectForecast(id!, new Date().toISOString().split('T')[0], selectedPhaseId || undefined)
       return transformForecastData(data)
     },
-    enabled: !!id && tabValue === 2,
+    enabled: !!id,
   })
 
   // Calculate budget statistics from phases
@@ -333,16 +336,16 @@ const ProjectDetailPage: React.FC = () => {
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
           <Tab label="Assignments" />
-          <Tab label="Financials" />
         </Tabs>
       </Paper>
 
       <TabPanel value={tabValue} index={0}>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6} md={3}>
+        {/* Combined Details + Financials split view */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={5}>
+            <Paper sx={{ p: 1.5, height: '100%' }}>
+              <Grid container rowSpacing={1} columnSpacing={1}>
+                <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
                     Project Name
                   </Typography>
@@ -358,118 +361,10 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.name}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    Business Sponsor
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.business_sponsor}
-                      onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.business_sponsor}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    Project Manager
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.project_manager}
-                      onChange={(e) => setEditValues({ ...editValues, project_manager: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.project_manager}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    Technical Lead
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.technical_lead}
-                      onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.technical_lead}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    Program
-                  </Typography>
-                  <Typography variant="body1">{program?.name || 'Loading...'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    Cost Center
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.cost_center_code}
-                      onChange={(e) => setEditValues({ ...editValues, cost_center_code: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.cost_center_code}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    Start Date
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="date"
-                      value={editValues.start_date}
-                      onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">
-                      {format(new Date(project.start_date), 'MMMM dd, yyyy')}
-                    </Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="caption" color="text.secondary">
-                    End Date
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="date"
-                      value={editValues.end_date}
-                      onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">
-                      {format(new Date(project.end_date), 'MMMM dd, yyyy')}
-                    </Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
                   {!isEditingInfo ? (
                     <Button
-                      variant="outlined"
+                      variant="contained"
                       size="small"
                       startIcon={<Edit />}
                       onClick={handleEditInfo}
@@ -497,19 +392,154 @@ const ProjectDetailPage: React.FC = () => {
                     </Box>
                   )}
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Business Sponsor
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.business_sponsor}
+                      onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.business_sponsor}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Project Manager
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.project_manager}
+                      onChange={(e) => setEditValues({ ...editValues, project_manager: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.project_manager}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Technical Lead
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.technical_lead}
+                      onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.technical_lead}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Program
+                  </Typography>
+                  <Typography variant="body1">{program?.name || 'Loading...'}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Cost Center
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      value={editValues.cost_center_code}
+                      onChange={(e) => setEditValues({ ...editValues, cost_center_code: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">{project.cost_center_code}</Typography>
+                  )}
+                </Grid>
+                {/* Spacer keeps Start/End paired on their own row after the Edit-button cell shifts parity */}
+                <Grid item xs={12} sm={6} sx={{ display: { xs: 'none', sm: 'block' } }} />
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Start Date
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={editValues.start_date}
+                      onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">
+                      {format(new Date(project.start_date), 'MMMM dd, yyyy')}
+                    </Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    End Date
+                  </Typography>
+                  {isEditingInfo ? (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={editValues.end_date}
+                      onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography variant="body1">
+                      {format(new Date(project.end_date), 'MMMM dd, yyyy')}
+                    </Typography>
+                  )}
+                </Grid>
               </Grid>
             </Paper>
-            
-            <PhaseEditor
-              projectId={id!}
-              projectStartDate={project.start_date}
-              projectEndDate={project.end_date}
-              onSaveSuccess={handlePhaseSaveSuccess}
-              onSaveError={handlePhaseSaveError}
-              onProjectDateChange={handleProjectDateChange}
-            />
+          </Grid>
+          <Grid item xs={12} md={7}>
+            <Paper sx={{ p: 1.5, height: '100%' }}>
+              {/* Drill-down filter: scope financials to a phase */}
+              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                <Autocomplete
+                  size="small"
+                  sx={{ flex: 1, maxWidth: 320 }}
+                  options={phases}
+                  getOptionLabel={(option: any) => option.name}
+                  value={phases.find((p: any) => p.id === selectedPhaseId) || null}
+                  onChange={(_, newValue: any) => setSelectedPhaseId(newValue?.id || null)}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Phase" placeholder="All" />
+                  )}
+                />
+              </Box>
+              <FinancialSummaryTable
+                compact
+                data={forecastData || null}
+                loading={forecastLoading}
+                error={forecastError ? new Error('Failed to load financial data') : null}
+              />
+              <ChartSection compact data={forecastData || null} />
+            </Paper>
           </Grid>
         </Grid>
+
+        <PhaseEditor
+          projectId={id!}
+          projectStartDate={project.start_date}
+          projectEndDate={project.end_date}
+          onSaveSuccess={handlePhaseSaveSuccess}
+          onSaveError={handlePhaseSaveError}
+          onProjectDateChange={handleProjectDateChange}
+        />
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
@@ -524,23 +554,6 @@ const ProjectDetailPage: React.FC = () => {
             { label: project.name, path: `/projects/${id}?tab=1`, state: navigationState || undefined },
           ]}
         />
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={2}>
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                options={phases}
-                getOptionLabel={(option: any) => option.name}
-                value={phases.find((p: any) => p.id === selectedPhaseId) || null}
-                onChange={(_, newValue: any) => setSelectedPhaseId(newValue?.id || null)}
-                renderInput={(params) => <TextField {...params} label="Phase" />}
-              />
-            </Grid>
-          </Grid>
-          {forecastData && <FinancialSummaryTable data={forecastData} />}
-        </Paper>
       </TabPanel>
 
       <Snackbar
