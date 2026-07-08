@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Typography,
@@ -49,6 +49,7 @@ const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   
   const [tabValue, setTabValue] = useState(() => {
     // Check if there's a tab parameter in the URL (clamped: old Financials tab index no longer exists)
@@ -195,6 +196,8 @@ const ProjectDetailPage: React.FC = () => {
       
       // Refetch project to get updated dates
       refetch()
+      // Dates show in the rich hierarchy list too
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     } catch (error) {
       console.error('Failed to update project dates:', error)
       setSnackbar({
@@ -231,10 +234,12 @@ const ProjectDetailPage: React.FC = () => {
       })
       setIsEditingInfo(false)
       refetch()
+      // Refresh the hierarchy views (slim tree / rich list) so the new name shows
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     } catch (error: any) {
       // Try to handle as conflict error
       const isConflict = handleError(error, editValues)
-      
+
       if (!isConflict) {
         // Not a conflict, show generic error
         console.error('Failed to update project:', error)

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Typography,
@@ -39,6 +39,7 @@ import { useConflictHandler } from '../../hooks/useConflictHandler'
 const ProgramDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const { canAccessProject } = usePermissions()
   const { conflictState, handleError, clearConflict } = useConflictHandler()
@@ -160,10 +161,12 @@ const ProgramDetailPage: React.FC = () => {
       })
       setIsEditingInfo(false)
       refetch()
+      // Refresh the hierarchy views (slim tree / rich list) so the new name shows
+      queryClient.invalidateQueries({ queryKey: ['programs'] })
     } catch (error: any) {
       // Try to handle as conflict error
       const isConflict = handleError(error, editValues)
-      
+
       if (!isConflict) {
         // Not a conflict, show generic error
         console.error('Failed to update program:', error)
