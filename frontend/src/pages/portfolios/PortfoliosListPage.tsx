@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'
+import React, { useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -30,6 +30,7 @@ import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
+import { usePortfolioListState } from '../../hooks/usePortfolioListState'
 
 const formatDate = (value: string) => format(new Date(value), 'MMM dd, yyyy')
 
@@ -102,33 +103,9 @@ const projectsGroupSx = {
   overflow: 'hidden',
 }
 
-// Session-scoped persistence so the list looks the same when the user returns
-// from a detail page (browser back button or breadcrumbs)
-const LIST_STATE_KEY = 'portfoliosListState'
+// Session-scoped persistence for scroll position so the list looks the same
+// when the user returns from a detail page (browser back button or breadcrumbs)
 const LIST_SCROLL_KEY = 'portfoliosListScroll'
-
-interface SavedListState {
-  search: string
-  portfolios: string[]
-  programs: string[]
-}
-
-const loadSavedListState = (): SavedListState => {
-  try {
-    const raw = sessionStorage.getItem(LIST_STATE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      return {
-        search: typeof parsed.search === 'string' ? parsed.search : '',
-        portfolios: Array.isArray(parsed.portfolios) ? parsed.portfolios : [],
-        programs: Array.isArray(parsed.programs) ? parsed.programs : [],
-      }
-    }
-  } catch {
-    // Corrupted saved state — start fresh
-  }
-  return { search: '', portfolios: [], programs: [] }
-}
 
 /**
  * Consolidated Portfolios / Programs / Projects list.
@@ -142,26 +119,8 @@ const loadSavedListState = (): SavedListState => {
  */
 const PortfoliosListPage: React.FC = () => {
   const navigate = useNavigate()
-  const savedState = useRef(loadSavedListState()).current
-  const [search, setSearch] = useState(savedState.search)
-  const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(
-    new Set(savedState.portfolios)
-  )
-  const [expandedPrograms, setExpandedPrograms] = useState<Set<string>>(
-    new Set(savedState.programs)
-  )
-
-  // Persist list state so back/breadcrumb navigation restores it
-  useEffect(() => {
-    sessionStorage.setItem(
-      LIST_STATE_KEY,
-      JSON.stringify({
-        search,
-        portfolios: [...expandedPortfolios],
-        programs: [...expandedPrograms],
-      })
-    )
-  }, [search, expandedPortfolios, expandedPrograms])
+  const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram } =
+    usePortfolioListState()
 
   // Remember scroll position when leaving the page (the window is the scroller)
   useEffect(() => {
@@ -267,12 +226,6 @@ const PortfoliosListPage: React.FC = () => {
   const searching = search.trim() !== ''
   const isPortfolioOpen = (id: string) => searching || expandedPortfolios.has(id)
   const isProgramOpen = (id: string) => searching || expandedPrograms.has(id)
-
-  const toggle = (set: Set<string>, id: string) => {
-    const next = new Set(set)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  }
 
   const openProgram = (program: Program, portfolio?: Portfolio) => {
     if (!canAccessProgram(program.id).hasPermission) return
@@ -381,7 +334,7 @@ const PortfoliosListPage: React.FC = () => {
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setExpandedPrograms((prev) => toggle(prev, program.id))
+                        toggleProgram(program.id)
                       }}
                     >
                       {isProgramOpen(program.id) ? (
@@ -515,7 +468,7 @@ const PortfoliosListPage: React.FC = () => {
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setExpandedPortfolios((prev) => toggle(prev, portfolio.id))
+                          togglePortfolio(portfolio.id)
                         }}
                       >
                         {isPortfolioOpen(portfolio.id) ? (
