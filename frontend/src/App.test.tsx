@@ -48,9 +48,6 @@ describe('Root Routing', () => {
         token: 'test-token',
         isAuthenticated: true,
       },
-      ui: {
-        sidebarOpen: true,
-      },
     })
   })
 
@@ -96,9 +93,6 @@ describe('Portfolio Entity Routing', () => {
         },
         token: 'test-token',
         isAuthenticated: true,
-      },
-      ui: {
-        sidebarOpen: true,
       },
     })
   })

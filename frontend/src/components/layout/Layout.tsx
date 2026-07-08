@@ -1,7 +1,6 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import Header from './Header'
-import Sidebar from './Sidebar'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -11,7 +10,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
       <Header />
-      <Sidebar />
       <Box
         component="main"
         sx={{
