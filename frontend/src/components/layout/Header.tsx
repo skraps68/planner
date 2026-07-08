@@ -14,22 +14,21 @@ import {
   ListItemText,
 } from '@mui/material'
 import {
-  Menu as MenuIcon,
   AccountCircle,
   Logout,
   Settings,
   SwapHoriz,
   Notifications as NotificationsIcon,
 } from '@mui/icons-material'
-import { useDispatch } from 'react-redux'
-import { toggleSidebar } from '../../store/slices/uiSlice'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import RoleSwitcher from '../auth/RoleSwitcher'
 import UserProfile from '../auth/UserProfile'
 import ChangePassword from '../auth/ChangePassword'
+import WaffleLauncher from './WaffleLauncher'
 
 const Header: React.FC = () => {
-  const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false)
@@ -90,18 +89,15 @@ const Header: React.FC = () => {
       }}
     >
       <Toolbar>
-        <IconButton
-          edge="start"
-          color="inherit"
-          aria-label="menu"
-          onClick={() => dispatch(toggleSidebar())}
-          sx={{ mr: 2 }}
-        >
-          <MenuIcon />
-        </IconButton>
+        <WaffleLauncher />
 
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'primary.main' }}>
-          Program & Project Management
+        <Typography
+          variant="h6"
+          component="div"
+          onClick={() => navigate('/portfolios')}
+          sx={{ flexGrow: 1, color: 'primary.main', cursor: 'pointer', userSelect: 'none' }}
+        >
+          Program &amp; Project Management
         </Typography>
 
         <IconButton color="inherit" sx={{ mr: 2 }}>
