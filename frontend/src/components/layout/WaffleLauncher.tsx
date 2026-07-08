@@ -78,7 +78,15 @@ const WaffleLauncher: React.FC = () => {
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
         {visibleGroups.flatMap((group) => [
-          <ListSubheader key={`${group.title}-header`} sx={{ lineHeight: '30px' }}>
+          <ListSubheader
+            key={`${group.title}-header`}
+            sx={{
+              lineHeight: '28px',
+              backgroundColor: 'grey.200',
+              color: 'text.primary',
+              fontWeight: 600,
+            }}
+          >
             {group.title}
           </ListSubheader>,
           ...group.items.map((item) => (

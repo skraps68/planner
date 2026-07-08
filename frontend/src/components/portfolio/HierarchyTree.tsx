@@ -12,6 +12,10 @@ import { usePortfolioListState } from '../../hooks/usePortfolioListState'
 
 export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
+// Per-level row shading (blue-grey family matching the table header color):
+// portfolio rows strongest, program rows lighter, project rows unshaded
+const DEPTH_BG = ['#E3ECF4', '#F1F6FA', 'transparent']
+
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
   activeId: string
@@ -121,7 +125,8 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
         py: 0.25,
         cursor: 'pointer',
         borderRadius: 1,
-        backgroundColor: isActive ? 'primary.main' : 'transparent',
+        // Level shading: portfolios strongest, programs lighter, projects none
+        backgroundColor: isActive ? 'primary.main' : DEPTH_BG[depth] || 'transparent',
         color: isActive ? 'primary.contrastText' : 'text.primary',
         '&:hover': { backgroundColor: isActive ? 'primary.main' : 'action.hover' },
       }}
