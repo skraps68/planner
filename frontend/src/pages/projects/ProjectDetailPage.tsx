@@ -420,6 +420,12 @@ const ProjectDetailPage: React.FC = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
+                    ID
+                  </Typography>
+                  <Typography variant="body1">{project.business_id}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
                     Start Date
                   </Typography>
                   {isEditingInfo ? (
@@ -455,12 +461,6 @@ const ProjectDetailPage: React.FC = () => {
                       {format(new Date(project.end_date), 'MMMM dd, yyyy')}
                     </Typography>
                   )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    ID
-                  </Typography>
-                  <Typography variant="body1">{project.business_id}</Typography>
                 </Grid>
               </Grid>
             </Paper>
