@@ -262,7 +262,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         sx={{
           fontSize: '0.78rem',
           fontWeight: depth < 2 ? 600 : 400,
-          color: dimColor ? 'text.disabled' : undefined,
+          color: dimColor && !isActive ? 'text.disabled' : undefined,
         }}
       >
         {labelNode}
@@ -308,6 +308,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         />
         <IconButton
           aria-label="Toggle ID mode"
+          aria-pressed={idMode}
           size="small"
           onClick={toggleIdMode}
           sx={{
