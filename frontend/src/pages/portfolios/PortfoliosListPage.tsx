@@ -121,8 +121,8 @@ const PortfoliosListPage: React.FC = () => {
   const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram, idMode } =
     usePortfolioListState()
 
-  const displayName = (businessId: string, name: string) =>
-    idMode ? `(${businessId}) ${name}` : name
+  const displayName = (businessId: string | undefined, name: string) =>
+    idMode && businessId ? `(${businessId}) ${name}` : name
 
   // Remember scroll position when leaving the page (the window is the scroller)
   useEffect(() => {
