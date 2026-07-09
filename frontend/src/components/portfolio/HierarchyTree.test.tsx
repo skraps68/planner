@@ -22,9 +22,10 @@ vi.mock('../../hooks/usePermissions', () => ({
   }),
 }))
 
-const pf = { id: 'pf1', name: 'Default Portfolio', description: '', owner: 'o', reporting_start_date: '2024-01-01', reporting_end_date: '2026-12-31', program_count: 1, version: 1, created_at: '', updated_at: '' }
-const pg = { id: 'pg1', name: 'Customer Experience', portfolio_id: 'pf1', business_sponsor: 'b', program_manager: 'm', technical_lead: 't', start_date: '2024-01-01', end_date: '2025-12-31', version: 1, created_at: '', updated_at: '' }
-const pj = { id: 'pj1', name: 'CRM System Upgrade', program_id: 'pg1', business_sponsor: 'b', project_manager: 'p', technical_lead: 't', cost_center_code: 'CC-1', start_date: '2024-01-01', end_date: '2025-06-30', version: 1, created_at: '', updated_at: '' }
+const pf = { id: 'pf1', name: 'Default Portfolio', description: '', owner: 'o', reporting_start_date: '2024-01-01', reporting_end_date: '2026-12-31', program_count: 1, version: 1, created_at: '', updated_at: '', business_id: '010000001' }
+const pg = { id: 'pg1', name: 'Customer Experience', portfolio_id: 'pf1', business_sponsor: 'b', program_manager: 'm', technical_lead: 't', start_date: '2024-01-01', end_date: '2025-12-31', version: 1, created_at: '', updated_at: '', business_id: '020000001' }
+const pg2 = { ...pg, id: 'pg2', name: 'Legacy Systems', business_id: '020000002' }
+const pj = { id: 'pj1', name: 'CRM System Upgrade', program_id: 'pg1', business_sponsor: 'b', project_manager: 'p', technical_lead: 't', cost_center_code: 'CC-1', start_date: '2024-01-01', end_date: '2025-06-30', version: 1, created_at: '', updated_at: '', business_id: '030000001' }
 
 const makeStore = () =>
   createTestStore({
@@ -40,7 +41,7 @@ describe('HierarchyTree', () => {
     sessionStorage.clear()
     mockNavigate.mockClear()
     vi.mocked(portfoliosApi.list).mockResolvedValue({ items: [pf], total: 1, page: 1, size: 1000, pages: 1 } as any)
-    vi.mocked(programsApi.list).mockResolvedValue({ items: [pg], total: 1, page: 1, size: 1000, pages: 1 } as any)
+    vi.mocked(programsApi.list).mockResolvedValue({ items: [pg, pg2], total: 2, page: 1, size: 1000, pages: 1 } as any)
     vi.mocked(projectsApi.list).mockResolvedValue({ items: [pj], total: 1, page: 1, size: 1000, pages: 1 } as any)
     window.HTMLElement.prototype.scrollIntoView = vi.fn()
   })
@@ -85,5 +86,62 @@ describe('HierarchyTree', () => {
       expect(screen.queryByText('CRM System Upgrade')).not.toBeInTheDocument()
     )
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('HierarchyTree filtering', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    mockNavigate.mockClear()
+    vi.mocked(portfoliosApi.list).mockResolvedValue({ items: [pf], total: 1, page: 1, size: 1000, pages: 1 } as any)
+    vi.mocked(programsApi.list).mockResolvedValue({ items: [pg, pg2], total: 2, page: 1, size: 1000, pages: 1 } as any)
+    vi.mocked(projectsApi.list).mockResolvedValue({ items: [pj], total: 1, page: 1, size: 1000, pages: 1 } as any)
+    window.HTMLElement.prototype.scrollIntoView = vi.fn()
+  })
+
+  it('filters to matches + ancestors, dims ancestors, hides the rest', async () => {
+    const user = userEvent.setup()
+    render(<HierarchyTree activeType="project" activeId="pj1" />, {
+      store: makeStore(), queryClient: createTestQueryClient(),
+    })
+    await waitFor(() => expect(screen.getByText('Customer Experience')).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText('Filter…'), 'crm')
+
+    await waitFor(() => {
+      // match + ancestors visible, sibling program hidden
+      expect(screen.getByText(/CRM/)).toBeInTheDocument()
+      expect(screen.getByText('Customer Experience')).toBeInTheDocument()
+      expect(screen.queryByText('Legacy Systems')).not.toBeInTheDocument()
+    })
+  })
+
+  it('id mode: shows (business_id) prefix and matches ids', async () => {
+    const user = userEvent.setup()
+    render(<HierarchyTree activeType="project" activeId="pj1" />, {
+      store: makeStore(), queryClient: createTestQueryClient(),
+    })
+    await waitFor(() => expect(screen.getByText('Customer Experience')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /toggle id mode/i }))
+    await waitFor(() =>
+      expect(screen.getByText(/\(020000001\)/)).toBeInTheDocument()
+    )
+
+    await user.type(screen.getByPlaceholderText('Filter…'), '0300000')
+    await waitFor(() => {
+      expect(screen.getByText(/\(030000001\)/)).toBeInTheDocument()
+      expect(screen.queryByText(/Legacy Systems/)).not.toBeInTheDocument()
+    })
+  })
+
+  it('renders collapse button only when onCollapse given, and calls it', async () => {
+    const user = userEvent.setup()
+    const onCollapse = vi.fn()
+    render(<HierarchyTree activeType="project" activeId="pj1" onCollapse={onCollapse} />, {
+      store: makeStore(), queryClient: createTestQueryClient(),
+    })
+    await user.click(await screen.findByRole('button', { name: /collapse tree/i }))
+    expect(onCollapse).toHaveBeenCalled()
   })
 })
