@@ -11,8 +11,13 @@ import PortfolioShell from './PortfolioShell'
 let mockNarrow = false
 
 vi.mock('../portfolio/HierarchyTree', () => ({
-  default: ({ activeType, activeId }: any) => (
-    <div data-testid="hierarchy-tree">{activeType}:{activeId}</div>
+  default: ({ activeType, activeId, onCollapse }: any) => (
+    <div data-testid="hierarchy-tree">
+      {activeType}:{activeId}
+      {onCollapse && (
+        <button aria-label="Collapse tree" onClick={onCollapse}>collapse</button>
+      )}
+    </div>
   ),
 }))
 
@@ -59,6 +64,7 @@ const renderAt = (path: string) => {
 describe('PortfolioShell', () => {
   beforeEach(() => {
     mockNarrow = false
+    sessionStorage.clear()
   })
 
   it('renders the outlet full-width with no tree on /portfolios (State 1)', () => {
@@ -83,6 +89,19 @@ describe('PortfolioShell', () => {
     renderAt('/programs/pg1')
     expect(screen.getByTestId('program-detail')).toBeInTheDocument()
     expect(screen.getByTestId('hierarchy-tree')).toHaveTextContent('program:pg1')
+  })
+
+  it('collapses the tree to a rail and expands it back', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup()
+    renderAt('/projects/pj1')
+    expect(screen.getByTestId('hierarchy-tree')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /collapse tree/i }))
+    expect(screen.queryByTestId('hierarchy-tree')).not.toBeInTheDocument()
+    expect(sessionStorage.getItem('portfolioTreeCollapsed')).toBe('1')
+
+    await user.click(screen.getByRole('button', { name: /expand tree/i }))
+    expect(screen.getByTestId('hierarchy-tree')).toBeInTheDocument()
   })
 })
 
