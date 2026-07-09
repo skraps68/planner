@@ -24,6 +24,11 @@ class Portfolio(BaseModel):
     owner = Column(String(255), nullable=False)
     reporting_start_date = Column(Date, nullable=False)
     reporting_end_date = Column(Date, nullable=False)
+
+    # Human-friendly 9-digit typed ID (server-generated; leading zeros meaningful).
+    # Nullable in the model so SQLite test fixtures that predate business IDs
+    # still work; Postgres enforces NOT NULL via migration.
+    business_id = Column(String(9), nullable=True, unique=True, index=True)
     
     # Relationships
     programs = relationship("Program", back_populates="portfolio", cascade="all, delete-orphan")
