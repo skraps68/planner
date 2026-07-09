@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.models.program import Program
 from app.repositories.program import program_repository
 from app.repositories.portfolio import portfolio_repository
+from app.services.business_id import allocate_business_id
 
 
 class ProgramService:
@@ -73,7 +74,8 @@ class ProgramService:
             "technical_lead": technical_lead,
             "start_date": start_date,
             "end_date": end_date,
-            "description": description
+            "description": description,
+            "business_id": allocate_business_id(db, "program"),
         }
         
         return self.repository.create(db, obj_in=program_data)

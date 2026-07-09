@@ -19,6 +19,7 @@ from app.models.resource_assignment import ResourceAssignment
 from app.models.actual import Actual
 from app.models.user import User, UserRole, ScopeAssignment, RoleType, ScopeType
 from app.services.authentication import AuthenticationService
+from app.services.business_id import allocate_business_id
 
 
 def clear_database(db: Session):
@@ -54,9 +55,10 @@ def create_portfolio(db: Session) -> Portfolio:
         description="Default portfolio for all programs",
         owner="System Administrator",
         reporting_start_date=date(2024, 1, 1),
-        reporting_end_date=date(2026, 12, 31)
+        reporting_end_date=date(2026, 12, 31),
+        business_id=allocate_business_id(db, "portfolio"),
     )
-    
+
     db.add(portfolio)
     db.commit()
     print(f"Created portfolio: {portfolio.name}")
@@ -77,7 +79,8 @@ def create_programs(db: Session, portfolio: Portfolio) -> dict:
             technical_lead="Alice Johnson",
             start_date=date(2024, 1, 1),
             end_date=date(2025, 12, 31),
-            description="Enterprise-wide digital transformation program"
+            description="Enterprise-wide digital transformation program",
+            business_id=allocate_business_id(db, "program"),
         ),
         "infrastructure_modernization": Program(
             id=uuid4(),
@@ -88,7 +91,8 @@ def create_programs(db: Session, portfolio: Portfolio) -> dict:
             technical_lead="David Brown",
             start_date=date(2024, 6, 1),
             end_date=date(2026, 5, 31),
-            description="Modernize IT infrastructure and cloud migration"
+            description="Modernize IT infrastructure and cloud migration",
+            business_id=allocate_business_id(db, "program"),
         ),
         "customer_experience": Program(
             id=uuid4(),
@@ -99,7 +103,8 @@ def create_programs(db: Session, portfolio: Portfolio) -> dict:
             technical_lead="Grace Lee",
             start_date=date(2024, 3, 1),
             end_date=date(2025, 8, 31),
-            description="Improve customer-facing applications and services"
+            description="Improve customer-facing applications and services",
+            business_id=allocate_business_id(db, "program"),
         ),
     }
     
@@ -126,7 +131,8 @@ def create_projects(db: Session, programs: dict) -> dict:
             start_date=date(2024, 2, 1),
             end_date=date(2025, 6, 30),
             cost_center_code="CC-001",
-            description="Develop new mobile application for customers"
+            description="Develop new mobile application for customers",
+            business_id=allocate_business_id(db, "project"),
         ),
         "web_portal": Project(
             id=uuid4(),
@@ -138,7 +144,8 @@ def create_projects(db: Session, programs: dict) -> dict:
             start_date=date(2024, 4, 1),
             end_date=date(2025, 3, 31),
             cost_center_code="CC-002",
-            description="Redesign customer web portal with modern UI"
+            description="Redesign customer web portal with modern UI",
+            business_id=allocate_business_id(db, "project"),
         ),
         "cloud_migration": Project(
             id=uuid4(),
@@ -150,7 +157,8 @@ def create_projects(db: Session, programs: dict) -> dict:
             start_date=date(2024, 7, 1),
             end_date=date(2025, 12, 31),
             cost_center_code="CC-003",
-            description="Migrate core applications to AWS cloud"
+            description="Migrate core applications to AWS cloud",
+            business_id=allocate_business_id(db, "project"),
         ),
         "data_center": Project(
             id=uuid4(),
@@ -162,7 +170,8 @@ def create_projects(db: Session, programs: dict) -> dict:
             start_date=date(2024, 9, 1),
             end_date=date(2026, 3, 31),
             cost_center_code="CC-004",
-            description="Consolidate regional data centers"
+            description="Consolidate regional data centers",
+            business_id=allocate_business_id(db, "project"),
         ),
         "crm_upgrade": Project(
             id=uuid4(),
@@ -174,7 +183,8 @@ def create_projects(db: Session, programs: dict) -> dict:
             start_date=date(2024, 4, 1),
             end_date=date(2025, 6, 30),
             cost_center_code="CC-005",
-            description="Upgrade CRM system to latest version"
+            description="Upgrade CRM system to latest version",
+            business_id=allocate_business_id(db, "project"),
         ),
     }
     
