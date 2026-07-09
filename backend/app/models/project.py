@@ -38,7 +38,12 @@ class Project(BaseModel):
     
     # Optional fields
     description = Column(String(1000), nullable=True)
-    
+
+    # Human-friendly 9-digit typed ID (server-generated; leading zeros meaningful).
+    # Nullable in the model so SQLite test fixtures that predate business IDs
+    # still work; Postgres enforces NOT NULL via migration.
+    business_id = Column(String(9), nullable=True, unique=True, index=True)
+
     # Relationships
     program = relationship("Program", back_populates="projects")
     phases = relationship("ProjectPhase", back_populates="project", cascade="all, delete-orphan")

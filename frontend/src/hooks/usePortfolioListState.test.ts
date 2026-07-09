@@ -47,4 +47,22 @@ describe('usePortfolioListState', () => {
     expect(result.current.expandedPortfolios.has('pf2')).toBe(true)
     expect(result.current.expandedPrograms.has('pg2')).toBe(true)
   })
+
+  it('idMode defaults off, toggles, and persists', () => {
+    const { result } = renderHook(() => usePortfolioListState())
+    expect(result.current.idMode).toBe(false)
+
+    act(() => result.current.toggleIdMode())
+    expect(result.current.idMode).toBe(true)
+    expect(JSON.parse(sessionStorage.getItem('portfoliosListState')!).idMode).toBe(true)
+  })
+
+  it('idMode restores from saved state', () => {
+    sessionStorage.setItem(
+      'portfoliosListState',
+      JSON.stringify({ search: '', portfolios: [], programs: [], idMode: true })
+    )
+    const { result } = renderHook(() => usePortfolioListState())
+    expect(result.current.idMode).toBe(true)
+  })
 })

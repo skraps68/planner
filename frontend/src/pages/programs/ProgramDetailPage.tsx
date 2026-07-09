@@ -430,6 +430,12 @@ const ProgramDetailPage: React.FC = () => {
                     </Typography>
                   )}
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    ID
+                  </Typography>
+                  <Typography variant="body1">{program.business_id}</Typography>
+                </Grid>
             </Grid>
           </Paper>
         </Grid>

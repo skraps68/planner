@@ -9,6 +9,7 @@ interface SavedListState {
   search: string
   portfolios: string[]
   programs: string[]
+  idMode: boolean
 }
 
 const loadSavedListState = (): SavedListState => {
@@ -20,12 +21,13 @@ const loadSavedListState = (): SavedListState => {
         search: typeof parsed.search === 'string' ? parsed.search : '',
         portfolios: Array.isArray(parsed.portfolios) ? parsed.portfolios : [],
         programs: Array.isArray(parsed.programs) ? parsed.programs : [],
+        idMode: parsed.idMode === true,
       }
     }
   } catch {
     // Corrupted saved state — start fresh
   }
-  return { search: '', portfolios: [], programs: [] }
+  return { search: '', portfolios: [], programs: [], idMode: false }
 }
 
 const toggled = (set: Set<string>, id: string): Set<string> => {
@@ -43,6 +45,8 @@ export interface PortfolioListState {
   toggleProgram: (id: string) => void
   /** Union-in ids (used by the tree to auto-expand ancestors of the active item) */
   expandMany: (portfolioIds: string[], programIds: string[]) => void
+  idMode: boolean
+  toggleIdMode: () => void
 }
 
 export function usePortfolioListState(): PortfolioListState {
@@ -54,6 +58,7 @@ export function usePortfolioListState(): PortfolioListState {
   const [expandedPrograms, setExpandedPrograms] = useState<Set<string>>(
     new Set(saved.programs)
   )
+  const [idMode, setIdMode] = useState(saved.idMode)
 
   useEffect(() => {
     sessionStorage.setItem(
@@ -62,9 +67,10 @@ export function usePortfolioListState(): PortfolioListState {
         search,
         portfolios: [...expandedPortfolios],
         programs: [...expandedPrograms],
+        idMode,
       })
     )
-  }, [search, expandedPortfolios, expandedPrograms])
+  }, [search, expandedPortfolios, expandedPrograms, idMode])
 
   const togglePortfolio = useCallback(
     (id: string) => setExpandedPortfolios((prev) => toggled(prev, id)),
@@ -78,6 +84,7 @@ export function usePortfolioListState(): PortfolioListState {
     if (portfolioIds.length) setExpandedPortfolios((prev) => new Set([...prev, ...portfolioIds]))
     if (programIds.length) setExpandedPrograms((prev) => new Set([...prev, ...programIds]))
   }, [])
+  const toggleIdMode = useCallback(() => setIdMode((v) => !v), [])
 
   return {
     search,
@@ -87,5 +94,7 @@ export function usePortfolioListState(): PortfolioListState {
     togglePortfolio,
     toggleProgram,
     expandMany,
+    idMode,
+    toggleIdMode,
   }
 }

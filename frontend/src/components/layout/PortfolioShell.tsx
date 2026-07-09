@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { Outlet, matchPath, useLocation } from 'react-router-dom'
-import { Box, Button, useMediaQuery, useTheme } from '@mui/material'
-import { ChevronLeft } from '@mui/icons-material'
+import { Box, Button, Paper, IconButton, useMediaQuery, useTheme } from '@mui/material'
+import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import HierarchyTree, { HierarchyItemType } from '../portfolio/HierarchyTree'
 
 interface DetailMatch {
   type: HierarchyItemType
   id: string
 }
+
+const TREE_COLLAPSED_KEY = 'portfolioTreeCollapsed'
 
 const DETAIL_PATTERNS: Array<{ pattern: string; type: HierarchyItemType }> = [
   { pattern: '/portfolios/:id', type: 'portfolio' },
@@ -35,6 +37,13 @@ const PortfolioShell: React.FC = () => {
   const theme = useTheme()
   const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
   const [treeVisibleOnNarrow, setTreeVisibleOnNarrow] = useState(false)
+  const [treeCollapsed, setTreeCollapsed] = useState(
+    () => sessionStorage.getItem(TREE_COLLAPSED_KEY) === '1'
+  )
+  const setCollapsed = (collapsed: boolean) => {
+    setTreeCollapsed(collapsed)
+    sessionStorage.setItem(TREE_COLLAPSED_KEY, collapsed ? '1' : '0')
+  }
   const location = useLocation()
   // Cross-route navigation that bypasses the tree should land on content, not a stale tree view
   useEffect(() => {
@@ -73,7 +82,27 @@ const PortfolioShell: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-      <HierarchyTree activeType={detail.type} activeId={detail.id} />
+      {treeCollapsed ? (
+        <Paper
+          sx={{
+            width: 24,
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            py: 0.5,
+          }}
+        >
+          <IconButton aria-label="Expand tree" size="small" onClick={() => setCollapsed(false)}>
+            <ChevronRight fontSize="small" />
+          </IconButton>
+        </Paper>
+      ) : (
+        <HierarchyTree
+          activeType={detail.type}
+          activeId={detail.id}
+          onCollapse={() => setCollapsed(true)}
+        />
+      )}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Outlet />
       </Box>

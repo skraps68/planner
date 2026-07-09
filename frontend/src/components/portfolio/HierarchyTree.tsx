@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Box, IconButton, Paper, Typography } from '@mui/material'
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material'
+import { Box, IconButton, Paper, TextField, Typography } from '@mui/material'
+import { ChevronLeft, KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
@@ -20,19 +20,77 @@ interface HierarchyTreeProps {
   activeType: HierarchyItemType
   activeId: string
   onNavigate?: () => void
+  onCollapse?: () => void
+}
+
+const labelFor = (idMode: boolean, businessId: string, name: string) =>
+  idMode ? `(${businessId}) ${name}` : name
+
+/** First-occurrence highlight of `term` inside `label` (case-insensitive). */
+const HighlightedLabel: React.FC<{ label: string; term: string }> = ({ label, term }) => {
+  const t = term.trim().toLowerCase()
+  const idx = t ? label.toLowerCase().indexOf(t) : -1
+  if (idx < 0) return <>{label}</>
+  return (
+    <>
+      {label.slice(0, idx)}
+      <Box
+        component="span"
+        sx={{ backgroundColor: 'rgba(255, 213, 79, 0.6)', borderRadius: '2px' }}
+      >
+        {label.slice(idx, idx + t.length)}
+      </Box>
+      {label.slice(idx + t.length)}
+    </>
+  )
 }
 
 /**
- * Slim (State 2) hierarchy: a headerless folder tree. Level is conveyed by
+ * Row label renderer: renders the business_id prefix (when idMode) as its own
+ * unsplit span — so RTL's getByText can always find "(businessId)" as a
+ * continuous text node — then applies HighlightedLabel to the name part only.
+ * Matching still uses the full combined label for visibility/filtering.
+ */
+const RowLabel: React.FC<{
+  idMode: boolean
+  businessId: string
+  name: string
+  term: string
+}> = ({ idMode, businessId, name, term }) => {
+  if (!idMode) return <HighlightedLabel label={name} term={term} />
+  return (
+    <>
+      <Box component="span">{`(${businessId}) `}</Box>
+      <HighlightedLabel label={name} term={term} />
+    </>
+  )
+}
+
+/**
+ * Slim (State 2) hierarchy: a folder tree with header row. Level is conveyed by
  * indentation + expand/collapse arrows only (no per-level headers or icons).
  * Clicking a name navigates to that item's detail; the arrow is the only
  * expand/collapse control. Ancestors of the active item auto-expand.
  */
-const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onNavigate }) => {
+const HierarchyTree: React.FC<HierarchyTreeProps> = ({
+  activeType,
+  activeId,
+  onNavigate,
+  onCollapse,
+}) => {
   const navigate = useNavigate()
   const { filterPrograms, filterProjects } = useScopeFilter()
-  const { expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram, expandMany } =
-    usePortfolioListState()
+  const {
+    search,
+    setSearch,
+    idMode,
+    toggleIdMode,
+    expandedPortfolios,
+    expandedPrograms,
+    togglePortfolio,
+    toggleProgram,
+    expandMany,
+  } = usePortfolioListState()
   const activeRowRef = useRef<HTMLDivElement | null>(null)
 
   const { data: portfoliosData } = useQuery({
@@ -104,13 +162,77 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
     onNavigate?.()
   }
 
+  // Filter model: compute which nodes are visible and which are dimmed
+  const term = search.trim().toLowerCase()
+  const searching = term !== ''
+
+  const matches = (businessId: string, name: string) =>
+    labelFor(idMode, businessId, name).toLowerCase().includes(term)
+
+  // visibility: self-match OR descendant-match; matching parents show all children
+  // Dimming rule: a node is dimmed only when shown because of a DESCENDANT match
+  // (ancestor-context). Children force-shown under a matching ancestor are NOT dimmed.
+  const visible = useMemo(() => {
+    if (!searching) return null // null = show everything, no dimming
+    const dimmed = new Set<string>()
+    const show = new Set<string>()
+
+    for (const portfolio of portfolios) {
+      const pfMatch = matches(portfolio.business_id ?? '', portfolio.name)
+      let pfHasDescendant = false
+
+      for (const program of programsByPortfolio.get(portfolio.id) || []) {
+        const pgMatch = matches(program.business_id ?? '', program.name)
+        let pgHasDescendant = false
+
+        for (const project of projectsByProgram.get(program.id) || []) {
+          const pjMatch = matches(project.business_id ?? '', project.name)
+          // Show a project if: it matches, its program matches, or its portfolio matches
+          if (pfMatch || pgMatch || pjMatch) {
+            show.add(`pj-${project.id}`)
+            // Projects are leaf nodes — they can never be shown "because of a descendant".
+            // They are never dimmed (either they self-match or are shown under a matching ancestor).
+            if (pjMatch) pgHasDescendant = true
+          }
+        }
+
+        if (pfMatch || pgMatch || pgHasDescendant) {
+          show.add(`pg-${program.id}`)
+          // Dim a program only if it's shown solely because of a descendant match
+          // (not self-match, not force-shown under a matching ancestor)
+          if (!pgMatch && !pfMatch && pgHasDescendant) {
+            dimmed.add(`pg-${program.id}`)
+          }
+          if (pgMatch || pgHasDescendant) pfHasDescendant = true
+        }
+      }
+
+      if (pfMatch || pfHasDescendant) {
+        show.add(`pf-${portfolio.id}`)
+        // Dim a portfolio only if it's shown solely because of a descendant match
+        if (!pfMatch && pfHasDescendant) {
+          dimmed.add(`pf-${portfolio.id}`)
+        }
+      }
+    }
+
+    return { show, dimmed }
+  }, [searching, term, idMode, portfolios, programsByPortfolio, projectsByProgram])
+
+  // While searching, all nodes with descendants in view are force-expanded
+  // without writing to the persisted expansion sets
+  const effectiveOpen = (kind: 'pf' | 'pg', id: string) =>
+    searching ? true : kind === 'pf' ? expandedPortfolios.has(id) : expandedPrograms.has(id)
+
   const row = (
     depth: number,
     isActive: boolean,
     arrow: React.ReactNode,
-    label: string,
+    title: string,
+    labelNode: React.ReactNode,
     onClick: () => void,
-    key: string
+    key: string,
+    dimColor?: boolean
   ) => (
     <Box
       key={key}
@@ -135,11 +257,15 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
       <Typography
         variant="body2"
         noWrap
-        title={label}
+        title={title}
         // Portfolio and program names bold; project names regular
-        sx={{ fontSize: '0.78rem', fontWeight: depth < 2 ? 600 : 400 }}
+        sx={{
+          fontSize: '0.78rem',
+          fontWeight: depth < 2 ? 600 : 400,
+          color: dimColor && !isActive ? 'text.disabled' : undefined,
+        }}
       >
-        {label}
+        {labelNode}
       </Typography>
     </Box>
   )
@@ -164,7 +290,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
   return (
     <Paper
       sx={{
-        width: 240,
+        width: idMode ? 280 : 240,
         flexShrink: 0,
         overflowY: 'auto',
         maxHeight: 'calc(100vh - 96px)',
@@ -172,60 +298,112 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({ activeType, activeId, onN
         pr: 0.5,
       }}
     >
-      {portfolios.map((portfolio) => {
-        const pfOpen = expandedPortfolios.has(portfolio.id)
-        const children = programsByPortfolio.get(portfolio.id) || []
-        return (
-          <React.Fragment key={portfolio.id}>
-            {row(
-              0,
-              activeType === 'portfolio' && activeId === portfolio.id,
-              arrowButton(pfOpen, portfolio.name, () => togglePortfolio(portfolio.id)),
-              portfolio.name,
-              () => go(`/portfolios/${portfolio.id}`),
-              `pf-${portfolio.id}`
-            )}
-            {pfOpen &&
-              children.map((program) => {
-                const pgOpen = expandedPrograms.has(program.id)
-                const projectChildren = projectsByProgram.get(program.id) || []
-                return (
-                  <React.Fragment key={program.id}>
-                    {row(
-                      1,
-                      activeType === 'program' && activeId === program.id,
-                      arrowButton(pgOpen, program.name, () => toggleProgram(program.id)),
-                      program.name,
-                      () =>
-                        go(`/programs/${program.id}`, {
-                          portfolioId: portfolio.id,
-                          portfolioName: portfolio.name,
-                        }),
-                      `pg-${program.id}`
-                    )}
-                    {pgOpen &&
-                      projectChildren.map((project) =>
-                        row(
-                          2,
-                          activeType === 'project' && activeId === project.id,
-                          leafSpacer,
-                          project.name,
-                          () =>
-                            go(`/projects/${project.id}`, {
-                              programId: program.id,
-                              programName: program.name,
-                              portfolioId: portfolio.id,
-                              portfolioName: portfolio.name,
-                            }),
-                          `pj-${project.id}`
-                        )
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.5, pb: 0.5 }}>
+        <TextField
+          size="small"
+          placeholder="Filter…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.78rem', py: 0.5 } }}
+        />
+        <IconButton
+          aria-label="Toggle ID mode"
+          aria-pressed={idMode}
+          size="small"
+          onClick={toggleIdMode}
+          sx={{
+            border: '1px solid',
+            borderColor: idMode ? 'primary.main' : 'divider',
+            borderRadius: 1,
+            color: idMode ? 'primary.main' : 'text.secondary',
+            fontSize: '0.8rem',
+            width: 26,
+            height: 26,
+          }}
+        >
+          #
+        </IconButton>
+        {onCollapse && (
+          <IconButton aria-label="Collapse tree" size="small" onClick={onCollapse}>
+            <ChevronLeft fontSize="small" />
+          </IconButton>
+        )}
+      </Box>
+      {searching && visible?.show.size === 0 ? (
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5 }}>
+          No matches
+        </Typography>
+      ) : (
+        portfolios.map((portfolio) => {
+          const pfKey = `pf-${portfolio.id}`
+          if (searching && !visible?.show.has(pfKey)) return null
+          const pfOpen = effectiveOpen('pf', portfolio.id)
+          const children = programsByPortfolio.get(portfolio.id) || []
+          const pfBid = portfolio.business_id ?? ''
+          return (
+            <React.Fragment key={portfolio.id}>
+              {row(
+                0,
+                activeType === 'portfolio' && activeId === portfolio.id,
+                arrowButton(pfOpen, portfolio.name, () => togglePortfolio(portfolio.id)),
+                labelFor(idMode, pfBid, portfolio.name),
+                <RowLabel idMode={idMode} businessId={pfBid} name={portfolio.name} term={search} />,
+                () => go(`/portfolios/${portfolio.id}`),
+                pfKey,
+                visible?.dimmed.has(pfKey)
+              )}
+              {pfOpen &&
+                children.map((program) => {
+                  const pgKey = `pg-${program.id}`
+                  if (searching && !visible?.show.has(pgKey)) return null
+                  const pgOpen = effectiveOpen('pg', program.id)
+                  const projectChildren = projectsByProgram.get(program.id) || []
+                  const pgBid = program.business_id ?? ''
+                  return (
+                    <React.Fragment key={program.id}>
+                      {row(
+                        1,
+                        activeType === 'program' && activeId === program.id,
+                        arrowButton(pgOpen, program.name, () => toggleProgram(program.id)),
+                        labelFor(idMode, pgBid, program.name),
+                        <RowLabel idMode={idMode} businessId={pgBid} name={program.name} term={search} />,
+                        () =>
+                          go(`/programs/${program.id}`, {
+                            portfolioId: portfolio.id,
+                            portfolioName: portfolio.name,
+                          }),
+                        pgKey,
+                        visible?.dimmed.has(pgKey)
                       )}
-                  </React.Fragment>
-                )
-              })}
-          </React.Fragment>
-        )
-      })}
+                      {pgOpen &&
+                        projectChildren.map((project) => {
+                          const pjKey = `pj-${project.id}`
+                          if (searching && !visible?.show.has(pjKey)) return null
+                          const pjBid = project.business_id ?? ''
+                          return row(
+                            2,
+                            activeType === 'project' && activeId === project.id,
+                            leafSpacer,
+                            labelFor(idMode, pjBid, project.name),
+                            <RowLabel idMode={idMode} businessId={pjBid} name={project.name} term={search} />,
+                            () =>
+                              go(`/projects/${project.id}`, {
+                                programId: program.id,
+                                programName: program.name,
+                                portfolioId: portfolio.id,
+                                portfolioName: portfolio.name,
+                              }),
+                            pjKey,
+                            visible?.dimmed.has(pjKey)
+                          )
+                        })}
+                    </React.Fragment>
+                  )
+                })}
+            </React.Fragment>
+          )
+        })
+      )}
     </Paper>
   )
 }

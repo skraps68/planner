@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models.portfolio import Portfolio
 from app.repositories.portfolio import portfolio_repository
 from app.services.audit import audit_service
+from app.services.business_id import allocate_business_id
 
 
 class PortfolioService:
@@ -62,7 +63,8 @@ class PortfolioService:
             "description": description,
             "owner": owner,
             "reporting_start_date": reporting_start_date,
-            "reporting_end_date": reporting_end_date
+            "reporting_end_date": reporting_end_date,
+            "business_id": allocate_business_id(db, "portfolio"),
         }
         
         portfolio = self.repository.create(db, obj_in=portfolio_data)

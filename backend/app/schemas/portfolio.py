@@ -54,7 +54,8 @@ class PortfolioUpdate(VersionedSchema):
 
 class PortfolioResponse(PortfolioBase, TimestampMixin, VersionedSchema):
     """Schema for portfolio response."""
-    
+
+    business_id: Optional[str] = Field(default=None, description="Human-friendly 9-digit ID (server-generated)")
     program_count: Optional[int] = Field(default=0, description="Number of programs in this portfolio")
 
 

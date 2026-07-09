@@ -38,6 +38,7 @@ describe('PortfoliosListPage', () => {
       version: 1,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
+      business_id: '010000001',
     },
     {
       id: '2',
@@ -50,6 +51,7 @@ describe('PortfoliosListPage', () => {
       version: 1,
       created_at: '2024-02-01T00:00:00Z',
       updated_at: '2024-02-01T00:00:00Z',
+      business_id: '010000002',
     },
   ]
 
@@ -213,6 +215,17 @@ describe('PortfoliosListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('John Doe')).toBeInTheDocument()
       expect(screen.getByText('Jane Smith')).toBeInTheDocument()
+    })
+  })
+
+  it('shows (business_id) prefixes when idMode is saved on', async () => {
+    sessionStorage.setItem(
+      'portfoliosListState',
+      JSON.stringify({ search: '', portfolios: [], programs: [], idMode: true })
+    )
+    render(<PortfoliosListPage />, { store, queryClient })
+    await waitFor(() => {
+      expect(screen.getByText(/\(010000001\) Digital Transformation/)).toBeInTheDocument()
     })
   })
 })
