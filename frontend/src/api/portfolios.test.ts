@@ -26,12 +26,14 @@ describe('Portfolios API Client', () => {
           items: [
             {
               id: '1',
+              business_id: '010000001',
               name: 'Portfolio 1',
               description: 'Description 1',
               owner: 'Owner 1',
               reporting_start_date: '2024-01-01',
               reporting_end_date: '2024-12-31',
               program_count: 5,
+              version: 1,
               created_at: '2024-01-01T00:00:00Z',
               updated_at: '2024-01-01T00:00:00Z',
             },
@@ -81,12 +83,14 @@ describe('Portfolios API Client', () => {
     it('should fetch a single portfolio by id', async () => {
       const mockPortfolio: Portfolio = {
         id: '123',
+        business_id: '010000001',
         name: 'Test Portfolio',
         description: 'Test Description',
         owner: 'Test Owner',
         reporting_start_date: '2024-01-01',
         reporting_end_date: '2024-12-31',
         program_count: 3,
+        version: 1,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       }
@@ -116,8 +120,10 @@ describe('Portfolios API Client', () => {
 
       const mockCreatedPortfolio: Portfolio = {
         id: '456',
+        business_id: '010000001',
         ...createData,
         program_count: 0,
+        version: 1,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       }
@@ -144,12 +150,14 @@ describe('Portfolios API Client', () => {
 
       const mockUpdatedPortfolio: Portfolio = {
         id: '789',
+        business_id: '010000001',
         name: 'Updated Portfolio',
         description: 'Updated Description',
         owner: 'Original Owner',
         reporting_start_date: '2024-01-01',
         reporting_end_date: '2024-12-31',
         program_count: 2,
+        version: 2,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-02T00:00:00Z',
       }
@@ -172,12 +180,14 @@ describe('Portfolios API Client', () => {
 
       const mockUpdatedPortfolio: Portfolio = {
         id: '789',
+        business_id: '010000001',
         name: 'Original Portfolio',
         description: 'Original Description',
         owner: 'New Owner',
         reporting_start_date: '2024-01-01',
         reporting_end_date: '2024-12-31',
         program_count: 2,
+        version: 2,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-02T00:00:00Z',
       }
@@ -208,23 +218,29 @@ describe('Portfolios API Client', () => {
       const mockPrograms: Program[] = [
         {
           id: 'prog1',
+          business_id: '020000001',
           name: 'Program 1',
           business_sponsor: 'Sponsor 1',
           program_manager: 'Manager 1',
           technical_lead: 'Lead 1',
           start_date: '2024-01-01',
           end_date: '2024-12-31',
+          portfolio_id: '1',
+          version: 1,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
         },
         {
           id: 'prog2',
+          business_id: '020000002',
           name: 'Program 2',
           business_sponsor: 'Sponsor 2',
           program_manager: 'Manager 2',
           technical_lead: 'Lead 2',
           start_date: '2024-01-01',
           end_date: '2024-12-31',
+          portfolio_id: '1',
+          version: 1,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
         },
@@ -306,6 +322,7 @@ describe('Portfolios API Client', () => {
 
       const mockUpdatedPortfolio: Portfolio = {
         id: '789',
+        business_id: '010000001',
         name: 'Updated Portfolio',
         description: 'Description',
         owner: 'Owner',
@@ -334,6 +351,7 @@ describe('Portfolios API Client', () => {
     it('should store version from API responses on get', async () => {
       const mockPortfolio: Portfolio = {
         id: '123',
+        business_id: '010000001',
         name: 'Test Portfolio',
         description: 'Test Description',
         owner: 'Test Owner',
@@ -366,6 +384,7 @@ describe('Portfolios API Client', () => {
 
       const mockCreatedPortfolio: Portfolio = {
         id: '456',
+        business_id: '010000001',
         ...createData,
         program_count: 0,
         version: 1,
@@ -389,6 +408,7 @@ describe('Portfolios API Client', () => {
           items: [
             {
               id: '1',
+              business_id: '010000001',
               name: 'Portfolio 1',
               description: 'Description 1',
               owner: 'Owner 1',

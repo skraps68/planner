@@ -2,6 +2,7 @@
 
 export interface Program {
   id: string
+  business_id: string
   name: string
   business_sponsor: string
   program_manager: string
@@ -20,6 +21,7 @@ export interface Program {
 
 export interface Project {
   id: string
+  business_id: string
   program_id: string
   name: string
   business_sponsor: string

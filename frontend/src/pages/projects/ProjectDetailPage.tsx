@@ -418,8 +418,6 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.cost_center_code}</Typography>
                   )}
                 </Grid>
-                {/* Spacer keeps Start/End paired on their own row after the Edit-button cell shifts parity */}
-                <Grid item xs={12} sm={6} sx={{ display: { xs: 'none', sm: 'block' } }} />
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
                     Start Date
@@ -457,6 +455,12 @@ const ProjectDetailPage: React.FC = () => {
                       {format(new Date(project.end_date), 'MMMM dd, yyyy')}
                     </Typography>
                   )}
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    ID
+                  </Typography>
+                  <Typography variant="body1">{project.business_id}</Typography>
                 </Grid>
               </Grid>
             </Paper>
