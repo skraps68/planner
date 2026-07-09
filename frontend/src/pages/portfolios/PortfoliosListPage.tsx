@@ -118,8 +118,11 @@ const LIST_SCROLL_KEY = 'portfoliosListScroll'
  */
 const PortfoliosListPage: React.FC = () => {
   const navigate = useNavigate()
-  const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram } =
+  const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram, idMode } =
     usePortfolioListState()
+
+  const displayName = (businessId: string, name: string) =>
+    idMode ? `(${businessId}) ${name}` : name
 
   // Remember scroll position when leaving the page (the window is the scroller)
   useEffect(() => {
@@ -195,12 +198,12 @@ const PortfoliosListPage: React.FC = () => {
     const buildPrograms = (portfolioMatches: boolean, list: Program[]) =>
       list
         .map((program) => {
-          const programMatches = has(program.name, program.business_sponsor, program.program_manager)
+          const programMatches = has(program.name, program.business_sponsor, program.program_manager, idMode ? program.business_id : null)
           const allProjects = projectsByProgram.get(program.id) || []
           const visibleProjects =
             portfolioMatches || programMatches
               ? allProjects
-              : allProjects.filter((p) => has(p.name, p.project_manager, p.cost_center_code))
+              : allProjects.filter((p) => has(p.name, p.project_manager, p.cost_center_code, idMode ? p.business_id : null))
           if (!portfolioMatches && !programMatches && visibleProjects.length === 0) return null
           return { program, projects: visibleProjects }
         })
@@ -208,7 +211,7 @@ const PortfoliosListPage: React.FC = () => {
 
     const portfolioNodes = (portfoliosData?.items || [])
       .map((portfolio) => {
-        const portfolioMatches = has(portfolio.name, portfolio.owner, portfolio.description)
+        const portfolioMatches = has(portfolio.name, portfolio.owner, portfolio.description, idMode ? portfolio.business_id : null)
         const programNodes = buildPrograms(portfolioMatches, programsByPortfolio.get(portfolio.id) || [])
         if (!portfolioMatches && programNodes.length === 0) return null
         return { portfolio, programs: programNodes }
@@ -219,7 +222,7 @@ const PortfoliosListPage: React.FC = () => {
     const orphanPrograms = buildPrograms(false, programsByPortfolio.get('none') || [])
 
     return { portfolioNodes, orphanPrograms }
-  }, [portfoliosData?.items, programs, projects, search])
+  }, [portfoliosData?.items, programs, projects, search, idMode])
 
   // While searching, force everything visible open so matches are on screen
   const searching = search.trim() !== ''
@@ -275,7 +278,7 @@ const PortfoliosListPage: React.FC = () => {
                 onClick={() => openProject(project, program, portfolio)}
                 sx={clickableRowSx}
               >
-                <TableCell>{project.name}</TableCell>
+                <TableCell>{displayName(project.business_id, project.name)}</TableCell>
                 <TableCell>{project.project_manager}</TableCell>
                 <TableCell>{project.cost_center_code}</TableCell>
                 <TableCell>{formatDate(project.start_date)}</TableCell>
@@ -343,7 +346,7 @@ const PortfoliosListPage: React.FC = () => {
                       )}
                     </IconButton>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>{program.name}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{displayName(program.business_id, program.name)}</TableCell>
                   <TableCell>{program.business_sponsor}</TableCell>
                   <TableCell>{program.program_manager}</TableCell>
                   <TableCell>{formatDate(program.start_date)}</TableCell>
@@ -470,7 +473,7 @@ const PortfoliosListPage: React.FC = () => {
                         )}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{portfolio.name}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{displayName(portfolio.business_id, portfolio.name)}</TableCell>
                     <TableCell>{portfolio.owner}</TableCell>
                     <TableCell />
                     <TableCell>{formatDate(portfolio.reporting_start_date)}</TableCell>
