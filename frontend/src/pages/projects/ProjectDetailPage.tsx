@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import React, { useState, useCallback, useMemo } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
@@ -48,16 +48,19 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
   const queryClient = useQueryClient()
   
-  const [tabValue, setTabValue] = useState(() => {
-    // Check if there's a tab parameter in the URL (clamped: old Financials tab index no longer exists)
-    const params = new URLSearchParams(location.search)
-    const tabParam = params.get('tab')
+  // The URL is the single source of truth for the active tab (?tab=N, clamped).
+  // - Selecting a different project in the nav tree lands on a bare /projects/:id
+  //   URL, so the new project always opens on the default Details tab.
+  // - Tab switches rewrite the URL in place (replace), so returning from a
+  //   resource page via the browser back button restores the tab you left.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabValue = useMemo(() => {
+    const tabParam = searchParams.get('tab')
     const parsed = tabParam ? parseInt(tabParam, 10) : 0
-    return Math.min(Math.max(parsed, 0), 2)
-  })
+    return Math.min(Math.max(Number.isNaN(parsed) ? 0 : parsed, 0), 2)
+  }, [searchParams])
   const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [snackbar, setSnackbar] = useState<{
     open: boolean
@@ -124,9 +127,16 @@ const ProjectDetailPage: React.FC = () => {
     return sum + Number(phase.expense_budget || 0)
   }, 0)
 
-  // Handle tab change
+  // Handle tab change: reflect the tab in the URL (replace, not push, so
+  // switching tabs doesn't stack history entries)
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue)
+    const next = new URLSearchParams(searchParams)
+    if (newValue === 0) {
+      next.delete('tab')
+    } else {
+      next.set('tab', String(newValue))
+    }
+    setSearchParams(next, { replace: true })
   }
 
   const handleSnackbarClose = () => {
