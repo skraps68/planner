@@ -135,6 +135,27 @@ describe('HierarchyTree filtering', () => {
     })
   })
 
+  it('clear button erases the filter and restores the full tree', async () => {
+    const user = userEvent.setup()
+    render(<HierarchyTree activeType="project" activeId="pj1" />, {
+      store: makeStore(), queryClient: createTestQueryClient(),
+    })
+    await waitFor(() => expect(screen.getByText('Customer Experience')).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText('Filter…'), 'crm')
+    await waitFor(() =>
+      expect(screen.queryByText('Legacy Systems')).not.toBeInTheDocument()
+    )
+
+    await user.click(screen.getByRole('button', { name: /clear filter/i }))
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Filter…')).toHaveValue('')
+      expect(screen.getByText('Legacy Systems')).toBeInTheDocument()
+    })
+    // Clear control hides when the filter is empty
+    expect(screen.queryByRole('button', { name: /clear filter/i })).not.toBeInTheDocument()
+  })
+
   it('renders collapse button only when onCollapse given, and calls it', async () => {
     const user = userEvent.setup()
     const onCollapse = vi.fn()

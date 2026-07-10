@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Box, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material'
-import { ChevronLeft, KeyboardArrowDown, KeyboardArrowRight, OpenInFull } from '@mui/icons-material'
+import { Box, IconButton, InputAdornment, Paper, TextField, Tooltip, Typography } from '@mui/material'
+import { Cancel, ChevronLeft, KeyboardArrowDown, KeyboardArrowRight, OpenInFull } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
@@ -287,14 +287,8 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         pr: 0.5,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.5, pb: 0.5 }}>
-        <TextField
-          size="small"
-          placeholder="Filter…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ flex: 1, '& .MuiInputBase-input': { fontSize: '0.78rem', py: 0.5 } }}
-        />
+      {/* Controls row above the filter so the filter can use the full width */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, px: 0.5, pb: 0.5 }}>
         <IconButton
           aria-label="Toggle ID mode"
           aria-pressed={idMode}
@@ -324,6 +318,32 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
             <ChevronLeft fontSize="small" />
           </IconButton>
         )}
+      </Box>
+      <Box sx={{ px: 0.5, pb: 0.5 }}>
+        <TextField
+          size="small"
+          placeholder="Filter…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          fullWidth
+          InputProps={{
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="Clear filter"
+                  size="small"
+                  edge="end"
+                  onClick={() => setSearch('')}
+                  sx={{ p: 0.25 }}
+                >
+                  {/* Filled circle-x reads as "x inside a light circle" */}
+                  <Cancel sx={{ fontSize: '1rem', color: 'grey.400' }} />
+                </IconButton>
+              </InputAdornment>
+            ) : undefined,
+          }}
+          sx={{ '& .MuiInputBase-input': { fontSize: '0.78rem', py: 0.5 } }}
+        />
       </Box>
       {searching && visible?.show.size === 0 ? (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5 }}>
