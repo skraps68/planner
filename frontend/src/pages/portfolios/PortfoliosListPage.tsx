@@ -28,6 +28,7 @@ import { format } from 'date-fns'
 import { TABLE_HEADER_BG } from '../../theme'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
+import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 import { usePortfolioListState } from '../../hooks/usePortfolioListState'
 
@@ -278,9 +279,9 @@ const PortfoliosListPage: React.FC = () => {
                 onClick={() => openProject(project, program, portfolio)}
                 sx={clickableRowSx}
               >
-                <TableCell>{displayName(project.business_id, project.name)}</TableCell>
-                <TableCell>{project.project_manager}</TableCell>
-                <TableCell>{project.cost_center_code}</TableCell>
+                <TableCell><HighlightedLabel label={displayName(project.business_id, project.name)} term={search} /></TableCell>
+                <TableCell><HighlightedLabel label={project.project_manager} term={search} /></TableCell>
+                <TableCell><HighlightedLabel label={project.cost_center_code} term={search} /></TableCell>
                 <TableCell>{formatDate(project.start_date)}</TableCell>
                 <TableCell>{formatDate(project.end_date)}</TableCell>
                 <TableCell>
@@ -346,9 +347,9 @@ const PortfoliosListPage: React.FC = () => {
                       )}
                     </IconButton>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>{displayName(program.business_id, program.name)}</TableCell>
-                  <TableCell>{program.business_sponsor}</TableCell>
-                  <TableCell>{program.program_manager}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}><HighlightedLabel label={displayName(program.business_id, program.name)} term={search} /></TableCell>
+                  <TableCell><HighlightedLabel label={program.business_sponsor} term={search} /></TableCell>
+                  <TableCell><HighlightedLabel label={program.program_manager} term={search} /></TableCell>
                   <TableCell>{formatDate(program.start_date)}</TableCell>
                   <TableCell>{formatDate(program.end_date)}</TableCell>
                   <TableCell>
@@ -473,8 +474,8 @@ const PortfoliosListPage: React.FC = () => {
                         )}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{displayName(portfolio.business_id, portfolio.name)}</TableCell>
-                    <TableCell>{portfolio.owner}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}><HighlightedLabel label={displayName(portfolio.business_id, portfolio.name)} term={search} /></TableCell>
+                    <TableCell><HighlightedLabel label={portfolio.owner} term={search} /></TableCell>
                     <TableCell />
                     <TableCell>{formatDate(portfolio.reporting_start_date)}</TableCell>
                     <TableCell>{formatDate(portfolio.reporting_end_date)}</TableCell>

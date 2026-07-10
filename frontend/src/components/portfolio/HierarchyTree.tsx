@@ -9,6 +9,7 @@ import { projectsApi } from '../../api/projects'
 import { Program, Project } from '../../types'
 import { useScopeFilter } from '../../hooks/usePermissions'
 import { usePortfolioListState } from '../../hooks/usePortfolioListState'
+import HighlightedLabel from './HighlightedLabel'
 
 export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
@@ -25,25 +26,6 @@ interface HierarchyTreeProps {
 
 const labelFor = (idMode: boolean, businessId: string, name: string) =>
   idMode ? `(${businessId}) ${name}` : name
-
-/** First-occurrence highlight of `term` inside `label` (case-insensitive). */
-const HighlightedLabel: React.FC<{ label: string; term: string }> = ({ label, term }) => {
-  const t = term.trim().toLowerCase()
-  const idx = t ? label.toLowerCase().indexOf(t) : -1
-  if (idx < 0) return <>{label}</>
-  return (
-    <>
-      {label.slice(0, idx)}
-      <Box
-        component="span"
-        sx={{ backgroundColor: 'rgba(255, 213, 79, 0.6)', borderRadius: '2px' }}
-      >
-        {label.slice(idx, idx + t.length)}
-      </Box>
-      {label.slice(idx + t.length)}
-    </>
-  )
-}
 
 /**
  * Row label renderer: renders the business_id prefix (when idMode) as its own

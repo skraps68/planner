@@ -153,7 +153,11 @@ describe('PortfoliosListPage', () => {
     await user.type(searchInput, 'Digital')
 
     await waitFor(() => {
-      expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
+      // While filtering, the matched substring is wrapped in a highlight span,
+      // so match on the cell's full text content rather than a single text node
+      expect(
+        screen.getByText((_, el) => el?.tagName === 'TD' && el.textContent === 'Digital Transformation')
+      ).toBeInTheDocument()
       expect(screen.queryByText('Infrastructure Modernization')).not.toBeInTheDocument()
     })
   })
@@ -215,6 +219,20 @@ describe('PortfoliosListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('John Doe')).toBeInTheDocument()
       expect(screen.getByText('Jane Smith')).toBeInTheDocument()
+    })
+  })
+
+  it('highlights the matched substring while filtering', async () => {
+    const user = userEvent.setup()
+    render(<PortfoliosListPage />, { store, queryClient })
+    await waitFor(() => expect(screen.getByText('Digital Transformation')).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText('Search portfolios, programs, projects...'), 'Digital')
+
+    await waitFor(() => {
+      const mark = document.querySelector('[data-highlight]')
+      expect(mark).not.toBeNull()
+      expect(mark!.textContent).toBe('Digital')
     })
   })
 
