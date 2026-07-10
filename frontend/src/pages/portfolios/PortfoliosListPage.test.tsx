@@ -236,6 +236,20 @@ describe('PortfoliosListPage', () => {
     })
   })
 
+  it('contract control is disabled without a last detail, navigates with one', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<PortfoliosListPage />, { store, queryClient })
+    expect(screen.getByRole('button', { name: /back to tree view/i })).toBeDisabled()
+    unmount()
+
+    sessionStorage.setItem('lastHierarchyDetail', '/projects/pj9?tab=1')
+    render(<PortfoliosListPage />, { store, queryClient })
+    const btn = screen.getByRole('button', { name: /back to tree view/i })
+    expect(btn).toBeEnabled()
+    await user.click(btn)
+    expect(mockNavigate).toHaveBeenCalledWith('/projects/pj9?tab=1')
+  })
+
   it('shows (business_id) prefixes when idMode is saved on', async () => {
     sessionStorage.setItem(
       'portfoliosListState',

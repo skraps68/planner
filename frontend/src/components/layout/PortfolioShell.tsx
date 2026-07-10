@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Outlet, matchPath, useLocation } from 'react-router-dom'
-import { Box, Button, Paper, IconButton, useMediaQuery, useTheme } from '@mui/material'
-import { ChevronLeft, ChevronRight } from '@mui/icons-material'
+import { Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
+import { Box, Button, Paper, IconButton, Tooltip, useMediaQuery, useTheme } from '@mui/material'
+import { ChevronLeft, ChevronRight, OpenInFull } from '@mui/icons-material'
 import HierarchyTree, { HierarchyItemType } from '../portfolio/HierarchyTree'
 
 interface DetailMatch {
@@ -10,6 +10,10 @@ interface DetailMatch {
 }
 
 const TREE_COLLAPSED_KEY = 'portfolioTreeCollapsed'
+
+/** Last-visited detail (path + search); the rich list's "back to tree view"
+ * control returns here so contracting restores what you were looking at. */
+export const LAST_DETAIL_KEY = 'lastHierarchyDetail'
 
 const DETAIL_PATTERNS: Array<{ pattern: string; type: HierarchyItemType }> = [
   { pattern: '/portfolios/:id', type: 'portfolio' },
@@ -45,10 +49,21 @@ const PortfolioShell: React.FC = () => {
     sessionStorage.setItem(TREE_COLLAPSED_KEY, collapsed ? '1' : '0')
   }
   const location = useLocation()
+  const navigate = useNavigate()
   // Cross-route navigation that bypasses the tree should land on content, not a stale tree view
   useEffect(() => {
     setTreeVisibleOnNarrow(false)
   }, [location.pathname])
+
+  // Remember the last detail visited (incl. ?tab=) so the expanded view's
+  // contract control can bring it back
+  useEffect(() => {
+    if (detail) {
+      sessionStorage.setItem(LAST_DETAIL_KEY, location.pathname + location.search)
+    }
+  }, [detail, location.pathname, location.search])
+
+  const expandToFullList = () => navigate('/portfolios')
 
   if (!detail) {
     return <Outlet />
@@ -88,19 +103,27 @@ const PortfolioShell: React.FC = () => {
             width: 24,
             flexShrink: 0,
             display: 'flex',
-            justifyContent: 'center',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 0.5,
             py: 0.5,
           }}
         >
           <IconButton aria-label="Expand tree" size="small" onClick={() => setCollapsed(false)}>
             <ChevronRight fontSize="small" />
           </IconButton>
+          <Tooltip title="Expand to full list view" placement="right">
+            <IconButton aria-label="Expand to full list view" size="small" onClick={expandToFullList}>
+              <OpenInFull sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
         </Paper>
       ) : (
         <HierarchyTree
           activeType={detail.type}
           activeId={detail.id}
           onCollapse={() => setCollapsed(true)}
+          onExpandFull={expandToFullList}
         />
       )}
       <Box sx={{ flex: 1, minWidth: 0 }}>

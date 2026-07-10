@@ -17,8 +17,9 @@ import {
   TableRow,
   Typography,
   CircularProgress,
+  Tooltip,
 } from '@mui/material'
-import { Add, Search, KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material'
+import { Add, Search, KeyboardArrowDown, KeyboardArrowRight, CloseFullscreen } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
@@ -29,6 +30,7 @@ import { TABLE_HEADER_BG } from '../../theme'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
+import { LAST_DETAIL_KEY } from '../../components/layout/PortfolioShell'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 import { usePortfolioListState } from '../../hooks/usePortfolioListState'
 
@@ -124,6 +126,10 @@ const PortfoliosListPage: React.FC = () => {
 
   const displayName = (businessId: string | undefined, name: string) =>
     idMode && businessId ? `(${businessId}) ${name}` : name
+
+  // Where the contract control returns to (recorded by the shell on every
+  // detail visit); navigate-anyway if stale — the detail page handles not-found
+  const lastDetail = sessionStorage.getItem(LAST_DETAIL_KEY)
 
   // Remember scroll position when leaving the page (the window is the scroller)
   useEffect(() => {
@@ -414,6 +420,18 @@ const PortfoliosListPage: React.FC = () => {
         >
           Create Project
         </PermissionButton>
+        <Tooltip title={lastDetail ? 'Back to tree view' : 'Select an item first'}>
+          <span>
+            <IconButton
+              aria-label="Back to tree view"
+              size="small"
+              disabled={!lastDetail}
+              onClick={() => lastDetail && navigate(lastDetail)}
+            >
+              <CloseFullscreen sx={{ fontSize: '1rem' }} />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Box>
 
       <TableContainer component={Paper}>

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Box, IconButton, Paper, TextField, Typography } from '@mui/material'
-import { ChevronLeft, KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material'
+import { Box, IconButton, Paper, TextField, Tooltip, Typography } from '@mui/material'
+import { ChevronLeft, KeyboardArrowDown, KeyboardArrowRight, OpenInFull } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
@@ -22,6 +22,8 @@ interface HierarchyTreeProps {
   activeId: string
   onNavigate?: () => void
   onCollapse?: () => void
+  /** Toggle out to the expanded (rich all-columns) hierarchy view */
+  onExpandFull?: () => void
 }
 
 const labelFor = (idMode: boolean, businessId: string, name: string) =>
@@ -59,6 +61,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
   activeId,
   onNavigate,
   onCollapse,
+  onExpandFull,
 }) => {
   const navigate = useNavigate()
   const { filterPrograms, filterProjects } = useScopeFilter()
@@ -309,6 +312,13 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         >
           #
         </IconButton>
+        {onExpandFull && (
+          <Tooltip title="Expand to full list view">
+            <IconButton aria-label="Expand to full list view" size="small" onClick={onExpandFull}>
+              <OpenInFull sx={{ fontSize: '0.85rem' }} />
+            </IconButton>
+          </Tooltip>
+        )}
         {onCollapse && (
           <IconButton aria-label="Collapse tree" size="small" onClick={onCollapse}>
             <ChevronLeft fontSize="small" />

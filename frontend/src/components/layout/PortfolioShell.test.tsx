@@ -91,6 +91,11 @@ describe('PortfolioShell', () => {
     expect(screen.getByTestId('hierarchy-tree')).toHaveTextContent('program:pg1')
   })
 
+  it('records the last visited detail for the rich view contract control', () => {
+    renderAt('/projects/pj1')
+    expect(sessionStorage.getItem('lastHierarchyDetail')).toBe('/projects/pj1')
+  })
+
   it('collapses the tree to a rail and expands it back', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     renderAt('/projects/pj1')
