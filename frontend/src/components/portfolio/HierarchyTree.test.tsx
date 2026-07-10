@@ -130,8 +130,16 @@ describe('HierarchyTree filtering', () => {
 
     await user.type(screen.getByPlaceholderText('Filter…'), '0300000')
     await waitFor(() => {
-      expect(screen.getByText(/\(030000001\)/)).toBeInTheDocument()
+      // The matched ID digits are wrapped in a highlight span, so match on the
+      // row label's full text content rather than a single text node
+      expect(
+        screen.getByText((_, el) => el?.tagName === 'P' && el.textContent === '(030000001) CRM System Upgrade')
+      ).toBeInTheDocument()
       expect(screen.queryByText(/Legacy Systems/)).not.toBeInTheDocument()
+      // ...and the ID match itself is highlighted
+      const mark = document.querySelector('[data-highlight]')
+      expect(mark).not.toBeNull()
+      expect(mark!.textContent).toBe('0300000')
     })
   })
 

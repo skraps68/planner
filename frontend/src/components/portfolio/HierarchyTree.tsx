@@ -30,27 +30,6 @@ const labelFor = (idMode: boolean, businessId: string, name: string) =>
   idMode ? `(${businessId}) ${name}` : name
 
 /**
- * Row label renderer: renders the business_id prefix (when idMode) as its own
- * unsplit span — so RTL's getByText can always find "(businessId)" as a
- * continuous text node — then applies HighlightedLabel to the name part only.
- * Matching still uses the full combined label for visibility/filtering.
- */
-const RowLabel: React.FC<{
-  idMode: boolean
-  businessId: string
-  name: string
-  term: string
-}> = ({ idMode, businessId, name, term }) => {
-  if (!idMode) return <HighlightedLabel label={name} term={term} />
-  return (
-    <>
-      <Box component="span">{`(${businessId}) `}</Box>
-      <HighlightedLabel label={name} term={term} />
-    </>
-  )
-}
-
-/**
  * Slim (State 2) hierarchy: a folder tree with header row. Level is conveyed by
  * indentation + expand/collapse arrows only (no per-level headers or icons).
  * Clicking a name navigates to that item's detail; the arrow is the only
@@ -363,7 +342,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
                 activeType === 'portfolio' && activeId === portfolio.id,
                 arrowButton(pfOpen, portfolio.name, () => togglePortfolio(portfolio.id)),
                 labelFor(idMode, pfBid, portfolio.name),
-                <RowLabel idMode={idMode} businessId={pfBid} name={portfolio.name} term={search} />,
+                <HighlightedLabel label={labelFor(idMode, pfBid, portfolio.name)} term={search} />,
                 () => go(`/portfolios/${portfolio.id}`),
                 pfKey,
                 visible?.dimmed.has(pfKey)
@@ -382,7 +361,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
                         activeType === 'program' && activeId === program.id,
                         arrowButton(pgOpen, program.name, () => toggleProgram(program.id)),
                         labelFor(idMode, pgBid, program.name),
-                        <RowLabel idMode={idMode} businessId={pgBid} name={program.name} term={search} />,
+                        <HighlightedLabel label={labelFor(idMode, pgBid, program.name)} term={search} />,
                         () =>
                           go(`/programs/${program.id}`, {
                             portfolioId: portfolio.id,
@@ -401,7 +380,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
                             activeType === 'project' && activeId === project.id,
                             leafSpacer,
                             labelFor(idMode, pjBid, project.name),
-                            <RowLabel idMode={idMode} businessId={pjBid} name={project.name} term={search} />,
+                            <HighlightedLabel label={labelFor(idMode, pjBid, project.name)} term={search} />,
                             () =>
                               go(`/projects/${project.id}`, {
                                 programId: program.id,
