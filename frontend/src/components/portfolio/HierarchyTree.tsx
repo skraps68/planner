@@ -230,9 +230,13 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         cursor: 'pointer',
         borderRadius: 1,
         // Level shading: portfolios strongest, programs lighter, projects none
-        backgroundColor: isActive ? 'primary.main' : DEPTH_BG[depth] || 'transparent',
-        color: isActive ? 'primary.contrastText' : 'text.primary',
-        '&:hover': { backgroundColor: isActive ? 'primary.main' : 'action.hover' },
+        backgroundColor: DEPTH_BG[depth] || 'transparent',
+        color: 'text.primary',
+        // Selected row: thick inset outline (no layout shift) instead of a fill
+        boxShadow: isActive
+          ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+          : 'none',
+        '&:hover': { backgroundColor: 'action.hover' },
       }}
     >
       {arrow}
