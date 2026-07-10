@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Typography, Grid, Box } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList } from 'recharts';
 import { FinancialTableData } from '../../utils/forecastTransform';
 import { formatCurrency } from '../../utils/currencyFormat';
 
@@ -65,72 +65,69 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
   const totalCurrentForecast = parseFloat(data.actuals.total.toString()) + parseFloat(data.forecast.total.toString());
   const totalVariance = totalCurrentForecast - totalBudget;
 
-  // Prepare data for Capital chart
-  const capitalData = [
-    {
-      name: 'Budget',
-      Budget: capitalBudget,
-    },
-    {
-      name: 'Current Forecast',
-      Actuals: parseFloat(data.actuals.capital.toString()),
-      Forecast: parseFloat(data.forecast.capital.toString()),
-    },
+  // Three x-axis categories: Budget | spacer | Current Forecast. Each outer
+  // category holds exactly ONE bar position, so the column (and the stacked
+  // column) sit dead-center over their tick labels; the empty middle band
+  // reserves room for the floating variance label between the columns.
+  // "base" carries Budget (left) or Actuals (right); "top" carries Forecast.
+  const mkChartRows = (budget: number, actuals: number, forecast: number) => [
+    { name: 'Budget', base: budget, top: 0 },
+    { name: ' ', base: 0, top: 0 },
+    { name: 'Current Forecast', base: actuals, top: forecast },
   ];
 
-  // Prepare data for Expense chart
-  const expenseData = [
-    {
-      name: 'Budget',
-      Budget: expenseBudget,
-    },
-    {
-      name: 'Current Forecast',
-      Actuals: parseFloat(data.actuals.expense.toString()),
-      Forecast: parseFloat(data.forecast.expense.toString()),
-    },
-  ];
-
-  // Prepare data for Total chart
-  const totalData = [
-    {
-      name: 'Budget',
-      Budget: totalBudget,
-    },
-    {
-      name: 'Current Forecast',
-      Actuals: parseFloat(data.actuals.total.toString()),
-      Forecast: parseFloat(data.forecast.total.toString()),
-    },
-  ];
+  const capitalData = mkChartRows(
+    capitalBudget,
+    parseFloat(data.actuals.capital.toString()),
+    parseFloat(data.forecast.capital.toString())
+  );
+  const expenseData = mkChartRows(
+    expenseBudget,
+    parseFloat(data.actuals.expense.toString()),
+    parseFloat(data.forecast.expense.toString())
+  );
+  const totalData = mkChartRows(
+    totalBudget,
+    parseFloat(data.actuals.total.toString()),
+    parseFloat(data.forecast.total.toString())
+  );
 
   // Custom tooltip formatter. Text uses the stroke shades (not the pale bar
   // fills) so it stays readable on the white tooltip background.
   const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
+    if (!active || !payload || !payload.length) return null;
+    const row = payload[0].payload;
+    if (row.name === 'Budget') {
       return (
         <Paper sx={{ p: 1.5, border: '1px solid #ccc' }}>
-          {payload.map((entry: any, index: number) => (
-            <Typography
-              key={index}
-              variant="body2"
-              sx={{ color: entry.name === 'Budget' ? BUDGET_STROKE : CURRENT_FORECAST_STROKE }}
-            >
-              {entry.name}: {formatCurrency(entry.value)}
-            </Typography>
-          ))}
+          <Typography variant="body2" sx={{ color: BUDGET_STROKE }}>
+            Budget: {formatCurrency(row.base)}
+          </Typography>
         </Paper>
       );
     }
-    return null;
+    if (row.name === 'Current Forecast') {
+      return (
+        <Paper sx={{ p: 1.5, border: '1px solid #ccc' }}>
+          <Typography variant="body2" sx={{ color: CURRENT_FORECAST_STROKE }}>
+            Actuals: {formatCurrency(row.base)}
+          </Typography>
+          <Typography variant="body2" sx={{ color: CURRENT_FORECAST_STROKE }}>
+            Forecast: {formatCurrency(row.top)}
+          </Typography>
+        </Paper>
+      );
+    }
+    return null; // spacer band
   };
 
   // Letter marker ("A" for Actuals, "F" for Forecast) centered in a stacked-bar
   // segment; skipped when the segment is too short to fit it.
   const renderSegmentLetter = (letter: string) => (props: any) => {
-    const { x, y, width, height, value } = props;
+    const { x, y, width, height, value, index } = props;
     const minHeight = compact ? 11 : 15;
-    if (!value || !height || height < minHeight) return null;
+    // Letters belong to the Current Forecast stack only (category index 2)
+    if (index !== 2 || !value || !height || height < minHeight) return null;
     return (
       <text
         x={x + width / 2}
@@ -230,7 +227,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
                 stroke="none"
               />
             )}
-            <XAxis dataKey="name" tick={{ fontSize: compact ? 10 : 12 }} />
+            <XAxis dataKey="name" tickLine={false} tick={{ fontSize: compact ? 10 : 12 }} />
             <YAxis
               tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
               tick={{ fontSize: compact ? 10 : 12 }}
@@ -249,14 +246,30 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
                 { value: 'Current Forecast (A + F)', type: 'square', id: 'CurrentForecast', color: CURRENT_FORECAST_STROKE },
               ]}
             />
-            <Bar dataKey="Budget" fill={BUDGET_FILL} stroke={BUDGET_STROKE} strokeWidth={1} />
-            {/* Actuals + Forecast stack shares one fill; the segment strokes form the
-                divider line between them, and "A"/"F" mark each portion */}
-            <Bar dataKey="Actuals" stackId="a" fill={CURRENT_FORECAST_FILL} stroke={CURRENT_FORECAST_STROKE} strokeWidth={1}>
-              <LabelList dataKey="Actuals" content={renderSegmentLetter('A')} />
+            {/* One stacked series in one slot per category, so each column is
+                centered under its tick. Per-category Cells recolor: the left
+                category renders as the Budget column, the right as the
+                Actuals+Forecast stack (segment strokes draw the divider;
+                "A"/"F" mark the portions). */}
+            <Bar dataKey="base" stackId="a" maxBarSize={compact ? 40 : 76} strokeWidth={1}>
+              {chartData.map((_, i) => (
+                <Cell
+                  key={`base-${i}`}
+                  fill={i === 0 ? BUDGET_FILL : CURRENT_FORECAST_FILL}
+                  stroke={i === 0 ? BUDGET_STROKE : CURRENT_FORECAST_STROKE}
+                />
+              ))}
+              <LabelList dataKey="base" content={renderSegmentLetter('A')} />
             </Bar>
-            <Bar dataKey="Forecast" stackId="a" fill={CURRENT_FORECAST_FILL} stroke={CURRENT_FORECAST_STROKE} strokeWidth={1}>
-              <LabelList dataKey="Forecast" content={renderSegmentLetter('F')} />
+            <Bar dataKey="top" stackId="a" maxBarSize={compact ? 40 : 76} strokeWidth={1}>
+              {chartData.map((_, i) => (
+                <Cell
+                  key={`top-${i}`}
+                  fill={CURRENT_FORECAST_FILL}
+                  stroke={CURRENT_FORECAST_STROKE}
+                />
+              ))}
+              <LabelList dataKey="top" content={renderSegmentLetter('F')} />
             </Bar>
             {/* Dashed line at budget level */}
             <ReferenceLine
