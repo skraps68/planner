@@ -121,6 +121,15 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
     return null; // spacer band
   };
 
+  // Hover highlight for the tooltip: skip the empty spacer band in the middle
+  // (its tooltip is empty too, so a grey wash there is just noise)
+  const BandCursor = (props: any) => {
+    const name = props?.payload?.[0]?.payload?.name;
+    if (!name || name.trim() === '') return null;
+    const { x, y, width, height } = props;
+    return <rect x={x} y={y} width={width} height={height} fill="rgba(0, 0, 0, 0.06)" />;
+  };
+
   // Letter marker ("A" for Actuals, "F" for Forecast) centered in a stacked-bar
   // segment; skipped when the segment is too short to fit it.
   const renderSegmentLetter = (letter: string) => (props: any) => {
@@ -233,7 +242,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
               tick={{ fontSize: compact ? 10 : 12 }}
               width={compact ? 36 : 60}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip />} cursor={<BandCursor />} />
             {/* Custom legend: the stacked Actuals + Forecast bar is presented as a
                 single Current Forecast column, matching the table */}
             {/* Legend uses the darker stroke shades (not the pale bar fills) so the
