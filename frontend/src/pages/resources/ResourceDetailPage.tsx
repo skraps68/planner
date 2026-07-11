@@ -23,7 +23,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
-import { resourcesApi } from '../../api/resources'
+import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
 import { assignmentsApi, BulkAssignmentUpdate } from '../../api/assignments'
 import { workersApi } from '../../api/workers'
 import { Resource, ResourceAssignment, Worker } from '../../types'
@@ -554,10 +554,10 @@ const ResourceDetailPage: React.FC = () => {
 
   // Load workers list when editing/creating a LABOR resource
   useEffect(() => {
-    if (isEditing || isNew) {
+    if ((isEditing || isNew) && (isNew || formData.resource_type === 'LABOR') && workers.length === 0) {
       workersApi.list({ size: 1000 }).then((res) => setWorkers(res.items)).catch(() => {})
     }
-  }, [isEditing, isNew])
+  }, [isEditing, isNew, formData.resource_type, workers.length])
 
   useEffect(() => {
     fetchResource()
@@ -571,6 +571,7 @@ const ResourceDetailPage: React.FC = () => {
     }
     setWorkerError(null)
 
+    let updatePayload: ResourceUpdateInput | undefined
     try {
       setSaving(true)
       setError(null)
@@ -591,7 +592,7 @@ const ResourceDetailPage: React.FC = () => {
         }
         navigate('/resources')
       } else {
-        const updatePayload: any = {
+        updatePayload = {
           description: formData.description || undefined,
           version: formData.version,
         }
@@ -606,7 +607,7 @@ const ResourceDetailPage: React.FC = () => {
         setIsEditing(false)
       }
     } catch (err: any) {
-      const isConflict = handleError(err, formData)
+      const isConflict = handleError(err, updatePayload ? { ...updatePayload } : formData)
       if (!isConflict) setError(err.response?.data?.detail || 'Failed to save resource')
     } finally {
       setSaving(false)
@@ -806,8 +807,8 @@ const ResourceDetailPage: React.FC = () => {
         entityType={conflictState.entityType}
         attemptedChanges={conflictState.attemptedChanges}
         currentState={conflictState.currentState}
-        onRefreshAndRetry={() => {
-          fetchResource()
+        onRefreshAndRetry={async () => {
+          await fetchResource()
           if (conflictState.attemptedChanges && conflictState.currentState) {
             setFormData({
               name: conflictState.attemptedChanges.name || formData.name,
@@ -815,7 +816,7 @@ const ResourceDetailPage: React.FC = () => {
               resource_type: formData.resource_type,
               version: conflictState.currentState.version,
             })
-            if (conflictState.attemptedChanges.worker_id !== undefined) {
+            if ('worker_id' in conflictState.attemptedChanges) {
               setSelectedWorkerId(conflictState.attemptedChanges.worker_id ?? null)
             }
           }
