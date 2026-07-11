@@ -1,6 +1,6 @@
 import React from 'react';
 import { Paper, Typography, Grid, Box } from '@mui/material';
-import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList } from 'recharts';
 import { FinancialTableData } from '../../utils/forecastTransform';
 import { formatCurrency } from '../../utils/currencyFormat';
 
@@ -243,18 +243,6 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
               width={compact ? 36 : 60}
             />
             <Tooltip content={<CustomTooltip />} cursor={<BandCursor />} />
-            {/* Custom legend: the stacked Actuals + Forecast bar is presented as a
-                single Current Forecast column, matching the table */}
-            {/* Legend uses the darker stroke shades (not the pale bar fills) so the
-                swatches and text stay clearly readable */}
-            <Legend
-              iconSize={compact ? 8 : 14}
-              wrapperStyle={compact ? { fontSize: 11, fontWeight: 500 } : { fontWeight: 500 }}
-              payload={[
-                { value: 'Budget', type: 'square', id: 'Budget', color: BUDGET_STROKE },
-                { value: 'Current Forecast (A + F)', type: 'square', id: 'CurrentForecast', color: CURRENT_FORECAST_STROKE },
-              ]}
-            />
             {/* One stacked series in one slot per category, so each column is
                 centered under its tick. Per-category Cells recolor: the left
                 category renders as the Budget column, the right as the
