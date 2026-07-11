@@ -236,7 +236,29 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
                 stroke="none"
               />
             )}
-            <XAxis dataKey="name" tickLine={false} tick={{ fontSize: compact ? 10 : 12 }} />
+            <XAxis
+              dataKey="name"
+              tickLine={false}
+              // Category labels take over the removed legend's colors:
+              // blue for Budget, green for Current Forecast
+              tick={(props: any) => {
+                const { x, y, payload } = props;
+                const isBudget = payload.value === 'Budget';
+                if (!payload.value.trim()) return <g />; // spacer band: no label
+                return (
+                  <text
+                    x={x}
+                    y={y + (compact ? 10 : 12)}
+                    textAnchor="middle"
+                    fontSize={compact ? 10 : 12}
+                    fontWeight={500}
+                    fill={isBudget ? BUDGET_STROKE : CURRENT_FORECAST_STROKE}
+                  >
+                    {payload.value}
+                  </text>
+                );
+              }}
+            />
             <YAxis
               tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
               tick={{ fontSize: compact ? 10 : 12 }}
