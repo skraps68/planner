@@ -16,7 +16,7 @@ import {
   MenuItem,
   Grid,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 
@@ -43,6 +43,7 @@ const WorkerDetailPage = () => {
     worker_type_id: '',
     version: 0,
   })
+  const [isEditing, setIsEditing] = useState(false)
 
   const isNewWorker = id === 'new'
 
@@ -94,6 +95,7 @@ const WorkerDetailPage = () => {
       } else {
         await workersApi.update(id!, formData)
         await fetchWorker()
+        setIsEditing(false)
         setSnackbar({ open: true, message: 'Worker saved successfully', severity: 'success' })
       }
     } catch (err: any) {
@@ -101,6 +103,18 @@ const WorkerDetailPage = () => {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCancelEdit = () => {
+    if (worker) {
+      setFormData({
+        external_id: worker.external_id,
+        name: worker.name,
+        worker_type_id: worker.worker_type_id,
+        version: worker.version,
+      })
+    }
+    setIsEditing(false)
   }
 
   if (loading) {
@@ -130,52 +144,108 @@ const WorkerDetailPage = () => {
 
       <Card>
         <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
+          {!isNewWorker ? (
+            <Grid container rowSpacing={1} columnSpacing={1}>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Name</Typography>
+                {isEditing ? (
+                  <TextField fullWidth size="small" value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
+                ) : (
+                  <Typography variant="body1">{formData.name}</Typography>
+                )}
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">External ID</Typography>
+                {isEditing ? (
+                  <TextField fullWidth size="small" value={formData.external_id}
+                    onChange={(e) => setFormData({ ...formData, external_id: e.target.value })} sx={{ mt: 0.5 }} />
+                ) : (
+                  <Typography variant="body1">{formData.external_id}</Typography>
+                )}
+              </Grid>
+              <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                {!isEditing ? (
+                  <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+                    Edit
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button variant="outlined" size="small" onClick={handleCancelEdit} disabled={saving}>Cancel</Button>
+                    <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                  </Box>
+                )}
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Worker Type</Typography>
+                {isEditing ? (
+                  <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                    <Select value={formData.worker_type_id}
+                      onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}>
+                      {workerTypes.map((type) => (
+                        <MenuItem key={type.id} value={type.id}>{type.type}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Typography variant="body1">
+                    {workerTypes.find((t) => t.id === formData.worker_type_id)?.type || '—'}
+                  </Typography>
+                )}
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="External ID"
-                value={formData.external_id}
-                onChange={(e) => setFormData({ ...formData, external_id: e.target.value })}
-                required
-              />
+          ) : (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  size="small"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="External ID"
+                  size="small"
+                  value={formData.external_id}
+                  onChange={(e) => setFormData({ ...formData, external_id: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth required size="small">
+                  <InputLabel>Worker Type</InputLabel>
+                  <Select
+                    value={formData.worker_type_id}
+                    label="Worker Type"
+                    onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}
+                  >
+                    {workerTypes.map((type) => (
+                      <MenuItem key={type.id} value={type.id}>
+                        {type.type}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button variant="contained" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Creating...' : 'Create'}
+                  </Button>
+                  <Button variant="outlined" onClick={() => navigate('/workers')}>
+                    Cancel
+                  </Button>
+                </Box>
+              </Grid>
             </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Worker Type</InputLabel>
-                <Select
-                  value={formData.worker_type_id}
-                  label="Worker Type"
-                  onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}
-                >
-                  {workerTypes.map((type) => (
-                    <MenuItem key={type.id} value={type.id}>
-                      {type.type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button variant="contained" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving...' : isNewWorker ? 'Create' : 'Save Changes'}
-                </Button>
-                <Button variant="outlined" onClick={() => navigate('/workers')}>
-                  Cancel
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+          )}
         </CardContent>
       </Card>
 
