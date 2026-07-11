@@ -656,17 +656,12 @@ const ResourceDetailPage: React.FC = () => {
   // ── Existing resource detail ──
   return (
     <Box>
-      <ScopeBreadcrumbs
-        items={
-          fromProjectBreadcrumbs
-            ? [...fromProjectBreadcrumbs, { label: resource?.name || '…' }]
-            : [
-                { label: 'Home', path: '/dashboard' },
-                { label: 'Resources', path: '/resources' },
-                { label: resource?.name || '…' },
-              ]
-        }
-      />
+      {/* No breadcrumbs here: this page shows the resource across ALL projects,
+          so a project trail would be misleading; the browser back button covers
+          returning to wherever you came from. */}
+      <Typography variant="h6" sx={{ mb: 1.5 }}>
+        {resource?.name || '…'}
+      </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
