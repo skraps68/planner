@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
 from app.models.resource import Resource, ResourceType, Worker, WorkerType
-from app.services.resource import resource_service
+from app.services.resource import resource_service, worker_service
 
 
 @pytest.fixture()
@@ -60,6 +60,6 @@ def test_duplicate_worker_link_rejected(db):
 def test_worker_rename_cascades_to_resource(db):
     w = _worker(db)
     r = resource_service.create_resource(db, name="i", resource_type=ResourceType.LABOR, worker_id=w.id)
-    resource_service.update_worker(db, worker_id=w.id, name="Jane Smith")
+    worker_service.update_worker(db, worker_id=w.id, name="Jane Smith")
     db.refresh(r)
     assert r.name == "Jane Smith"

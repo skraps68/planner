@@ -206,27 +206,6 @@ class ResourceService:
             update_data["description"] = description
 
         return self.repository.update(db, db_obj=resource, obj_in=update_data)
-    
-    def update_worker(
-        self,
-        db: Session,
-        worker_id: UUID,
-        external_id: Optional[str] = None,
-        name: Optional[str] = None,
-        worker_type_id: Optional[UUID] = None
-    ) -> "Worker":
-        """Delegate to worker_service.update_worker (includes rename cascade).
-
-        This method exists so that callers can use a single ``resource_service``
-        object for operations that span the worker↔resource boundary.
-        """
-        return worker_service.update_worker(
-            db,
-            worker_id=worker_id,
-            external_id=external_id,
-            name=name,
-            worker_type_id=worker_type_id,
-        )
 
     def delete_resource(self, db: Session, resource_id: UUID) -> bool:
         """
