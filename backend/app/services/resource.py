@@ -35,34 +35,53 @@ class ResourceService:
         db: Session,
         name: str,
         resource_type: ResourceType,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        worker_id: Optional[UUID] = None
     ) -> Resource:
         """
         Create a new resource.
-        
+
         Args:
             db: Database session
             name: Resource name
             resource_type: Type of resource (LABOR or NON_LABOR)
             description: Optional resource description
-            
+            worker_id: Required for LABOR; forbidden for NON_LABOR
+
         Returns:
             Created resource
-            
+
         Raises:
             ValueError: If validation fails
         """
         # Validate resource type
         if not isinstance(resource_type, ResourceType):
             raise ValueError(f"Invalid resource type: {resource_type}")
-        
+
+        if resource_type == ResourceType.LABOR:
+            if worker_id is None:
+                raise ValueError("Labor resources must be linked to a worker")
+            worker = worker_repository.get(db, worker_id)
+            if not worker:
+                raise ValueError(f"Worker with ID {worker_id} not found")
+            existing_link = (
+                db.query(Resource).filter(Resource.worker_id == worker_id).first()
+            )
+            if existing_link:
+                raise ValueError(f"Worker '{worker.name}' is already linked to a resource")
+            name = worker.name  # labor resource names are system-derived
+        else:
+            if worker_id is not None:
+                raise ValueError("Non-labor resources cannot be linked to a worker")
+
         # Create resource
         resource_data = {
             "name": name,
             "resource_type": resource_type,
-            "description": description
+            "description": description,
+            "worker_id": worker_id,
         }
-        
+
         return self.repository.create(db, obj_in=resource_data)
     
     def get_resource(self, db: Session, resource_id: UUID) -> Optional[Resource]:
@@ -138,20 +157,22 @@ class ResourceService:
         db: Session,
         resource_id: UUID,
         name: Optional[str] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        worker_id: Optional[UUID] = None
     ) -> Resource:
         """
         Update resource with validation.
-        
+
         Args:
             db: Database session
             resource_id: Resource ID to update
-            name: Optional new name
+            name: Optional new name (ignored for LABOR resources — system-derived)
             description: Optional new description
-            
+            worker_id: Optional new worker link (LABOR only; ignored if same as current)
+
         Returns:
             Updated resource
-            
+
         Raises:
             ValueError: If validation fails or resource not found
         """
@@ -159,18 +180,54 @@ class ResourceService:
         resource = self.repository.get(db, resource_id)
         if not resource:
             raise ValueError(f"Resource with ID {resource_id} not found")
-        
+
         # Build update data
         update_data = {}
-        
-        if name is not None:
+
+        if resource.resource_type == ResourceType.LABOR:
+            if worker_id is not None and worker_id != resource.worker_id:
+                worker = worker_repository.get(db, worker_id)
+                if not worker:
+                    raise ValueError(f"Worker with ID {worker_id} not found")
+                existing_link = (
+                    db.query(Resource)
+                    .filter(Resource.worker_id == worker_id, Resource.id != resource_id)
+                    .first()
+                )
+                if existing_link:
+                    raise ValueError(f"Worker '{worker.name}' is already linked to a resource")
+                update_data["worker_id"] = worker_id
+                update_data["name"] = worker.name
+            # labor names are system-derived: a client-sent name is ignored
+        elif name is not None:
             update_data["name"] = name
-        
+
         if description is not None:
             update_data["description"] = description
-        
+
         return self.repository.update(db, db_obj=resource, obj_in=update_data)
     
+    def update_worker(
+        self,
+        db: Session,
+        worker_id: UUID,
+        external_id: Optional[str] = None,
+        name: Optional[str] = None,
+        worker_type_id: Optional[UUID] = None
+    ) -> "Worker":
+        """Delegate to worker_service.update_worker (includes rename cascade).
+
+        This method exists so that callers can use a single ``resource_service``
+        object for operations that span the worker↔resource boundary.
+        """
+        return worker_service.update_worker(
+            db,
+            worker_id=worker_id,
+            external_id=external_id,
+            name=name,
+            worker_type_id=worker_type_id,
+        )
+
     def delete_resource(self, db: Session, resource_id: UUID) -> bool:
         """
         Delete a resource.
@@ -560,7 +617,13 @@ class WorkerService:
         
         if name is not None:
             update_data["name"] = name
-        
+            # Cascade: labor resource names are copies of the worker's name.
+            # Mutating the resource in the same session means the repository's
+            # single commit below persists both changes atomically.
+            linked = db.query(Resource).filter(Resource.worker_id == worker_id).first()
+            if linked:
+                linked.name = name
+
         if worker_type_id is not None:
             # Validate worker type exists
             worker_type = self.worker_type_repository.get(db, worker_type_id)
