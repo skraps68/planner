@@ -275,16 +275,10 @@ class ForecastingService:
             if not resource:
                 return None
             
-            # For labor resources, try to get actual worker rate
-            if resource.resource_type == ResourceType.LABOR:
-                # Find worker by matching resource name to worker name
-                from sqlalchemy import select
-                from app.models.resource import Worker
-                
-                worker = db.execute(
-                    select(Worker).where(Worker.name == resource.name)
-                ).scalar_one_or_none()
-                
+            # For labor resources, try to get actual worker rate via FK
+            if resource.resource_type == ResourceType.LABOR and resource.worker_id:
+                worker = worker_repository.get(db, resource.worker_id)
+
                 if worker:
                     # Get the rate for the assignment date
                     rate = rate_repository.get_active_rate(
