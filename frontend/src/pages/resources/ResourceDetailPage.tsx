@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { truncateAtLoop } from '../../utils/breadcrumbs'
 import {
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -24,7 +25,8 @@ import {
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { resourcesApi } from '../../api/resources'
 import { assignmentsApi, BulkAssignmentUpdate } from '../../api/assignments'
-import { Resource, ResourceAssignment } from '../../types'
+import { workersApi } from '../../api/workers'
+import { Resource, ResourceAssignment, Worker } from '../../types'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
@@ -525,6 +527,10 @@ const ResourceDetailPage: React.FC = () => {
     version: 1,
   })
 
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null)
+  const [workerError, setWorkerError] = useState<string | null>(null)
+
   const fetchResource = useCallback(async () => {
     if (!id || isNew) return
     try {
@@ -538,6 +544,7 @@ const ResourceDetailPage: React.FC = () => {
         resource_type: data.resource_type,
         version: data.version,
       })
+      setSelectedWorkerId(data.worker_id ?? null)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load resource')
     } finally {
@@ -545,29 +552,57 @@ const ResourceDetailPage: React.FC = () => {
     }
   }, [id, isNew])
 
+  // Load workers list when editing/creating a LABOR resource
+  useEffect(() => {
+    if (isEditing || isNew) {
+      workersApi.list({ size: 1000 }).then((res) => setWorkers(res.items)).catch(() => {})
+    }
+  }, [isEditing, isNew])
+
   useEffect(() => {
     fetchResource()
   }, [fetchResource])
 
   const handleSave = async () => {
+    // Validate worker selection for LABOR resources
+    if (formData.resource_type === 'LABOR' && !selectedWorkerId) {
+      setWorkerError('Please select a worker')
+      return
+    }
+    setWorkerError(null)
+
     try {
       setSaving(true)
       setError(null)
       if (isNew) {
-        await resourcesApi.create({
-          name: formData.name,
-          resource_type: formData.resource_type,
-          description: formData.description || undefined,
-        })
+        if (formData.resource_type === 'LABOR') {
+          await resourcesApi.create({
+            name: '_',  // placeholder; server derives name from worker
+            resource_type: formData.resource_type,
+            description: formData.description || undefined,
+            worker_id: selectedWorkerId!,
+          })
+        } else {
+          await resourcesApi.create({
+            name: formData.name,
+            resource_type: formData.resource_type,
+            description: formData.description || undefined,
+          })
+        }
         navigate('/resources')
       } else {
-        const updated = await resourcesApi.update(id!, {
-          name: formData.name,
+        const updatePayload: any = {
           description: formData.description || undefined,
           version: formData.version,
-        })
+        }
+        if (formData.resource_type === 'LABOR') {
+          updatePayload.worker_id = selectedWorkerId ?? undefined
+        } else {
+          updatePayload.name = formData.name
+        }
+        const updated = await resourcesApi.update(id!, updatePayload)
         setResource(updated)
-        setFormData({ ...formData, version: updated.version })
+        setFormData({ ...formData, name: updated.name, version: updated.version })
         setIsEditing(false)
       }
     } catch (err: any) {
@@ -586,9 +621,11 @@ const ResourceDetailPage: React.FC = () => {
         resource_type: resource.resource_type,
         version: resource.version,
       })
+      setSelectedWorkerId(resource.worker_id ?? null)
     }
     setIsEditing(false)
     setError(null)
+    setWorkerError(null)
   }
 
   if (loading) {
@@ -616,13 +653,6 @@ const ResourceDetailPage: React.FC = () => {
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <TextField
-                  fullWidth label="Name" required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
                   fullWidth label="Type" select SelectProps={{ native: true }}
                   value={formData.resource_type}
                   onChange={(e) => setFormData({ ...formData, resource_type: e.target.value as 'LABOR' | 'NON_LABOR' })}
@@ -630,6 +660,31 @@ const ResourceDetailPage: React.FC = () => {
                   <option value="LABOR">Labor</option>
                   <option value="NON_LABOR">Non-Labor</option>
                 </TextField>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                {formData.resource_type === 'LABOR' ? (
+                  <Autocomplete
+                    options={workers}
+                    getOptionLabel={(w) => w.name}
+                    value={workers.find((w) => w.id === selectedWorkerId) || null}
+                    onChange={(_, w) => { setSelectedWorkerId(w?.id || null); setWorkerError(null) }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Worker"
+                        required
+                        error={!!workerError}
+                        helperText={workerError}
+                      />
+                    )}
+                  />
+                ) : (
+                  <TextField
+                    fullWidth label="Name" required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                )}
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -668,56 +723,65 @@ const ResourceDetailPage: React.FC = () => {
       {/* Details panel */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth label="Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                disabled={!isEditing}
-                InputProps={!isEditing ? { readOnly: true } : undefined}
-              />
+          <Grid container rowSpacing={1} columnSpacing={1}>
+            <Grid item xs={12} sm={4}>
+              <Typography variant="caption" color="text.secondary">
+                {formData.resource_type === 'LABOR' ? 'Worker' : 'Name'}
+              </Typography>
+              {isEditing && formData.resource_type === 'LABOR' ? (
+                <Autocomplete
+                  size="small"
+                  options={workers}
+                  getOptionLabel={(w) => w.name}
+                  value={workers.find((w) => w.id === selectedWorkerId) || null}
+                  onChange={(_, w) => { setSelectedWorkerId(w?.id || null); setWorkerError(null) }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Select worker"
+                      sx={{ mt: 0.5 }}
+                      error={!!workerError}
+                      helperText={workerError}
+                    />
+                  )}
+                />
+              ) : isEditing ? (
+                <TextField fullWidth size="small" value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
+              ) : (
+                <Typography variant="body1">{formData.name}</Typography>
+              )}
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth label="Type"
-                value={formData.resource_type === 'LABOR' ? 'Labor' : 'Non-Labor'}
-                disabled
-                InputProps={{ readOnly: true }}
-              />
+            <Grid item xs={12} sm={4}>
+              <Typography variant="caption" color="text.secondary">Type</Typography>
+              <Typography variant="body1">
+                {formData.resource_type === 'LABOR' ? 'Labor' : 'Non-Labor'}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+              {!isEditing ? (
+                <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+                  Edit
+                </Button>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="outlined" size="small" onClick={handleCancelEdit} disabled={saving}>Cancel</Button>
+                  <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </Button>
+                </Box>
+              )}
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                fullWidth label="Description" multiline rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                disabled={!isEditing}
-                InputProps={!isEditing ? { readOnly: true } : undefined}
-              />
+              <Typography variant="caption" color="text.secondary">Description</Typography>
+              {isEditing ? (
+                <TextField fullWidth size="small" multiline rows={2} value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })} sx={{ mt: 0.5 }} />
+              ) : (
+                <Typography variant="body1">{formData.description || '—'}</Typography>
+              )}
             </Grid>
           </Grid>
-
-          {/* Edit / Save buttons aligned bottom-right of panel */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-            {isEditing ? (
-              <>
-                <Button variant="outlined" onClick={handleCancelEdit} disabled={saving}>
-                  Cancel
-                </Button>
-                <Button variant="contained" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving…' : 'Save Changes'}
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="outlined"
-                startIcon={<EditIcon />}
-                onClick={() => setIsEditing(true)}
-              >
-                Edit
-              </Button>
-            )}
-          </Box>
         </CardContent>
       </Card>
 
@@ -751,6 +815,9 @@ const ResourceDetailPage: React.FC = () => {
               resource_type: formData.resource_type,
               version: conflictState.currentState.version,
             })
+            if (conflictState.attemptedChanges.worker_id !== undefined) {
+              setSelectedWorkerId(conflictState.attemptedChanges.worker_id ?? null)
+            }
           }
           clearConflict()
         }}
