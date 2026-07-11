@@ -251,7 +251,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
                     y={y + (compact ? 10 : 12)}
                     textAnchor="middle"
                     fontSize={compact ? 10 : 12}
-                    fontWeight={500}
+                    fontWeight={700}
                     fill={isBudget ? BUDGET_STROKE : CURRENT_FORECAST_STROKE}
                   >
                     {payload.value}
