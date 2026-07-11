@@ -49,7 +49,7 @@ describe('WaffleLauncher', () => {
 
     await user.click(screen.getByRole('button', { name: /apps/i }))
 
-    for (const label of ['Workers', 'User Management', 'Dashboard', 'Reports', 'Resources', 'Actuals']) {
+    for (const label of ['Home', 'Workers', 'User Management', 'Dashboard', 'Reports', 'Resources', 'Actuals']) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
   })
@@ -62,6 +62,16 @@ describe('WaffleLauncher', () => {
     await user.click(screen.getByText('Workers'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/workers')
+  })
+
+  it('Home navigates to the expanded portfolio page', async () => {
+    const user = userEvent.setup()
+    render(<WaffleLauncher />, { store: adminStore() })
+
+    await user.click(screen.getByRole('button', { name: /apps/i }))
+    await user.click(screen.getByText('Home'))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/portfolios')
     await waitFor(() => {
       expect(screen.queryByText('Dashboard')).not.toBeInTheDocument()
     })

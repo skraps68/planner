@@ -77,6 +77,10 @@ const WaffleLauncher: React.FC = () => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
+        {/* Home: back to the expanded portfolio hierarchy (same as the title link) */}
+        <MenuItem key="/portfolios" onClick={() => go('/portfolios')}>
+          Home
+        </MenuItem>
         {visibleGroups.flatMap((group) => [
           <ListSubheader
             key={`${group.title}-header`}
