@@ -14,9 +14,11 @@ if TYPE_CHECKING:
 
 
 class ResourceType(str, Enum):
-    """Resource types."""
-    LABOR = "labor"
-    NON_LABOR = "non_labor"
+    """Resource types. Values equal names so DB storage (SQLEnum stores
+    names), API serialization (Pydantic emits values), and the frontend's
+    'LABOR' | 'NON_LABOR' literals all agree."""
+    LABOR = "LABOR"
+    NON_LABOR = "NON_LABOR"
 
 
 class Resource(BaseModel):
