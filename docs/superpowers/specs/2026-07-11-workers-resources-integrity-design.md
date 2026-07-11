@@ -42,7 +42,11 @@ real worker rates replace the default-rate fallback for labor resources.
 
 ## Strict worker linkage (user decisions incorporated)
 
-- New column: `resources.worker_id` — FK → `workers.id`.
+- New column: `resources.worker_id` — FK → `workers.id`. The column is
+  nullable **only because the table holds non-labor resources too** (hardware,
+  licenses, cloud services), which must hold NULL; for labor rows the CHECK
+  constraint below makes NULL a database-level impossibility — strictly
+  enforced conditional NOT NULL.
 - **CHECK constraint:** `(resource_type = 'LABOR' AND worker_id IS NOT NULL)
   OR (resource_type = 'NON_LABOR' AND worker_id IS NULL)`.
 - **UNIQUE index on `worker_id`** (NULLs exempt): exactly one labor resource
