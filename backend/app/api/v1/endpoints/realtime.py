@@ -1,5 +1,7 @@
 """Realtime endpoints: SSE ticket + change stream."""
+import contextlib
 import json
+import logging
 from typing import Set
 from uuid import UUID
 
@@ -7,11 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user
+from app.db.session import SessionLocal
 from app.models.user import User
 from app.realtime.redis_clients import CHANGES_CHANNEL, make_async_redis
 from app.realtime.tickets import consume_ticket, mint_ticket
 from app.services.scope_validator import scope_validator_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -60,7 +65,6 @@ def _visible(event: dict, has_global: bool, accessible: Set[str]) -> bool:
 async def stream(
     request: Request,
     ticket: str = Query(...),
-    db: Session = Depends(get_db),
 ):
     user_id = consume_ticket(ticket)
     if not user_id:
@@ -68,7 +72,13 @@ async def stream(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired ticket",
         )
-    has_global, accessible = _accessible_scope(db, user_id)
+    # Short-lived session: released before the (long-lived) stream starts,
+    # so open SSE connections never pin DB pool connections.
+    db = SessionLocal()
+    try:
+        has_global, accessible = _accessible_scope(db, user_id)
+    finally:
+        db.close()
 
     async def event_gen():
         conn = make_async_redis()
@@ -79,9 +89,15 @@ async def stream(
             while True:
                 if await request.is_disconnected():
                     break
-                msg = await pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=15.0
-                )
+                try:
+                    msg = await pubsub.get_message(
+                        ignore_subscribe_messages=True, timeout=15.0
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "realtime: stream redis error, closing stream: %s", exc
+                    )
+                    break
                 if msg is None:
                     yield ": keepalive\n\n"
                     continue
@@ -92,9 +108,13 @@ async def stream(
                 if _visible(data, has_global, accessible):
                     yield f"data: {json.dumps(data)}\n\n"
         finally:
-            await pubsub.unsubscribe(CHANGES_CHANNEL)
-            await pubsub.aclose()
-            await conn.aclose()
+            # Best-effort cleanup: the connection may already be dead.
+            with contextlib.suppress(Exception):
+                await pubsub.unsubscribe(CHANGES_CHANNEL)
+            with contextlib.suppress(Exception):
+                await pubsub.aclose()
+            with contextlib.suppress(Exception):
+                await conn.aclose()
 
     return StreamingResponse(
         event_gen(),

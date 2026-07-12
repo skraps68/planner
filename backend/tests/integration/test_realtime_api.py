@@ -18,6 +18,7 @@ class _FakeUser:
 def authed_client(client):
     user = _FakeUser()
     app.dependency_overrides[deps.get_current_user] = lambda: user
+    client.user = user  # expose for assertions on the minting identity
     yield client
     app.dependency_overrides.pop(deps.get_current_user, None)
 
@@ -30,10 +31,11 @@ def test_ticket_requires_auth(client):
 def test_ticket_returns_token_when_authed(authed_client):
     with patch(
         "app.api.v1.endpoints.realtime.mint_ticket", return_value="T1"
-    ):
+    ) as mint:
         resp = authed_client.post("/api/v1/realtime/ticket")
     assert resp.status_code == 200
     assert resp.json() == {"ticket": "T1"}
+    mint.assert_called_once_with(str(authed_client.user.id))
 
 
 def test_ticket_503_when_realtime_unavailable(authed_client):
@@ -47,6 +49,61 @@ def test_ticket_503_when_realtime_unavailable(authed_client):
 def test_stream_rejects_bad_ticket(client):
     resp = client.get("/api/v1/realtime/stream?ticket=nope")
     assert resp.status_code == 401
+
+
+class _FakePubSub:
+    """Async pubsub stub whose get_message simulates a redis outage."""
+
+    def __init__(self):
+        self.unsubscribed = False
+        self.closed = False
+
+    async def subscribe(self, channel):
+        pass
+
+    async def get_message(self, **kwargs):
+        raise ConnectionError("redis down")
+
+    async def unsubscribe(self, channel):
+        self.unsubscribed = True
+
+    async def aclose(self):
+        self.closed = True
+
+
+class _FakeAsyncRedis:
+    def __init__(self, ps):
+        self._ps = ps
+        self.closed = False
+
+    def pubsub(self):
+        return self._ps
+
+    async def aclose(self):
+        self.closed = True
+
+
+def test_stream_ends_cleanly_when_redis_errors_mid_stream(client):
+    ps = _FakePubSub()
+    fake_conn = _FakeAsyncRedis(ps)
+    with patch(
+        "app.api.v1.endpoints.realtime.consume_ticket",
+        return_value=str(uuid.uuid4()),
+    ), patch(
+        "app.api.v1.endpoints.realtime._accessible_scope",
+        return_value=(True, set()),
+    ), patch(
+        "app.api.v1.endpoints.realtime.make_async_redis",
+        return_value=fake_conn,
+    ):
+        resp = client.get("/api/v1/realtime/stream?ticket=T")
+    # Redis raising mid-stream ends the stream cleanly (no server error)
+    # after the connected prelude, and cleanup still ran.
+    assert resp.status_code == 200
+    assert ": connected" in resp.text
+    assert ps.unsubscribed is True
+    assert ps.closed is True
+    assert fake_conn.closed is True
 
 
 class TestVisible:
