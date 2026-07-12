@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { truncateAtLoop } from '../../utils/breadcrumbs'
 import {
-  Autocomplete,
   Box,
   Button,
   Card,
@@ -25,8 +24,8 @@ import {
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
 import { assignmentsApi, BulkAssignmentUpdate } from '../../api/assignments'
-import { workersApi } from '../../api/workers'
-import { Resource, ResourceAssignment, Worker } from '../../types'
+import { Resource, ResourceAssignment } from '../../types'
+import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
@@ -527,7 +526,6 @@ const ResourceDetailPage: React.FC = () => {
     version: 1,
   })
 
-  const [workers, setWorkers] = useState<Worker[]>([])
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null)
   const [workerError, setWorkerError] = useState<string | null>(null)
 
@@ -551,13 +549,6 @@ const ResourceDetailPage: React.FC = () => {
       setLoading(false)
     }
   }, [id, isNew])
-
-  // Load workers list when editing/creating a LABOR resource
-  useEffect(() => {
-    if ((isEditing || isNew) && (isNew || formData.resource_type === 'LABOR') && workers.length === 0) {
-      workersApi.list({ size: 1000 }).then((res) => setWorkers(res.items)).catch(() => {})
-    }
-  }, [isEditing, isNew, formData.resource_type, workers.length])
 
   useEffect(() => {
     fetchResource()
@@ -664,20 +655,13 @@ const ResourceDetailPage: React.FC = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 {formData.resource_type === 'LABOR' ? (
-                  <Autocomplete
-                    options={workers}
-                    getOptionLabel={(w) => w.name}
-                    value={workers.find((w) => w.id === selectedWorkerId) || null}
-                    onChange={(_, w) => { setSelectedWorkerId(w?.id || null); setWorkerError(null) }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Worker"
-                        required
-                        error={!!workerError}
-                        helperText={workerError}
-                      />
-                    )}
+                  <WorkerSearchAutocomplete
+                    value={selectedWorkerId}
+                    onChange={(id) => { setSelectedWorkerId(id); setWorkerError(null) }}
+                    label="Worker"
+                    required
+                    error={!!workerError}
+                    helperText={workerError || undefined}
                   />
                 ) : (
                   <TextField
@@ -716,7 +700,7 @@ const ResourceDetailPage: React.FC = () => {
           so a project trail would be misleading; the browser back button covers
           returning to wherever you came from. */}
       <Typography variant="h6" sx={{ mb: 1.5 }}>
-        {resource?.name || '…'}
+        Resource
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -730,21 +714,14 @@ const ResourceDetailPage: React.FC = () => {
                 {formData.resource_type === 'LABOR' ? 'Worker' : 'Name'}
               </Typography>
               {isEditing && formData.resource_type === 'LABOR' ? (
-                <Autocomplete
+                <WorkerSearchAutocomplete
                   size="small"
-                  options={workers}
-                  getOptionLabel={(w) => w.name}
-                  value={workers.find((w) => w.id === selectedWorkerId) || null}
-                  onChange={(_, w) => { setSelectedWorkerId(w?.id || null); setWorkerError(null) }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Select worker"
-                      sx={{ mt: 0.5 }}
-                      error={!!workerError}
-                      helperText={workerError}
-                    />
-                  )}
+                  sx={{ mt: 0.5 }}
+                  value={selectedWorkerId}
+                  onChange={(id) => { setSelectedWorkerId(id); setWorkerError(null) }}
+                  placeholder="Select worker"
+                  error={!!workerError}
+                  helperText={workerError || undefined}
                 />
               ) : isEditing ? (
                 <TextField fullWidth size="small" value={formData.name}
