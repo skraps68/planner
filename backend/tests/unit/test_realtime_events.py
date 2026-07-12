@@ -1,5 +1,9 @@
 import json
 from unittest.mock import MagicMock, patch
+
+import pytest
+from pydantic import ValidationError
+
 from app.realtime.events import ChangeEvent, publish_change
 
 
@@ -28,3 +32,9 @@ def test_publish_change_swallows_errors():
     fake.publish.side_effect = Exception("boom")
     with patch("app.realtime.events.get_sync_redis", return_value=fake):
         assert publish_change(_event()) is False
+
+
+def test_change_event_rejects_unknown_action():
+    with pytest.raises(ValidationError):
+        ChangeEvent(type="resource", id="abc", action="upserted",
+                    scope_ids=[], actor_id=None, ts=1.0)

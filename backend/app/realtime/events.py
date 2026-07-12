@@ -1,6 +1,6 @@
 """Change-event schema and best-effort publisher."""
 import logging
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class ChangeEvent(BaseModel):
     type: str
     id: str
-    action: str  # "created" | "updated" | "deleted"
+    action: Literal["created", "updated", "deleted"]
     scope_ids: List[str] = []
     actor_id: Optional[str] = None
     ts: float
