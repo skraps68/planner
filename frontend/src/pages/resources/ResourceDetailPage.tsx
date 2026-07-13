@@ -23,7 +23,7 @@ import {
 } from '@mui/material'
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
-import { assignmentsApi, BulkAssignmentUpdate } from '../../api/assignments'
+import { assignmentsApi, BulkAssignmentUpdate, BulkUpdateResult } from '../../api/assignments'
 import { Resource, ResourceAssignment } from '../../types'
 import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
@@ -325,13 +325,44 @@ const ResourceAllocationCalendar: React.FC<{
         })
       }
 
-      if (bulkUpdates.length > 0) await assignmentsApi.bulkUpdate(bulkUpdates)
+      let bulkResult: BulkUpdateResult = { succeeded: [], failed: [] }
+      if (bulkUpdates.length > 0) {
+        bulkResult = await assignmentsApi.bulkUpdate(bulkUpdates)
+      }
 
+      // Refresh so any successful updates (and up-to-date versions for
+      // conflicting ones) are reflected before we decide what to keep.
       await queryClient.invalidateQueries({ queryKey: ['assignments', 'resource', resourceId] })
-      setEditedCells(new Map())
-      setValidationErrors(new Map())
-      setIsEditMode(false)
-      setSaveSuccess(true)
+
+      if (bulkResult.failed.length > 0) {
+        // Partial failure: keep only the conflicting cells in edit mode so
+        // the user can review and re-save them; non-conflicting edits are
+        // already persisted, so drop them from editedCells.
+        const failedIds = new Set(bulkResult.failed.map((f) => f.id))
+        const nextEdits = new Map<string, number>()
+        const nextErrors = new Map<string, string>()
+        for (const [key, value] of editedCells) {
+          const [projectId, dateStr] = key.split(':')
+          const existing = assignments.find(
+            (a) => a.project_id === projectId && a.assignment_date === dateStr
+          )
+          if (existing && failedIds.has(existing.id)) {
+            nextEdits.set(key, value)
+            nextErrors.set(key, 'Changed by someone else — review and re-save')
+          }
+        }
+        setEditedCells(nextEdits)
+        setValidationErrors(nextErrors)
+        setSaveError(
+          `${bulkResult.failed.length} change(s) conflicted with edits by another user and were kept for review.`
+        )
+        // Stay in edit mode — do not clear edits or exit.
+      } else {
+        setEditedCells(new Map())
+        setValidationErrors(new Map())
+        setIsEditMode(false)
+        setSaveSuccess(true)
+      }
     } catch (err: any) {
       setSaveError(err.response?.data?.detail || 'Failed to save assignments')
     } finally {
