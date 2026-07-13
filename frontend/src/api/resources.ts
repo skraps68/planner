@@ -5,11 +5,13 @@ export interface ResourceCreateInput {
   name: string
   resource_type: 'LABOR' | 'NON_LABOR'
   description?: string
+  worker_id?: string
 }
 
 export interface ResourceUpdateInput {
   name?: string
   description?: string
+  worker_id?: string
   version: number
 }
 

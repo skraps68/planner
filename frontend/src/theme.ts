@@ -134,7 +134,7 @@ const theme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem' },
-        head: { fontWeight: 600, fontSize: '0.78rem' },
+        head: { fontWeight: 600, fontSize: '0.78rem', padding: '2px 10px' },
         sizeSmall: { padding: TABLE_CELL_PADDING, fontSize: '0.78rem' },
       },
     },

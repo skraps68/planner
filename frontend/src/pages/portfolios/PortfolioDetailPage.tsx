@@ -25,7 +25,7 @@ import { Portfolio, PortfolioUpdate } from '../../types/portfolio'
 import { Program } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -230,20 +230,36 @@ const PortfolioDetailPage: React.FC = () => {
 
   return (
     <Box>
-      {/* Breadcrumbs with status chip */}
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Portfolios', path: '/portfolios' },
-          { label: portfolio.name },
-        ]}
+      <DetailPaneHeader
+        title={portfolio.name}
         statusChip={<Chip label={status} color={statusColor} />}
+        onClose={() => navigate('/portfolios')}
       />
 
       {/* Portfolio Info Section */}
       <Paper sx={{ p: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minHeight: 34, mb: 1 }}>
+            {(canEdit || isEditing) && (
+              <>
+                {!isEditing ? (
+                  <Button variant="outlined" size="small" startIcon={<Edit />} onClick={handleEdit}>
+                    Edit
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel}>
+                      Cancel
+                    </Button>
+                    <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSave} disabled={updateMutation.isPending}>
+                      {updateMutation.isPending ? 'Saving...' : 'Save'}
+                    </Button>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
           <Grid container spacing={2}>
-            {/* Row 1: 4 fields */}
+            {/* Row 1: Name | ID | Reporting Start | Reporting End */}
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" color="text.secondary">
                 Portfolio Name
@@ -265,21 +281,9 @@ const PortfolioDetailPage: React.FC = () => {
 
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" color="text.secondary">
-                Owner
+                ID
               </Typography>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editValues.owner}
-                  onChange={(e) => setEditValues({ ...editValues, owner: e.target.value })}
-                  error={!!validationErrors.owner}
-                  helperText={validationErrors.owner}
-                  sx={{ mt: 0.5 }}
-                />
-              ) : (
-                <Typography variant="body1">{portfolio.owner}</Typography>
-              )}
+              <Typography variant="body1">{portfolio.business_id}</Typography>
             </Grid>
 
             <Grid item xs={12} sm={6} md={3}>
@@ -330,7 +334,7 @@ const PortfolioDetailPage: React.FC = () => {
               )}
             </Grid>
 
-            {/* Row 2: 4 fields */}
+            {/* Row 2: Description | Owner | Created At | Updated At */}
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" color="text.secondary">
                 Description
@@ -354,6 +358,25 @@ const PortfolioDetailPage: React.FC = () => {
 
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" color="text.secondary">
+                Owner
+              </Typography>
+              {isEditing ? (
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={editValues.owner}
+                  onChange={(e) => setEditValues({ ...editValues, owner: e.target.value })}
+                  error={!!validationErrors.owner}
+                  helperText={validationErrors.owner}
+                  sx={{ mt: 0.5 }}
+                />
+              ) : (
+                <Typography variant="body1">{portfolio.owner}</Typography>
+              )}
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Typography variant="caption" color="text.secondary">
                 Created At
               </Typography>
               <Typography variant="body1">
@@ -368,39 +391,6 @@ const PortfolioDetailPage: React.FC = () => {
               <Typography variant="body1">
                 {format(new Date(portfolio.updated_at), 'MMMM dd, yyyy HH:mm')}
               </Typography>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-              {/* Edit/Save/Cancel buttons */}
-              {(canEdit || isEditing) && (
-                <>
-                  {!isEditing ? (
-                    <Button variant="outlined" size="small" startIcon={<Edit />} onClick={handleEdit}>
-                      Edit
-                    </Button>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<CancelIcon />}
-                        onClick={handleCancel}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSave}
-                        disabled={updateMutation.isPending}
-                      >
-                        {updateMutation.isPending ? 'Saving...' : 'Save'}
-                      </Button>
-                    </Box>
-                  )}
-                </>
-              )}
             </Grid>
           </Grid>
         </Paper>

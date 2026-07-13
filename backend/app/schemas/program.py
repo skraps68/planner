@@ -63,7 +63,8 @@ class ProgramUpdate(VersionedSchema):
 
 class ProgramResponse(ProgramBase, TimestampMixin, VersionedSchema):
     """Schema for program response."""
-    
+
+    business_id: Optional[str] = Field(default=None, description="Human-friendly 9-digit ID (server-generated)")
     portfolio_id: UUID = Field(description="Portfolio ID that this program belongs to")
     portfolio: Optional['PortfolioSummary'] = Field(default=None, description="Portfolio information")
     project_count: Optional[int] = Field(default=0, description="Number of projects in this program")

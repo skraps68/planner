@@ -76,7 +76,12 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
   return (
     <TableContainer
       component={compact ? 'div' : Paper}
-      sx={{ mb: compact ? 0 : 3, overflowX: 'auto' }}
+      sx={{
+        mb: compact ? 0 : 3,
+        overflowX: 'auto',
+        // Slimmer header band (overrides the per-cell py in compact mode)
+        '& thead .MuiTableCell-root': { py: 0.25 },
+      }}
     >
       <Table size={compact ? 'small' : 'medium'} sx={compact ? {} : { minWidth: 650 }}>
         <TableHead>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'
+import React, { useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -17,8 +17,9 @@ import {
   TableRow,
   Typography,
   CircularProgress,
+  Tooltip,
 } from '@mui/material'
-import { Add, Search, KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material'
+import { Add, Search, KeyboardArrowDown, KeyboardArrowRight, CloseFullscreen } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
@@ -26,10 +27,12 @@ import { Portfolio } from '../../types/portfolio'
 import { Program, Project } from '../../types'
 import { format } from 'date-fns'
 import { TABLE_HEADER_BG } from '../../theme'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
+import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
+import { LAST_DETAIL_KEY } from '../../components/layout/PortfolioShell'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
+import { usePortfolioListState } from '../../hooks/usePortfolioListState'
 
 const formatDate = (value: string) => format(new Date(value), 'MMM dd, yyyy')
 
@@ -102,33 +105,9 @@ const projectsGroupSx = {
   overflow: 'hidden',
 }
 
-// Session-scoped persistence so the list looks the same when the user returns
-// from a detail page (browser back button or breadcrumbs)
-const LIST_STATE_KEY = 'portfoliosListState'
+// Session-scoped persistence for scroll position so the list looks the same
+// when the user returns from a detail page (browser back button or breadcrumbs)
 const LIST_SCROLL_KEY = 'portfoliosListScroll'
-
-interface SavedListState {
-  search: string
-  portfolios: string[]
-  programs: string[]
-}
-
-const loadSavedListState = (): SavedListState => {
-  try {
-    const raw = sessionStorage.getItem(LIST_STATE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      return {
-        search: typeof parsed.search === 'string' ? parsed.search : '',
-        portfolios: Array.isArray(parsed.portfolios) ? parsed.portfolios : [],
-        programs: Array.isArray(parsed.programs) ? parsed.programs : [],
-      }
-    }
-  } catch {
-    // Corrupted saved state — start fresh
-  }
-  return { search: '', portfolios: [], programs: [] }
-}
 
 /**
  * Consolidated Portfolios / Programs / Projects list.
@@ -142,26 +121,15 @@ const loadSavedListState = (): SavedListState => {
  */
 const PortfoliosListPage: React.FC = () => {
   const navigate = useNavigate()
-  const savedState = useRef(loadSavedListState()).current
-  const [search, setSearch] = useState(savedState.search)
-  const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(
-    new Set(savedState.portfolios)
-  )
-  const [expandedPrograms, setExpandedPrograms] = useState<Set<string>>(
-    new Set(savedState.programs)
-  )
+  const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram, idMode } =
+    usePortfolioListState()
 
-  // Persist list state so back/breadcrumb navigation restores it
-  useEffect(() => {
-    sessionStorage.setItem(
-      LIST_STATE_KEY,
-      JSON.stringify({
-        search,
-        portfolios: [...expandedPortfolios],
-        programs: [...expandedPrograms],
-      })
-    )
-  }, [search, expandedPortfolios, expandedPrograms])
+  const displayName = (businessId: string | undefined, name: string) =>
+    idMode && businessId ? `(${businessId}) ${name}` : name
+
+  // Where the contract control returns to (recorded by the shell on every
+  // detail visit); navigate-anyway if stale — the detail page handles not-found
+  const lastDetail = sessionStorage.getItem(LAST_DETAIL_KEY)
 
   // Remember scroll position when leaving the page (the window is the scroller)
   useEffect(() => {
@@ -237,12 +205,12 @@ const PortfoliosListPage: React.FC = () => {
     const buildPrograms = (portfolioMatches: boolean, list: Program[]) =>
       list
         .map((program) => {
-          const programMatches = has(program.name, program.business_sponsor, program.program_manager)
+          const programMatches = has(program.name, program.business_sponsor, program.program_manager, idMode ? program.business_id : null)
           const allProjects = projectsByProgram.get(program.id) || []
           const visibleProjects =
             portfolioMatches || programMatches
               ? allProjects
-              : allProjects.filter((p) => has(p.name, p.project_manager, p.cost_center_code))
+              : allProjects.filter((p) => has(p.name, p.project_manager, p.cost_center_code, idMode ? p.business_id : null))
           if (!portfolioMatches && !programMatches && visibleProjects.length === 0) return null
           return { program, projects: visibleProjects }
         })
@@ -250,7 +218,7 @@ const PortfoliosListPage: React.FC = () => {
 
     const portfolioNodes = (portfoliosData?.items || [])
       .map((portfolio) => {
-        const portfolioMatches = has(portfolio.name, portfolio.owner, portfolio.description)
+        const portfolioMatches = has(portfolio.name, portfolio.owner, portfolio.description, idMode ? portfolio.business_id : null)
         const programNodes = buildPrograms(portfolioMatches, programsByPortfolio.get(portfolio.id) || [])
         if (!portfolioMatches && programNodes.length === 0) return null
         return { portfolio, programs: programNodes }
@@ -261,18 +229,12 @@ const PortfoliosListPage: React.FC = () => {
     const orphanPrograms = buildPrograms(false, programsByPortfolio.get('none') || [])
 
     return { portfolioNodes, orphanPrograms }
-  }, [portfoliosData?.items, programs, projects, search])
+  }, [portfoliosData?.items, programs, projects, search, idMode])
 
   // While searching, force everything visible open so matches are on screen
   const searching = search.trim() !== ''
   const isPortfolioOpen = (id: string) => searching || expandedPortfolios.has(id)
   const isProgramOpen = (id: string) => searching || expandedPrograms.has(id)
-
-  const toggle = (set: Set<string>, id: string) => {
-    const next = new Set(set)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  }
 
   const openProgram = (program: Program, portfolio?: Portfolio) => {
     if (!canAccessProgram(program.id).hasPermission) return
@@ -323,9 +285,9 @@ const PortfoliosListPage: React.FC = () => {
                 onClick={() => openProject(project, program, portfolio)}
                 sx={clickableRowSx}
               >
-                <TableCell>{project.name}</TableCell>
-                <TableCell>{project.project_manager}</TableCell>
-                <TableCell>{project.cost_center_code}</TableCell>
+                <TableCell><HighlightedLabel label={displayName(project.business_id, project.name)} term={search} /></TableCell>
+                <TableCell><HighlightedLabel label={project.project_manager} term={search} /></TableCell>
+                <TableCell><HighlightedLabel label={project.cost_center_code} term={search} /></TableCell>
                 <TableCell>{formatDate(project.start_date)}</TableCell>
                 <TableCell>{formatDate(project.end_date)}</TableCell>
                 <TableCell>
@@ -381,7 +343,7 @@ const PortfoliosListPage: React.FC = () => {
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setExpandedPrograms((prev) => toggle(prev, program.id))
+                        toggleProgram(program.id)
                       }}
                     >
                       {isProgramOpen(program.id) ? (
@@ -391,9 +353,9 @@ const PortfoliosListPage: React.FC = () => {
                       )}
                     </IconButton>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>{program.name}</TableCell>
-                  <TableCell>{program.business_sponsor}</TableCell>
-                  <TableCell>{program.program_manager}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}><HighlightedLabel label={displayName(program.business_id, program.name)} term={search} /></TableCell>
+                  <TableCell><HighlightedLabel label={program.business_sponsor} term={search} /></TableCell>
+                  <TableCell><HighlightedLabel label={program.program_manager} term={search} /></TableCell>
                   <TableCell>{formatDate(program.start_date)}</TableCell>
                   <TableCell>{formatDate(program.end_date)}</TableCell>
                   <TableCell>
@@ -417,13 +379,6 @@ const PortfoliosListPage: React.FC = () => {
 
   return (
     <Box>
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Portfolios' },
-        ]}
-      />
-
       <ScopeFilterBanner />
 
       <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
@@ -465,6 +420,18 @@ const PortfoliosListPage: React.FC = () => {
         >
           Create Project
         </PermissionButton>
+        <Tooltip title={lastDetail ? 'Back to tree view' : 'Select an item first'}>
+          <span>
+            <IconButton
+              aria-label="Back to tree view"
+              size="small"
+              disabled={!lastDetail}
+              onClick={() => lastDetail && navigate(lastDetail)}
+            >
+              <CloseFullscreen sx={{ fontSize: '1rem' }} />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Box>
 
       <TableContainer component={Paper}>
@@ -515,7 +482,7 @@ const PortfoliosListPage: React.FC = () => {
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setExpandedPortfolios((prev) => toggle(prev, portfolio.id))
+                          togglePortfolio(portfolio.id)
                         }}
                       >
                         {isPortfolioOpen(portfolio.id) ? (
@@ -525,8 +492,8 @@ const PortfoliosListPage: React.FC = () => {
                         )}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{portfolio.name}</TableCell>
-                    <TableCell>{portfolio.owner}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}><HighlightedLabel label={displayName(portfolio.business_id, portfolio.name)} term={search} /></TableCell>
+                    <TableCell><HighlightedLabel label={portfolio.owner} term={search} /></TableCell>
                     <TableCell />
                     <TableCell>{formatDate(portfolio.reporting_start_date)}</TableCell>
                     <TableCell>{formatDate(portfolio.reporting_end_date)}</TableCell>

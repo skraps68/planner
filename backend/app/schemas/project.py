@@ -128,7 +128,8 @@ class ProjectPhaseResponse(ProjectPhaseBase, TimestampMixin, VersionedSchema):
 
 class ProjectResponse(ProjectBase, TimestampMixin, VersionedSchema):
     """Schema for project response."""
-    
+
+    business_id: Optional[str] = Field(default=None, description="Human-friendly 9-digit ID (server-generated)")
     program_name: Optional[str] = Field(default=None, description="Program name")
     phases: Optional[List[ProjectPhaseResponse]] = Field(default=None, description="Project phases")
     assignment_count: Optional[int] = Field(default=0, description="Number of resource assignments")

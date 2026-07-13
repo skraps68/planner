@@ -2,6 +2,7 @@
 
 export interface Program {
   id: string
+  business_id?: string
   name: string
   business_sponsor: string
   program_manager: string
@@ -20,6 +21,7 @@ export interface Program {
 
 export interface Project {
   id: string
+  business_id?: string
   program_id: string
   name: string
   business_sponsor: string
@@ -66,6 +68,7 @@ export interface Resource {
   name: string
   resource_type: 'LABOR' | 'NON_LABOR'
   description?: string
+  worker_id?: string | null
   version: number
   created_at: string
   updated_at: string

@@ -2,6 +2,7 @@
 
 export interface Portfolio {
   id: string
+  business_id?: string
   name: string
   description: string
   owner: string

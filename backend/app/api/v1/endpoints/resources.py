@@ -52,7 +52,8 @@ async def create_resource(
             db=db,
             name=resource_in.name,
             resource_type=resource_in.resource_type,
-            description=resource_in.description
+            description=resource_in.description,
+            worker_id=resource_in.worker_id
         )
         
         # Convert to response model
@@ -198,7 +199,8 @@ async def update_resource(
             db=db,
             resource_id=resource_id,
             name=resource_in.name,
-            description=resource_in.description
+            description=resource_in.description,
+            worker_id=resource_in.worker_id
         )
         
         response = ResourceResponse.model_validate(resource)

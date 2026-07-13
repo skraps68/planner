@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
@@ -43,7 +43,7 @@ const ResourceTab: React.FC<{
       resourcesApi.list({
         page: page + 1,
         size: pageSize,
-        resource_type: resourceType.toLowerCase() as any,
+        resource_type: resourceType,
         search: search || undefined,
       }),
   })
@@ -118,7 +118,22 @@ const ResourceTab: React.FC<{
 
 const ResourcesListPage: React.FC = () => {
   const navigate = useNavigate()
-  const [tab, setTab] = useState(0)
+  // The URL is the single source of truth for the active tab (?tab=0|1), so
+  // returning from a resource detail page via the browser back button restores
+  // whichever tab (Labor/Non-Labor) the user left from.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = useMemo(() => {
+    const parsed = parseInt(searchParams.get('tab') ?? '', 10)
+    return Math.min(Math.max(Number.isNaN(parsed) ? 0 : parsed, 0), 1)
+  }, [searchParams])
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    const next = new URLSearchParams(searchParams)
+    if (newValue === 0) next.delete('tab')
+    else next.set('tab', String(newValue))
+    // replace (not push) so switching tabs doesn't stack history entries
+    setSearchParams(next, { replace: true })
+  }
 
   const handleRowClick = (id: string) => navigate(`/resources/${id}`)
 
@@ -143,7 +158,7 @@ const ResourcesListPage: React.FC = () => {
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+        <Tabs value={tab} onChange={handleTabChange}>
           <Tab label="Labor" />
           <Tab label="Non-Labor" />
         </Tabs>

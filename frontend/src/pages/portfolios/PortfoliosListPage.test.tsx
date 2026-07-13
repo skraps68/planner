@@ -38,6 +38,7 @@ describe('PortfoliosListPage', () => {
       version: 1,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
+      business_id: '010000001',
     },
     {
       id: '2',
@@ -50,6 +51,7 @@ describe('PortfoliosListPage', () => {
       version: 1,
       created_at: '2024-02-01T00:00:00Z',
       updated_at: '2024-02-01T00:00:00Z',
+      business_id: '010000002',
     },
   ]
 
@@ -151,7 +153,11 @@ describe('PortfoliosListPage', () => {
     await user.type(searchInput, 'Digital')
 
     await waitFor(() => {
-      expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
+      // While filtering, the matched substring is wrapped in a highlight span,
+      // so match on the cell's full text content rather than a single text node
+      expect(
+        screen.getByText((_, el) => el?.tagName === 'TD' && el.textContent === 'Digital Transformation')
+      ).toBeInTheDocument()
       expect(screen.queryByText('Infrastructure Modernization')).not.toBeInTheDocument()
     })
   })
@@ -186,11 +192,11 @@ describe('PortfoliosListPage', () => {
     expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
   })
 
-  it('should display page title', () => {
+  it('should display the list search box', () => {
     render(<PortfoliosListPage />, { store, queryClient })
-
-    // The page identifies itself via the breadcrumb trail
-    expect(screen.getByText('Portfolios')).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText('Search portfolios, programs, projects...')
+    ).toBeInTheDocument()
   })
 
   it('should display column headers', async () => {
@@ -213,6 +219,45 @@ describe('PortfoliosListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('John Doe')).toBeInTheDocument()
       expect(screen.getByText('Jane Smith')).toBeInTheDocument()
+    })
+  })
+
+  it('highlights the matched substring while filtering', async () => {
+    const user = userEvent.setup()
+    render(<PortfoliosListPage />, { store, queryClient })
+    await waitFor(() => expect(screen.getByText('Digital Transformation')).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText('Search portfolios, programs, projects...'), 'Digital')
+
+    await waitFor(() => {
+      const mark = document.querySelector('[data-highlight]')
+      expect(mark).not.toBeNull()
+      expect(mark!.textContent).toBe('Digital')
+    })
+  })
+
+  it('contract control is disabled without a last detail, navigates with one', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<PortfoliosListPage />, { store, queryClient })
+    expect(screen.getByRole('button', { name: /back to tree view/i })).toBeDisabled()
+    unmount()
+
+    sessionStorage.setItem('lastHierarchyDetail', '/projects/pj9?tab=1')
+    render(<PortfoliosListPage />, { store, queryClient })
+    const btn = screen.getByRole('button', { name: /back to tree view/i })
+    expect(btn).toBeEnabled()
+    await user.click(btn)
+    expect(mockNavigate).toHaveBeenCalledWith('/projects/pj9?tab=1')
+  })
+
+  it('shows (business_id) prefixes when idMode is saved on', async () => {
+    sessionStorage.setItem(
+      'portfoliosListState',
+      JSON.stringify({ search: '', portfolios: [], programs: [], idMode: true })
+    )
+    render(<PortfoliosListPage />, { store, queryClient })
+    await waitFor(() => {
+      expect(screen.getByText(/\(010000001\) Digital Transformation/)).toBeInTheDocument()
     })
   })
 })

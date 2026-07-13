@@ -1274,7 +1274,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
           onDrop={handleDrop}
           sx={{
             position: 'relative',
-            height: 60,
+            height: 40,
             backgroundColor: '#f5f5f5',
             borderRadius: 1,
             border: '1px solid #e0e0e0',

@@ -1,7 +1,6 @@
-import React, { useState, useCallback } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { truncateAtLoop } from '../../utils/breadcrumbs'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState, useCallback, useMemo } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Typography,
@@ -26,8 +25,9 @@ import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import ChartSection from '../../components/portfolio/ChartSection'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
+import ProjectActualsTab from '../../components/actuals/ProjectActualsTab'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -48,24 +48,19 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
 const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
+  const queryClient = useQueryClient()
   
-  // Get program and portfolio context from navigation state
-  const navigationState = location.state as {
-    programId?: string
-    programName?: string
-    portfolioId?: string
-    portfolioName?: string
-    fromResourceBreadcrumbs?: Array<{ label: string; path?: string; state?: any }>
-  } | null
-  
-  const [tabValue, setTabValue] = useState(() => {
-    // Check if there's a tab parameter in the URL (clamped: old Financials tab index no longer exists)
-    const params = new URLSearchParams(location.search)
-    const tabParam = params.get('tab')
+  // The URL is the single source of truth for the active tab (?tab=N, clamped).
+  // - Selecting a different project in the nav tree lands on a bare /projects/:id
+  //   URL, so the new project always opens on the default Details tab.
+  // - Tab switches rewrite the URL in place (replace), so returning from a
+  //   resource page via the browser back button restores the tab you left.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabValue = useMemo(() => {
+    const tabParam = searchParams.get('tab')
     const parsed = tabParam ? parseInt(tabParam, 10) : 0
-    return Math.min(Math.max(parsed, 0), 1)
-  })
+    return Math.min(Math.max(Number.isNaN(parsed) ? 0 : parsed, 0), 2)
+  }, [searchParams])
   const { conflictState, handleError, clearConflict } = useConflictHandler()
   const [snackbar, setSnackbar] = useState<{
     open: boolean
@@ -132,9 +127,16 @@ const ProjectDetailPage: React.FC = () => {
     return sum + Number(phase.expense_budget || 0)
   }, 0)
 
-  // Handle tab change
+  // Handle tab change: reflect the tab in the URL (replace, not push, so
+  // switching tabs doesn't stack history entries)
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue)
+    const next = new URLSearchParams(searchParams)
+    if (newValue === 0) {
+      next.delete('tab')
+    } else {
+      next.set('tab', String(newValue))
+    }
+    setSearchParams(next, { replace: true })
   }
 
   const handleSnackbarClose = () => {
@@ -204,6 +206,8 @@ const ProjectDetailPage: React.FC = () => {
       
       // Refetch project to get updated dates
       refetch()
+      // Dates show in the rich hierarchy list too
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     } catch (error) {
       console.error('Failed to update project dates:', error)
       setSnackbar({
@@ -240,10 +244,12 @@ const ProjectDetailPage: React.FC = () => {
       })
       setIsEditingInfo(false)
       refetch()
+      // Refresh the hierarchy views (slim tree / rich list) so the new name shows
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     } catch (error: any) {
       // Try to handle as conflict error
       const isConflict = handleError(error, editValues)
-      
+
       if (!isConflict) {
         // Not a conflict, show generic error
         console.error('Failed to update project:', error)
@@ -283,59 +289,19 @@ const ProjectDetailPage: React.FC = () => {
     statusColor = 'default'
   }
 
-  // Build breadcrumbs based on navigation context
-  const breadcrumbItems: Array<{ label: string; path?: string; state?: any }> = []
-
-  if (navigationState?.fromResourceBreadcrumbs) {
-    // Navigated from a resource detail page — use that breadcrumb chain, truncating any loop
-    breadcrumbItems.push(...truncateAtLoop(navigationState.fromResourceBreadcrumbs, location.pathname))
-  } else {
-    breadcrumbItems.push(
-      { label: 'Home', path: '/dashboard' },
-      { label: 'Portfolios', path: '/portfolios' },
-    )
-
-    // If we have portfolio context, show specific portfolio
-    if (navigationState?.portfolioId && navigationState?.portfolioName) {
-      breadcrumbItems.push({
-        label: navigationState.portfolioName,
-        path: `/portfolios/${navigationState.portfolioId}`,
-      })
-    } else {
-      // Otherwise show generic Programs
-      breadcrumbItems.push({ label: 'Programs', path: '/programs' })
-    }
-
-    // If we have program context from navigation, show specific program
-    if (navigationState?.programId && navigationState?.programName) {
-      breadcrumbItems.push({
-        label: navigationState.programName,
-        path: `/programs/${navigationState.programId}`,
-        // Pass portfolio context when clicking on program breadcrumb
-        state: navigationState?.portfolioId && navigationState?.portfolioName ? {
-          portfolioId: navigationState.portfolioId,
-          portfolioName: navigationState.portfolioName,
-        } : undefined,
-      })
-    } else {
-      // Otherwise show generic Projects
-      breadcrumbItems.push({ label: 'Projects', path: '/projects' })
-    }
-  }
-
-  breadcrumbItems.push({ label: project.name })
-
   return (
     <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
-      <ScopeBreadcrumbs 
-        items={breadcrumbItems} 
+      <DetailPaneHeader
+        title={project.name}
         statusChip={<Chip label={status} color={statusColor} />}
+        onClose={() => navigate('/portfolios')}
       />
 
       <Paper sx={{ mb: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange}>
           <Tab label="Details" />
           <Tab label="Assignments" />
+          <Tab label="Actuals" />
         </Tabs>
       </Paper>
 
@@ -344,6 +310,22 @@ const ProjectDetailPage: React.FC = () => {
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={5}>
             <Paper sx={{ p: 1.5, height: '100%' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minHeight: 34, mb: 0.5 }}>
+                {!isEditingInfo ? (
+                  <Button variant="contained" size="small" startIcon={<Edit />} onClick={handleEditInfo}>
+                    Edit
+                  </Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancelEdit}>
+                      Cancel
+                    </Button>
+                    <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSaveInfo}>
+                      Save
+                    </Button>
+                  </Box>
+                )}
+              </Box>
               <Grid container rowSpacing={1} columnSpacing={1}>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
@@ -361,36 +343,11 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.name}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
-                  {!isEditingInfo ? (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      startIcon={<Edit />}
-                      onClick={handleEditInfo}
-                    >
-                      Edit
-                    </Button>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<CancelIcon />}
-                        onClick={handleCancelEdit}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSaveInfo}
-                      >
-                        Save
-                      </Button>
-                    </Box>
-                  )}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    ID
+                  </Typography>
+                  <Typography variant="body1">{project.business_id}</Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
@@ -462,8 +419,6 @@ const ProjectDetailPage: React.FC = () => {
                     <Typography variant="body1">{project.cost_center_code}</Typography>
                   )}
                 </Grid>
-                {/* Spacer keeps Start/End paired on their own row after the Edit-button cell shifts parity */}
-                <Grid item xs={12} sm={6} sx={{ display: { xs: 'none', sm: 'block' } }} />
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
                     Start Date
@@ -550,10 +505,13 @@ const ProjectDetailPage: React.FC = () => {
           onSaveSuccess={handleAssignmentSaveSuccess}
           onSaveError={handleAssignmentSaveError}
           projectBreadcrumbItems={[
-            ...breadcrumbItems.slice(0, -1),
-            { label: project.name, path: `/projects/${id}?tab=1`, state: navigationState || undefined },
+            { label: project.name, path: `/projects/${id}?tab=1` },
           ]}
         />
+      </TabPanel>
+
+      <TabPanel value={tabValue} index={2}>
+        <ProjectActualsTab projectId={id!} />
       </TabPanel>
 
       <Snackbar

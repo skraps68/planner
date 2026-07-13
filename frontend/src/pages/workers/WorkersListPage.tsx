@@ -23,7 +23,7 @@ import {
   Tabs,
   Tab,
 } from '@mui/material'
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 
@@ -210,7 +210,12 @@ const WorkersListPage = () => {
                     </TableRow>
                   ) : (
                     workers.map((worker: Worker) => (
-                      <TableRow key={worker.id} hover>
+                      <TableRow
+                        key={worker.id}
+                        hover
+                        onClick={() => navigate(`/workers/${worker.id}`)}
+                        sx={{ cursor: 'pointer', transition: 'all 0.2s ease', '&:hover': { backgroundColor: 'action.hover' } }}
+                      >
                         <TableCell>
                           <Typography variant="body1" fontWeight="medium">
                             {worker.name}
@@ -222,13 +227,7 @@ const WorkersListPage = () => {
                           {new Date(worker.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            onClick={() => navigate(`/workers/${worker.id}`)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => handleDeleteWorker(worker.id)}>
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker.id) }}>
                             <DeleteIcon />
                           </IconButton>
                         </TableCell>
@@ -272,7 +271,12 @@ const WorkersListPage = () => {
                   </TableRow>
                 ) : (
                   workerTypes.map((type: WorkerType) => (
-                    <TableRow key={type.id} hover>
+                    <TableRow
+                      key={type.id}
+                      hover
+                      onClick={() => navigate(`/workers/types/${type.id}`)}
+                      sx={{ cursor: 'pointer', transition: 'all 0.2s ease', '&:hover': { backgroundColor: 'action.hover' } }}
+                    >
                       <TableCell>
                         <Typography variant="body1" fontWeight="medium">
                           {type.type}
@@ -281,13 +285,7 @@ const WorkersListPage = () => {
                       <TableCell>{type.description}</TableCell>
                       <TableCell>{new Date(type.created_at).toLocaleDateString()}</TableCell>
                       <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/workers/types/${type.id}`)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDeleteWorkerType(type.id)}>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteWorkerType(type.id) }}>
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>

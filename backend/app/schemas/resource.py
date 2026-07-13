@@ -12,7 +12,7 @@ from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 class ResourceBase(BaseSchema):
     """Base resource schema with common fields."""
-    
+
     name: str = Field(min_length=1, max_length=255, description="Resource name")
     resource_type: ResourceType = Field(description="Resource type (labor or non_labor)")
     description: Optional[str] = Field(default=None, max_length=1000, description="Resource description")
@@ -20,20 +20,29 @@ class ResourceBase(BaseSchema):
 
 class ResourceCreate(ResourceBase):
     """Schema for creating a new resource."""
-    pass
+
+    worker_id: Optional[UUID] = Field(
+        default=None,
+        description="Required for LABOR; forbidden for NON_LABOR"
+    )
 
 
 class ResourceUpdate(VersionedSchema):
     """Schema for updating an existing resource."""
-    
+
     name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Resource name")
     resource_type: Optional[ResourceType] = Field(default=None, description="Resource type (labor or non_labor)")
     description: Optional[str] = Field(default=None, max_length=1000, description="Resource description")
+    worker_id: Optional[UUID] = Field(
+        default=None,
+        description="Required for LABOR; forbidden for NON_LABOR"
+    )
 
 
 class ResourceResponse(ResourceBase, TimestampMixin, VersionedSchema):
     """Schema for resource response."""
-    
+
+    worker_id: Optional[UUID] = Field(default=None)
     assignment_count: Optional[int] = Field(default=0, description="Number of assignments for this resource")
 
 

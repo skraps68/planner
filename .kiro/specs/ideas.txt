@@ -75,7 +75,9 @@
 
 - add toggle switch to go between days/weeks/months in the assignments table - all totals and visualization should change along with the time period
 
-- add coloring to distiguish between actuals and forecast in assignments table
+- add coloring to distiguish between actuals and forecast in assignments table, highlight days that have passed that have no actuals populated
+
+- add stats section at top of assignments that summarizes breakdowns of labor, non-labor, and wihtin labor the labor types (fte, ftc, fixed)
 
 - change all budgeting logic to flow from budget assignments, which will be just like forecast assignments, but which will become "deactivated" over time as actuals for equivalent days are loaded
 
@@ -88,6 +90,16 @@
 - also, the worker name/allocation should be a hyperlink that allows the user to jump to the allocations for that worker across all projects
 
 - that screen should replace the current vertical view of a worker's allocations and be a project-based table, i.e. project on y-axis, dates on x-axis, across all projects
+
+- add project ID search to expanded hierarchy page
+
+- make financials graphs be on the same scale so that the relative cost of cap vs exp is clear
+
+- merge the phase timeline and phase edit sections to be one, moving both buttons to top right (?)
+
+- move portfolio/program/project ids up to same row as names. for program and project this mean same row as button.
+
+- do we want portfolio-level financials?
 
 -------------------------------
 

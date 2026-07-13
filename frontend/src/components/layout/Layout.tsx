@@ -1,17 +1,17 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import Header from './Header'
-import Sidebar from './Sidebar'
+import { useRealtime } from '../../realtime/useRealtime'
 
 interface LayoutProps {
   children: React.ReactNode
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  useRealtime()
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
       <Header />
-      <Sidebar />
       <Box
         component="main"
         sx={{

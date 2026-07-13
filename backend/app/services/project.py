@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.project import Project, ProjectPhase
 from app.repositories.project import project_repository, project_phase_repository
 from app.repositories.program import program_repository
+from app.services.business_id import allocate_business_id
 from app.services.phase_service import phase_service
 
 
@@ -88,7 +89,8 @@ class ProjectService:
             "start_date": start_date,
             "end_date": end_date,
             "cost_center_code": cost_center_code,
-            "description": description
+            "description": description,
+            "business_id": allocate_business_id(db, "project"),
         }
         
         project = self.repository.create(db, obj_in=project_data)
