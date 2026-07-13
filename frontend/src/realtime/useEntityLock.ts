@@ -30,6 +30,11 @@ export function useEntityLock(
 
   const heldRef = useRef(false)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  // The user_id we were granted the lock under, captured from the initial
+  // successful acquire (or takeOver). Used by the heartbeat's refreshed:false
+  // handler to tell "someone else genuinely holds it now" apart from an
+  // ambiguous/ Redis-hiccup response where get_lock can't confirm a holder.
+  const myUserIdRef = useRef<string | undefined>(undefined)
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatRef.current) {
@@ -39,10 +44,15 @@ export function useEntityLock(
   }, [])
 
   // Starts (or restarts) the heartbeat interval for a held lock. If a beat
-  // comes back with refreshed:false, the server no longer considers us the
-  // holder (someone else took over, TTL raced out, etc.) — treat that like a
-  // failed acquire: stop heartbeating and flip to 'blocked', looking up the
-  // current holder so the banner can show who has it.
+  // comes back with refreshed:false, the server no longer confirms us as the
+  // holder — but that's ambiguous: it's the same response shape whether
+  // someone else genuinely took over, or Redis is having a hiccup (locks.py
+  // degrades heartbeat/get_lock to False/None on any Redis failure). We
+  // confirm via getLock: only flip to 'blocked' (and stop heartbeating) if a
+  // holder is present AND it isn't us. If the holder is absent (ambiguous —
+  // could be Redis down) or still us, treat it as transient and keep
+  // heartbeating so a brief outage doesn't silently kick a mid-edit user to
+  // read-only.
   const startHeartbeat = useCallback(
     (type: string, id: string) => {
       stopHeartbeat()
@@ -51,18 +61,29 @@ export function useEntityLock(
           .heartbeatLock(type, id)
           .then((res) => {
             if (res.refreshed === false) {
-              heldRef.current = false
-              stopHeartbeat()
-              setState('blocked')
               realtimeApi
                 .getLock(type, id)
-                .then((info) => setHolder(info.holder ?? undefined))
-                .catch(() => setHolder(undefined))
+                .then((info) => {
+                  const holderUserId = info.holder?.user_id
+                  const lostToSomeoneElse =
+                    !!holderUserId && holderUserId !== myUserIdRef.current
+                  if (lostToSomeoneElse) {
+                    heldRef.current = false
+                    stopHeartbeat()
+                    setState('blocked')
+                    setHolder(info.holder ?? undefined)
+                  }
+                  // else: ambiguous (no confirmed holder) or still us —
+                  // transient hiccup, stay 'held' and keep heartbeating.
+                })
+                .catch(() => {
+                  // getLock itself failed — can't confirm loss, stay held.
+                })
             }
           })
           .catch(() => {
             // best-effort: a network hiccup on a single heartbeat shouldn't
-            // flip state; only an explicit refreshed:false does.
+            // flip state; only a confirmed loss (via getLock) does.
           })
       }, HEARTBEAT_MS)
     },
@@ -97,6 +118,7 @@ export function useEntityLock(
         }
         if (result.acquired) {
           heldRef.current = true
+          myUserIdRef.current = result.holder?.user_id
           setState('held')
           setHolder(undefined)
           startHeartbeat(type, id)
@@ -135,13 +157,17 @@ export function useEntityLock(
     return () => window.removeEventListener('beforeunload', handler)
   }, [entityType, entityId, validId])
 
+  // Real force-override, gated behind LockBanner's confirm dialog: unlike the
+  // regular owner-checked releaseLock (which no-ops against someone else's
+  // active lock), forceReleaseLock deletes the key unconditionally, so
+  // "Take over" works even while the original holder is actively editing.
   const takeOver = useCallback(async () => {
     if (!validId) return
     const type = entityType
     const id = entityId as string
 
     try {
-      await realtimeApi.releaseLock(type, id)
+      await realtimeApi.forceReleaseLock(type, id)
     } catch {
       // best-effort
     }
@@ -150,6 +176,7 @@ export function useEntityLock(
       const result = await realtimeApi.acquireLock(type, id)
       if (result.acquired) {
         heldRef.current = true
+        myUserIdRef.current = result.holder?.user_id
         setState('held')
         setHolder(undefined)
         startHeartbeat(type, id)

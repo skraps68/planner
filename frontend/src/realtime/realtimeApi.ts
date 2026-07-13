@@ -28,6 +28,10 @@ export const realtimeApi = {
       .then((r) => r.data),
   releaseLock: (type: string, id: string): Promise<{ ok: boolean }> =>
     apiClient.post<{ ok: boolean }>(`/realtime/locks/${type}/${id}/release`).then((r) => r.data),
+  forceReleaseLock: (type: string, id: string): Promise<{ ok: boolean }> =>
+    apiClient
+      .post<{ ok: boolean }>(`/realtime/locks/${type}/${id}/force-release`)
+      .then((r) => r.data),
   getLock: (type: string, id: string): Promise<{ holder: LockHolder | null }> =>
     apiClient.get<{ holder: LockHolder | null }>(`/realtime/locks/${type}/${id}`).then((r) => r.data),
 }

@@ -7,6 +7,7 @@ beforeEach(() => {
   vi.spyOn(realtimeApi, 'acquireLock').mockReset()
   vi.spyOn(realtimeApi, 'heartbeatLock').mockReset().mockResolvedValue({ refreshed: true })
   vi.spyOn(realtimeApi, 'releaseLock').mockReset().mockResolvedValue({ ok: true })
+  vi.spyOn(realtimeApi, 'forceReleaseLock').mockReset().mockResolvedValue({ ok: true })
   vi.spyOn(realtimeApi, 'getLock').mockReset().mockResolvedValue({ holder: null })
 })
 
@@ -68,7 +69,7 @@ describe('useEntityLock', () => {
     expect(result.current.state).toBe('idle')
   })
 
-  it('takeOver releases then re-acquires the lock', async () => {
+  it('takeOver force-releases (not the owner-checked release) then re-acquires the lock, even against an active holder', async () => {
     vi.mocked(realtimeApi.acquireLock).mockResolvedValueOnce({
       acquired: false,
       holder: { user_id: 'u2', name: 'Alice' },
@@ -79,20 +80,23 @@ describe('useEntityLock', () => {
     await waitFor(() => expect(result.current.state).toBe('blocked'))
 
     const callOrder: string[] = []
-    vi.mocked(realtimeApi.releaseLock).mockImplementationOnce(async () => {
-      callOrder.push('release')
+    vi.mocked(realtimeApi.forceReleaseLock).mockImplementationOnce(async () => {
+      callOrder.push('force-release')
       return { ok: true }
     })
     vi.mocked(realtimeApi.acquireLock).mockImplementationOnce(async () => {
       callOrder.push('acquire')
-      return { acquired: true, holder: null }
+      return { acquired: true, holder: { user_id: 'u1', name: 'Me' } }
     })
 
     await act(async () => {
       await result.current.takeOver()
     })
 
-    expect(callOrder).toEqual(['release', 'acquire'])
+    expect(callOrder).toEqual(['force-release', 'acquire'])
+    // The regular owner-checked release must NOT be used for take-over —
+    // it would no-op against Alice's still-active lock.
+    expect(realtimeApi.releaseLock).not.toHaveBeenCalled()
     await waitFor(() => expect(result.current.state).toBe('held'))
   })
 
@@ -118,9 +122,14 @@ describe('useEntityLock', () => {
     expect(realtimeApi.heartbeatLock).toHaveBeenCalledTimes(callsAfterUnmount)
   })
 
-  it('transitions held -> blocked when a heartbeat comes back refreshed:false, and stops heartbeating', async () => {
+  it('transitions held -> blocked when a heartbeat comes back refreshed:false and getLock confirms a DIFFERENT holder, and stops heartbeating', async () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
-    vi.mocked(realtimeApi.acquireLock).mockResolvedValue({ acquired: true, holder: null })
+    // We were granted the lock as 'u1'; getLock later confirms someone else
+    // ('u3', Bob) now holds it — a genuine, confirmed loss.
+    vi.mocked(realtimeApi.acquireLock).mockResolvedValue({
+      acquired: true,
+      holder: { user_id: 'u1', name: 'Me' },
+    })
     vi.mocked(realtimeApi.heartbeatLock).mockResolvedValue({ refreshed: false })
     vi.mocked(realtimeApi.getLock).mockResolvedValue({
       holder: { user_id: 'u3', name: 'Bob' },
@@ -138,6 +147,57 @@ describe('useEntityLock', () => {
     const callsAfterBlocked = vi.mocked(realtimeApi.heartbeatLock).mock.calls.length
     await vi.advanceTimersByTimeAsync(120000)
     expect(realtimeApi.heartbeatLock).toHaveBeenCalledTimes(callsAfterBlocked)
+  })
+
+  it('stays held and keeps heartbeating when refreshed:false but getLock is ambiguous (holder: null, e.g. Redis down)', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    vi.mocked(realtimeApi.acquireLock).mockResolvedValue({
+      acquired: true,
+      holder: { user_id: 'u1', name: 'Me' },
+    })
+    vi.mocked(realtimeApi.heartbeatLock).mockResolvedValue({ refreshed: false })
+    vi.mocked(realtimeApi.getLock).mockResolvedValue({ holder: null })
+
+    const { result } = renderHook(() => useEntityLock('resource', 'r1', true))
+
+    await vi.waitFor(() => expect(result.current.state).toBe('held'))
+
+    await vi.advanceTimersByTimeAsync(30000)
+    await vi.waitFor(() => expect(realtimeApi.getLock).toHaveBeenCalledWith('resource', 'r1'))
+
+    // Give any (incorrect) state transition a chance to happen, then assert
+    // we're still held.
+    expect(result.current.state).toBe('held')
+
+    // Heartbeat must not have stopped: another tick still calls it.
+    const callsBefore = vi.mocked(realtimeApi.heartbeatLock).mock.calls.length
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(vi.mocked(realtimeApi.heartbeatLock).mock.calls.length).toBeGreaterThan(callsBefore)
+  })
+
+  it('stays held when refreshed:false but getLock confirms the holder is still ourselves', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    vi.mocked(realtimeApi.acquireLock).mockResolvedValue({
+      acquired: true,
+      holder: { user_id: 'u1', name: 'Me' },
+    })
+    vi.mocked(realtimeApi.heartbeatLock).mockResolvedValue({ refreshed: false })
+    vi.mocked(realtimeApi.getLock).mockResolvedValue({
+      holder: { user_id: 'u1', name: 'Me' },
+    })
+
+    const { result } = renderHook(() => useEntityLock('resource', 'r1', true))
+
+    await vi.waitFor(() => expect(result.current.state).toBe('held'))
+
+    await vi.advanceTimersByTimeAsync(30000)
+    await vi.waitFor(() => expect(realtimeApi.getLock).toHaveBeenCalledWith('resource', 'r1'))
+
+    expect(result.current.state).toBe('held')
+
+    const callsBefore = vi.mocked(realtimeApi.heartbeatLock).mock.calls.length
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(vi.mocked(realtimeApi.heartbeatLock).mock.calls.length).toBeGreaterThan(callsBefore)
   })
 
   it('releases the lock if acquire resolves acquired:true after the component already unmounted', async () => {

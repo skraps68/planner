@@ -81,6 +81,25 @@ def release_lock(entity_type: str, entity_id: str, user_id: str) -> bool:
     return False
 
 
+def force_release_lock(entity_type: str, entity_id: str) -> bool:
+    """Delete the lock unconditionally, regardless of who holds it.
+
+    This is the "Take over" primitive: no owner check (that's the point of
+    "force"). Returns True if a key existed and was deleted, False if no lock
+    existed or Redis is unavailable/errors (best-effort, matches this
+    module's degrade-open style).
+    """
+    client = get_sync_redis()
+    if client is None:
+        return False
+    key = _key(entity_type, entity_id)
+    try:
+        deleted = client.delete(key)
+        return bool(deleted)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def get_lock(entity_type: str, entity_id: str) -> Optional[dict]:
     client = get_sync_redis()
     if client is None:

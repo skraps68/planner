@@ -228,6 +228,10 @@ class TestAccessibleScope:
             realtime.scope_validator_service,
             "get_user_accessible_projects",
             return_value=proj_ids,
+        ), patch.object(
+            realtime.scope_validator_service,
+            "get_user_accessible_portfolios",
+            return_value=[],
         ):
             has_global, accessible = realtime._accessible_scope(object(), user_id)
         assert has_global is False
@@ -243,6 +247,37 @@ class TestAccessibleScope:
             side_effect=RuntimeError("scope service down"),
         ):
             assert realtime._accessible_scope(object(), user_id) == (False, set())
+
+    def test_non_global_returns_union_including_portfolio_ids(self):
+        """Portfolio change events carry scope_ids=[portfolio_id] (see
+        app/realtime/scope.py); non-global users must see them too, not just
+        program/project scoped events."""
+        from app.api.v1.endpoints import realtime
+
+        user_id = str(uuid.uuid4())
+        prog_ids = [uuid.uuid4()]
+        proj_ids = [uuid.uuid4()]
+        portfolio_ids = [uuid.uuid4(), uuid.uuid4()]
+        with patch.object(
+            realtime.scope_validator_service,
+            "get_scope_summary",
+            return_value={"has_global_scope": False},
+        ), patch.object(
+            realtime.scope_validator_service,
+            "get_user_accessible_programs",
+            return_value=prog_ids,
+        ), patch.object(
+            realtime.scope_validator_service,
+            "get_user_accessible_projects",
+            return_value=proj_ids,
+        ), patch.object(
+            realtime.scope_validator_service,
+            "get_user_accessible_portfolios",
+            return_value=portfolio_ids,
+        ):
+            has_global, accessible = realtime._accessible_scope(object(), user_id)
+        assert has_global is False
+        assert accessible == {str(x) for x in prog_ids + proj_ids + portfolio_ids}
 
 
 class TestLockEndpoints:
@@ -349,6 +384,43 @@ class TestLockEndpoints:
         assert resp.status_code == 200
         assert resp.json() == {"ok": False}
         release.assert_called_once_with("resource", "r1", str(authed_client.user.id))
+        publish.assert_not_called()
+
+    def test_force_release_requires_auth(self, client):
+        resp = client.post("/api/v1/realtime/locks/resource/r1/force-release")
+        assert resp.status_code in (401, 403)
+
+    def test_force_release_by_different_user_deletes_and_publishes(self, authed_client):
+        """force_release_lock has no owner check: a lock held by one user
+        (e.g. 'user A', simulated purely via the store-level return value)
+        can be force-released by a different authenticated user ('user B',
+        this test's authed_client) and still succeeds."""
+        with patch(
+            "app.api.v1.endpoints.realtime.force_release_lock", return_value=True
+        ) as force_release, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/force-release")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        force_release.assert_called_once_with("resource", "r1")
+        publish.assert_called_once()
+        event = publish.call_args[0][0]
+        assert event.type == "lock"
+        assert event.id == "r1"
+        assert event.action == "deleted"
+        assert event.actor_id == str(authed_client.user.id)
+
+    def test_force_release_does_not_publish_when_nothing_deleted(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.force_release_lock", return_value=False
+        ) as force_release, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/force-release")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": False}
+        force_release.assert_called_once_with("resource", "r1")
         publish.assert_not_called()
 
     def test_get_returns_holder(self, authed_client):

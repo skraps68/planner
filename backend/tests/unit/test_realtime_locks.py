@@ -124,6 +124,39 @@ def test_release_swallows_redis_errors():
         assert locks.release_lock("resource", "r1", "u1") is False
 
 
+def test_force_release_deletes_regardless_of_holder():
+    """force_release_lock has no owner check — it deletes whatever's there,
+    even when the caller ("user B") isn't the holder ("user A")."""
+    fake = MagicMock()
+    fake.get.return_value = '{"user_id": "u1", "name": "Alice"}'
+    fake.delete.return_value = 1
+    with patch("app.realtime.locks.get_sync_redis", return_value=fake):
+        result = locks.force_release_lock("resource", "r1")
+    fake.delete.assert_called_once_with("rt:lock:resource:r1")
+    assert result is True
+
+
+def test_force_release_returns_false_when_no_lock_exists():
+    fake = MagicMock()
+    fake.delete.return_value = 0
+    with patch("app.realtime.locks.get_sync_redis", return_value=fake):
+        result = locks.force_release_lock("resource", "r1")
+    fake.delete.assert_called_once_with("rt:lock:resource:r1")
+    assert result is False
+
+
+def test_force_release_returns_false_when_redis_unavailable():
+    with patch("app.realtime.locks.get_sync_redis", return_value=None):
+        assert locks.force_release_lock("resource", "r1") is False
+
+
+def test_force_release_returns_false_on_redis_error():
+    fake = MagicMock()
+    fake.delete.side_effect = RuntimeError("boom")
+    with patch("app.realtime.locks.get_sync_redis", return_value=fake):
+        assert locks.force_release_lock("resource", "r1") is False
+
+
 def test_get_lock_returns_current_holder():
     fake = MagicMock()
     fake.get.return_value = '{"user_id": "u1", "name": "Alice"}'

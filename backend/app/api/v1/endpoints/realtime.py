@@ -14,7 +14,13 @@ from app.api.deps import get_current_user
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.realtime.events import ChangeEvent, publish_change
-from app.realtime.locks import acquire_lock, get_lock, heartbeat_lock, release_lock
+from app.realtime.locks import (
+    acquire_lock,
+    force_release_lock,
+    get_lock,
+    heartbeat_lock,
+    release_lock,
+)
 from app.realtime.presence import list_presence, register_presence, release_presence
 from app.realtime.redis_clients import CHANGES_CHANNEL, make_async_redis
 from app.realtime.tickets import consume_ticket, mint_ticket
@@ -49,6 +55,11 @@ def _accessible_scope(db: Session, user_id: str) -> tuple[bool, Set[str]]:
         ids.update(
             str(x)
             for x in scope_validator_service.get_user_accessible_projects(db, uid)
+            or []
+        )
+        ids.update(
+            str(x)
+            for x in scope_validator_service.get_user_accessible_portfolios(db, uid)
             or []
         )
         return False, ids
@@ -216,6 +227,35 @@ def lock_release(
     current_user: User = Depends(get_current_user),
 ):
     released = release_lock(entity_type, entity_id, str(current_user.id))
+    if released:
+        publish_change(
+            ChangeEvent(
+                type="lock",
+                id=entity_id,
+                action="deleted",
+                scope_ids=[],
+                actor_id=str(current_user.id),
+                ts=_time.time(),
+            )
+        )
+    return {"ok": released}
+
+
+@router.post("/locks/{entity_type}/{entity_id}/force-release")
+def lock_force_release(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Force-override ("Take over") a lock, regardless of who holds it.
+
+    Intentionally NOT owner-checked at the lock-store level — that's the
+    point of "force". Authorization is still enforced by requiring a valid
+    logged-in user via get_current_user above; there's no additional
+    confirm/audit step at this layer because the confirm dialog happens
+    client-side in LockBanner before this endpoint is ever called.
+    """
+    released = force_release_lock(entity_type, entity_id)
     if released:
         publish_change(
             ChangeEvent(
