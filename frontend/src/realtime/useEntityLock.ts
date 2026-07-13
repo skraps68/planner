@@ -38,6 +38,37 @@ export function useEntityLock(
     }
   }, [])
 
+  // Starts (or restarts) the heartbeat interval for a held lock. If a beat
+  // comes back with refreshed:false, the server no longer considers us the
+  // holder (someone else took over, TTL raced out, etc.) — treat that like a
+  // failed acquire: stop heartbeating and flip to 'blocked', looking up the
+  // current holder so the banner can show who has it.
+  const startHeartbeat = useCallback(
+    (type: string, id: string) => {
+      stopHeartbeat()
+      heartbeatRef.current = setInterval(() => {
+        realtimeApi
+          .heartbeatLock(type, id)
+          .then((res) => {
+            if (res.refreshed === false) {
+              heldRef.current = false
+              stopHeartbeat()
+              setState('blocked')
+              realtimeApi
+                .getLock(type, id)
+                .then((info) => setHolder(info.holder ?? undefined))
+                .catch(() => setHolder(undefined))
+            }
+          })
+          .catch(() => {
+            // best-effort: a network hiccup on a single heartbeat shouldn't
+            // flip state; only an explicit refreshed:false does.
+          })
+      }, HEARTBEAT_MS)
+    },
+    [stopHeartbeat],
+  )
+
   useEffect(() => {
     if (!wantLock || !validId) {
       setState('idle')
@@ -52,15 +83,23 @@ export function useEntityLock(
     realtimeApi
       .acquireLock(type, id)
       .then((result) => {
-        if (cancelled) return
+        if (cancelled) {
+          // The component unmounted (or wantLock flipped false) while this
+          // acquire was in flight. heldRef was never set, so the cleanup
+          // below couldn't release it — if we did end up acquiring, release
+          // it now (best-effort) so the lock doesn't sit on the server for
+          // the full TTL. React StrictMode's mount->cleanup->remount makes
+          // this a routine occurrence, not just an edge case.
+          if (result.acquired) {
+            realtimeApi.releaseLock(type, id).catch(() => {})
+          }
+          return
+        }
         if (result.acquired) {
           heldRef.current = true
           setState('held')
           setHolder(undefined)
-          stopHeartbeat()
-          heartbeatRef.current = setInterval(() => {
-            realtimeApi.heartbeatLock(type, id).catch(() => {})
-          }, HEARTBEAT_MS)
+          startHeartbeat(type, id)
         } else {
           heldRef.current = false
           setState('blocked')
@@ -80,7 +119,7 @@ export function useEntityLock(
         realtimeApi.releaseLock(type, id).catch(() => {})
       }
     }
-  }, [entityType, entityId, wantLock, validId, stopHeartbeat])
+  }, [entityType, entityId, wantLock, validId, stopHeartbeat, startHeartbeat])
 
   // Best-effort release when the tab/window is closing.
   useEffect(() => {
@@ -113,10 +152,7 @@ export function useEntityLock(
         heldRef.current = true
         setState('held')
         setHolder(undefined)
-        stopHeartbeat()
-        heartbeatRef.current = setInterval(() => {
-          realtimeApi.heartbeatLock(type, id).catch(() => {})
-        }, HEARTBEAT_MS)
+        startHeartbeat(type, id)
       } else {
         heldRef.current = false
         setState('blocked')
@@ -125,7 +161,7 @@ export function useEntityLock(
     } catch {
       // best-effort: leave state as-is
     }
-  }, [entityType, entityId, validId, stopHeartbeat])
+  }, [entityType, entityId, validId, startHeartbeat])
 
   return { state, holder, takeOver }
 }

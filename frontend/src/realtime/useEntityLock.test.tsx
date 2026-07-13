@@ -117,4 +117,49 @@ describe('useEntityLock', () => {
     await vi.advanceTimersByTimeAsync(120000)
     expect(realtimeApi.heartbeatLock).toHaveBeenCalledTimes(callsAfterUnmount)
   })
+
+  it('transitions held -> blocked when a heartbeat comes back refreshed:false, and stops heartbeating', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    vi.mocked(realtimeApi.acquireLock).mockResolvedValue({ acquired: true, holder: null })
+    vi.mocked(realtimeApi.heartbeatLock).mockResolvedValue({ refreshed: false })
+    vi.mocked(realtimeApi.getLock).mockResolvedValue({
+      holder: { user_id: 'u3', name: 'Bob' },
+    })
+
+    const { result } = renderHook(() => useEntityLock('resource', 'r1', true))
+
+    await vi.waitFor(() => expect(result.current.state).toBe('held'))
+
+    await vi.advanceTimersByTimeAsync(30000)
+    await vi.waitFor(() => expect(result.current.state).toBe('blocked'))
+    expect(realtimeApi.getLock).toHaveBeenCalledWith('resource', 'r1')
+    expect(result.current.holder).toEqual({ user_id: 'u3', name: 'Bob' })
+
+    const callsAfterBlocked = vi.mocked(realtimeApi.heartbeatLock).mock.calls.length
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(realtimeApi.heartbeatLock).toHaveBeenCalledTimes(callsAfterBlocked)
+  })
+
+  it('releases the lock if acquire resolves acquired:true after the component already unmounted', async () => {
+    let resolveAcquire: (v: { acquired: boolean; holder: null }) => void = () => {}
+    vi.mocked(realtimeApi.acquireLock).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAcquire = resolve
+        }),
+    )
+
+    const { unmount } = renderHook(() => useEntityLock('resource', 'r1', true))
+
+    // Unmount while the acquire call is still in flight — mirrors React
+    // StrictMode's mount -> cleanup -> remount, and any ordinary fast
+    // navigate-away-before-the-request-completes case.
+    unmount()
+
+    expect(realtimeApi.releaseLock).not.toHaveBeenCalled()
+
+    resolveAcquire({ acquired: true, holder: null })
+
+    await waitFor(() => expect(realtimeApi.releaseLock).toHaveBeenCalledWith('resource', 'r1'))
+  })
 })
