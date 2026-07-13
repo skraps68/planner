@@ -14,6 +14,7 @@ from app.api.deps import get_current_user
 from app.db.session import SessionLocal
 from app.models.user import User
 from app.realtime.events import ChangeEvent, publish_change
+from app.realtime.locks import acquire_lock, get_lock, heartbeat_lock, release_lock
 from app.realtime.presence import list_presence, register_presence, release_presence
 from app.realtime.redis_clients import CHANGES_CHANNEL, make_async_redis
 from app.realtime.tickets import consume_ticket, mint_ticket
@@ -173,3 +174,64 @@ def presence_get(
     current_user: User = Depends(get_current_user),
 ):
     return {"present": list_presence(entity_type, entity_id)}
+
+
+@router.post("/locks/{entity_type}/{entity_id}/acquire")
+def lock_acquire(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    result = acquire_lock(
+        entity_type, entity_id, str(current_user.id), current_user.username
+    )
+    publish_change(
+        ChangeEvent(
+            type="lock",
+            id=entity_id,
+            action="created",
+            scope_ids=[],
+            actor_id=str(current_user.id),
+            ts=_time.time(),
+        )
+    )
+    return result
+
+
+@router.post("/locks/{entity_type}/{entity_id}/heartbeat")
+def lock_heartbeat(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    refreshed = heartbeat_lock(entity_type, entity_id, str(current_user.id))
+    return {"refreshed": refreshed}
+
+
+@router.post("/locks/{entity_type}/{entity_id}/release")
+def lock_release(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    release_lock(entity_type, entity_id, str(current_user.id))
+    publish_change(
+        ChangeEvent(
+            type="lock",
+            id=entity_id,
+            action="deleted",
+            scope_ids=[],
+            actor_id=str(current_user.id),
+            ts=_time.time(),
+        )
+    )
+    return {"ok": True}
+
+
+@router.get("/locks/{entity_type}/{entity_id}")
+def lock_get(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    return {"holder": get_lock(entity_type, entity_id)}

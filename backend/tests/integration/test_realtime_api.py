@@ -243,3 +243,111 @@ class TestAccessibleScope:
             side_effect=RuntimeError("scope service down"),
         ):
             assert realtime._accessible_scope(object(), user_id) == (False, set())
+
+
+class TestLockEndpoints:
+    """POST .../locks/{type}/{id}/{acquire,heartbeat,release} + GET .../locks/{type}/{id}."""
+
+    def test_acquire_requires_auth(self, client):
+        resp = client.post("/api/v1/realtime/locks/resource/r1/acquire")
+        assert resp.status_code in (401, 403)
+
+    def test_heartbeat_requires_auth(self, client):
+        resp = client.post("/api/v1/realtime/locks/resource/r1/heartbeat")
+        assert resp.status_code in (401, 403)
+
+    def test_release_requires_auth(self, client):
+        resp = client.post("/api/v1/realtime/locks/resource/r1/release")
+        assert resp.status_code in (401, 403)
+
+    def test_get_requires_auth(self, client):
+        resp = client.get("/api/v1/realtime/locks/resource/r1")
+        assert resp.status_code in (401, 403)
+
+    def test_acquire_calls_store_and_publishes_created_event(self, authed_client):
+        fake_result = {
+            "acquired": True,
+            "holder": {"user_id": str(authed_client.user.id), "name": "rt-test-user"},
+        }
+        with patch(
+            "app.api.v1.endpoints.realtime.acquire_lock", return_value=fake_result
+        ) as acquire, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/acquire")
+        assert resp.status_code == 200
+        assert resp.json() == fake_result
+        acquire.assert_called_once_with(
+            "resource", "r1", str(authed_client.user.id), authed_client.user.username
+        )
+        publish.assert_called_once()
+        event = publish.call_args[0][0]
+        assert event.type == "lock"
+        assert event.id == "r1"
+        assert event.action == "created"
+        assert event.scope_ids == []
+        assert event.actor_id == str(authed_client.user.id)
+
+    def test_acquire_returns_denied_when_held_by_another_user(self, authed_client):
+        fake_result = {"acquired": False, "holder": {"user_id": "someone-else", "name": "Bob"}}
+        with patch(
+            "app.api.v1.endpoints.realtime.acquire_lock", return_value=fake_result
+        ), patch("app.api.v1.endpoints.realtime.publish_change"):
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/acquire")
+        assert resp.status_code == 200
+        assert resp.json() == fake_result
+
+    def test_heartbeat_calls_store_and_does_not_publish(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.heartbeat_lock", return_value=True
+        ) as heartbeat, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/heartbeat")
+        assert resp.status_code == 200
+        assert resp.json() == {"refreshed": True}
+        heartbeat.assert_called_once_with("resource", "r1", str(authed_client.user.id))
+        publish.assert_not_called()
+
+    def test_heartbeat_returns_false_when_not_refreshed(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.heartbeat_lock", return_value=False
+        ):
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/heartbeat")
+        assert resp.status_code == 200
+        assert resp.json() == {"refreshed": False}
+
+    def test_release_calls_store_and_publishes_deleted_event(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.release_lock"
+        ) as release, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.post("/api/v1/realtime/locks/resource/r1/release")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        release.assert_called_once_with("resource", "r1", str(authed_client.user.id))
+        publish.assert_called_once()
+        event = publish.call_args[0][0]
+        assert event.type == "lock"
+        assert event.id == "r1"
+        assert event.action == "deleted"
+        assert event.actor_id == str(authed_client.user.id)
+
+    def test_get_returns_holder(self, authed_client):
+        fake_holder = {"user_id": "u1", "name": "Alice"}
+        with patch(
+            "app.api.v1.endpoints.realtime.get_lock", return_value=fake_holder
+        ) as get_fn:
+            resp = authed_client.get("/api/v1/realtime/locks/resource/r1")
+        assert resp.status_code == 200
+        assert resp.json() == {"holder": fake_holder}
+        get_fn.assert_called_once_with("resource", "r1")
+
+    def test_get_returns_none_when_unlocked(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.get_lock", return_value=None
+        ):
+            resp = authed_client.get("/api/v1/realtime/locks/resource/r1")
+        assert resp.status_code == 200
+        assert resp.json() == {"holder": None}
