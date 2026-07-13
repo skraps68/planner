@@ -49,7 +49,7 @@ const WorkerDetailPage = () => {
 
   const isNewWorker = id === 'new'
 
-  const { others: presentOthers } = usePresence('worker', id, isEditing)
+  const { others: presentOthers } = usePresence('worker', isNewWorker ? undefined : id, isEditing)
 
   useEffect(() => {
     fetchWorkerTypes()

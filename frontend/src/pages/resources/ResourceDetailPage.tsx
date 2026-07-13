@@ -552,7 +552,7 @@ const ResourceDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(isNew)
 
-  const { others: presentOthers } = usePresence('resource', id, isEditing)
+  const { others: presentOthers } = usePresence('resource', isNew ? undefined : id, isEditing)
 
   const [formData, setFormData] = useState({
     name: '',
