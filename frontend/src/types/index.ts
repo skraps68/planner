@@ -68,6 +68,7 @@ export interface Resource {
   name: string
   resource_type: 'LABOR' | 'NON_LABOR'
   description?: string
+  worker_id?: string | null
   version: number
   created_at: string
   updated_at: string

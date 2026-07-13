@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.models.resource import ResourceType
 from app.repositories.project import project_repository, project_phase_repository
 from app.repositories.program import program_repository
 from app.repositories.resource_assignment import resource_assignment_repository
@@ -274,16 +275,10 @@ class ForecastingService:
             if not resource:
                 return None
             
-            # For labor resources, try to get actual worker rate
-            if resource.resource_type.value == 'LABOR':
-                # Find worker by matching resource name to worker name
-                from sqlalchemy import select
-                from app.models.resource import Worker
-                
-                worker = db.execute(
-                    select(Worker).where(Worker.name == resource.name)
-                ).scalar_one_or_none()
-                
+            # For labor resources, try to get actual worker rate via FK
+            if resource.resource_type == ResourceType.LABOR and resource.worker_id:
+                worker = worker_repository.get(db, resource.worker_id)
+
                 if worker:
                     # Get the rate for the assignment date
                     rate = rate_repository.get_active_rate(
@@ -302,7 +297,7 @@ class ForecastingService:
             # If we can't determine exact rate, use a default daily rate
             # This ensures forecast calculations work even without worker linkage
             # Default: $1000/day for labor resources, $500/day for non-labor
-            if resource.resource_type.value == 'LABOR':
+            if resource.resource_type == ResourceType.LABOR:
                 default_rate = Decimal('1000.00')
             else:
                 default_rate = Decimal('500.00')

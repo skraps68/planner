@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -16,13 +16,21 @@ import {
   MenuItem,
   Grid,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
+import { usePresence } from '../../realtime/usePresence'
+import { PresenceBadge } from '../../realtime/PresenceBadge'
+import { useEntityLock } from '../../realtime/useEntityLock'
+import { LockBanner } from '../../realtime/LockBanner'
 
 const WorkerDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  // When reached from a resource detail page (Labor resource → worker link),
+  // the Back button returns to that resource rather than the workers list.
+  const fromResource = (location.state as any)?.fromResource as { id: string; name?: string } | undefined
   const [worker, setWorker] = useState<Worker | null>(null)
   const [workerTypes, setWorkerTypes] = useState<WorkerType[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,8 +51,19 @@ const WorkerDetailPage = () => {
     worker_type_id: '',
     version: 0,
   })
+  const [isEditing, setIsEditing] = useState(false)
 
   const isNewWorker = id === 'new'
+
+  const { others: presentOthers } = usePresence('worker', isNewWorker ? undefined : id, isEditing)
+  const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
+    'worker',
+    isNewWorker ? undefined : id,
+    isEditing,
+  )
+  // Advisory: while blocked, render read-only even though isEditing is true
+  // (kept true so the hook keeps trying to acquire / show the banner).
+  const effectiveEditing = isEditing && lockState !== 'blocked'
 
   useEffect(() => {
     fetchWorkerTypes()
@@ -94,6 +113,7 @@ const WorkerDetailPage = () => {
       } else {
         await workersApi.update(id!, formData)
         await fetchWorker()
+        setIsEditing(false)
         setSnackbar({ open: true, message: 'Worker saved successfully', severity: 'success' })
       }
     } catch (err: any) {
@@ -101,6 +121,18 @@ const WorkerDetailPage = () => {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCancelEdit = () => {
+    if (worker) {
+      setFormData({
+        external_id: worker.external_id,
+        name: worker.name,
+        worker_type_id: worker.worker_type_id,
+        version: worker.version,
+      })
+    }
+    setIsEditing(false)
   }
 
   if (loading) {
@@ -114,12 +146,17 @@ const WorkerDetailPage = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/workers')} sx={{ mr: 1.5 }}>
-          Back
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(fromResource ? `/resources/${fromResource.id}` : '/workers')}
+          sx={{ mr: 1.5 }}
+        >
+          {fromResource ? 'Back to Resource' : 'Back'}
         </Button>
         <Typography variant="h5">
           {isNewWorker ? 'Create Worker' : 'Worker Details'}
         </Typography>
+        <PresenceBadge others={presentOthers} />
       </Box>
 
       {error && (
@@ -128,54 +165,114 @@ const WorkerDetailPage = () => {
         </Alert>
       )}
 
+      <LockBanner holder={lockHolder} state={lockState} onTakeOver={takeOverLock} />
+
       <Card>
         <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
+          {!isNewWorker ? (
+            <Grid container rowSpacing={1} columnSpacing={1}>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Name</Typography>
+                {effectiveEditing ? (
+                  <TextField fullWidth size="small" value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
+                ) : (
+                  <Typography variant="body1">{formData.name}</Typography>
+                )}
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">External ID</Typography>
+                {effectiveEditing ? (
+                  <TextField fullWidth size="small" value={formData.external_id}
+                    onChange={(e) => setFormData({ ...formData, external_id: e.target.value })} sx={{ mt: 0.5 }} />
+                ) : (
+                  <Typography variant="body1">{formData.external_id}</Typography>
+                )}
+              </Grid>
+              <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                {!isEditing ? (
+                  <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+                    Edit
+                  </Button>
+                ) : lockState === 'blocked' ? (
+                  <Button variant="outlined" size="small" onClick={handleCancelEdit}>Close</Button>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button variant="outlined" size="small" onClick={handleCancelEdit} disabled={saving}>Cancel</Button>
+                    <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
+                      {saving ? 'Saving…' : 'Save'}
+                    </Button>
+                  </Box>
+                )}
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Worker Type</Typography>
+                {effectiveEditing ? (
+                  <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                    <Select value={formData.worker_type_id}
+                      onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}>
+                      {workerTypes.map((type) => (
+                        <MenuItem key={type.id} value={type.id}>{type.type}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Typography variant="body1">
+                    {workerTypes.find((t) => t.id === formData.worker_type_id)?.type || '—'}
+                  </Typography>
+                )}
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="External ID"
-                value={formData.external_id}
-                onChange={(e) => setFormData({ ...formData, external_id: e.target.value })}
-                required
-              />
+          ) : (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  size="small"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="External ID"
+                  size="small"
+                  value={formData.external_id}
+                  onChange={(e) => setFormData({ ...formData, external_id: e.target.value })}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth required size="small">
+                  <InputLabel>Worker Type</InputLabel>
+                  <Select
+                    value={formData.worker_type_id}
+                    label="Worker Type"
+                    onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}
+                  >
+                    {workerTypes.map((type) => (
+                      <MenuItem key={type.id} value={type.id}>
+                        {type.type}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button variant="contained" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Creating...' : 'Create'}
+                  </Button>
+                  <Button variant="outlined" onClick={() => navigate('/workers')}>
+                    Cancel
+                  </Button>
+                </Box>
+              </Grid>
             </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Worker Type</InputLabel>
-                <Select
-                  value={formData.worker_type_id}
-                  label="Worker Type"
-                  onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}
-                >
-                  {workerTypes.map((type) => (
-                    <MenuItem key={type.id} value={type.id}>
-                      {type.type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button variant="contained" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving...' : isNewWorker ? 'Create' : 'Save Changes'}
-                </Button>
-                <Button variant="outlined" onClick={() => navigate('/workers')}>
-                  Cancel
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+          )}
         </CardContent>
       </Card>
 

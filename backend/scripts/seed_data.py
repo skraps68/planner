@@ -445,6 +445,7 @@ def create_labor_resources_for_workers(db: Session, workers: dict) -> dict:
             id=uuid4(),
             name=worker.name,
             resource_type=ResourceType.LABOR,
+            worker_id=worker.id,
             description=f"Labor resource for {worker.name} ({worker.external_id})"
         )
         db.add(labor_resource)

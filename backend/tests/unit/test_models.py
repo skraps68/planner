@@ -292,18 +292,52 @@ class TestResourceModels:
     
     def test_create_resource(self, db):
         """Test creating a resource."""
-        resource = Resource(
-            name="Test Resource",
-            resource_type=ResourceType.LABOR,
-            description="A test labor resource"
+        # Create worker type first
+        worker_type = WorkerType(
+            type="Software Engineer",
+            description="Software development professional"
         )
-        db.add(resource)
+        db.add(worker_type)
         db.commit()
-        db.refresh(resource)
-        
-        assert resource.id is not None
-        assert resource.name == "Test Resource"
-        assert resource.resource_type == ResourceType.LABOR
+
+        # Create worker
+        worker = Worker(
+            worker_type_id=worker_type.id,
+            external_id="EMP001",
+            name="John Doe"
+        )
+        db.add(worker)
+        db.commit()
+
+        # Create LABOR resource with worker_id
+        labor_resource = Resource(
+            name="Test LABOR Resource",
+            resource_type=ResourceType.LABOR,
+            description="A test labor resource",
+            worker_id=worker.id
+        )
+        db.add(labor_resource)
+        db.commit()
+        db.refresh(labor_resource)
+
+        assert labor_resource.id is not None
+        assert labor_resource.name == "Test LABOR Resource"
+        assert labor_resource.resource_type == ResourceType.LABOR
+        assert labor_resource.worker_id == worker.id
+
+        # Create NON_LABOR resource without worker_id
+        non_labor_resource = Resource(
+            name="Test NON_LABOR Resource",
+            resource_type=ResourceType.NON_LABOR,
+            description="A test non-labor resource"
+        )
+        db.add(non_labor_resource)
+        db.commit()
+        db.refresh(non_labor_resource)
+
+        assert non_labor_resource.id is not None
+        assert non_labor_resource.name == "Test NON_LABOR Resource"
+        assert non_labor_resource.resource_type == ResourceType.NON_LABOR
     
     def test_create_worker_type(self, db):
         """Test creating a worker type."""
