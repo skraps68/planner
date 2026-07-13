@@ -271,6 +271,22 @@ const ProgramDetailPage: React.FC = () => {
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={5}>
           <Paper sx={{ p: 1.5, height: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minHeight: 34, mb: 0.5 }}>
+              {!isEditingInfo ? (
+                <Button variant="contained" size="small" startIcon={<Edit />} onClick={handleEditInfo}>
+                  Edit
+                </Button>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancelEdit}>
+                    Cancel
+                  </Button>
+                  <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSaveInfo}>
+                    Save
+                  </Button>
+                </Box>
+              )}
+            </Box>
             <Grid container rowSpacing={1} columnSpacing={1}>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
@@ -288,36 +304,11 @@ const ProgramDetailPage: React.FC = () => {
                     <Typography variant="body1">{program.name}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
-                  {!isEditingInfo ? (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      startIcon={<Edit />}
-                      onClick={handleEditInfo}
-                    >
-                      Edit
-                    </Button>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<CancelIcon />}
-                        onClick={handleCancelEdit}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSaveInfo}
-                      >
-                        Save
-                      </Button>
-                    </Box>
-                  )}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    ID
+                  </Typography>
+                  <Typography variant="body1">{program.business_id}</Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="caption" color="text.secondary">
@@ -429,12 +420,6 @@ const ProgramDetailPage: React.FC = () => {
                       {format(new Date(program.end_date), 'MMMM dd, yyyy')}
                     </Typography>
                   )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    ID
-                  </Typography>
-                  <Typography variant="body1">{program.business_id}</Typography>
                 </Grid>
             </Grid>
           </Paper>
