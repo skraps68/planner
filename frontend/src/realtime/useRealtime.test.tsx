@@ -115,4 +115,21 @@ describe('useRealtime', () => {
     expect(realtimeApi.mintTicket).toHaveBeenCalledTimes(2)
     expect(MockEventSource.instances[1].url).toContain('ticket=T2')
   })
+
+  it('retries with backoff when minting the ticket fails', async () => {
+    vi.mocked(realtimeApi.mintTicket)
+      .mockRejectedValueOnce(new Error('503 backend restarting'))
+      .mockResolvedValueOnce('T2')
+    const qc = new QueryClient()
+    renderHook(() => useRealtime(), { wrapper: wrap(qc) })
+
+    // No connection while the first mint fails; a retry after the backoff
+    // (base 1000ms) mints a fresh ticket and opens the first EventSource.
+    await waitFor(
+      () => expect(MockEventSource.instances.length).toBe(1),
+      { timeout: 3000 },
+    )
+    expect(realtimeApi.mintTicket).toHaveBeenCalledTimes(2)
+    expect(MockEventSource.instances[0].url).toContain('ticket=T2')
+  })
 })

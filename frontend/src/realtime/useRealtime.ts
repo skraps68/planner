@@ -36,6 +36,16 @@ export function useRealtime(): void {
       }
     }
 
+    const scheduleReconnect = () => {
+      if (cancelled) return
+      const delay = backoffRef.current
+      backoffRef.current = Math.min(backoffRef.current * 2, RECONNECT_MAX_MS)
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null
+        if (!cancelled) connect()
+      }, delay)
+    }
+
     const connect = async () => {
       try {
         const ticket = await realtimeApi.mintTicket()
@@ -62,15 +72,13 @@ export function useRealtime(): void {
           // freshly minted ticket, backing off exponentially.
           es.close()
           esRef.current = null
-          if (cancelled) return
-          const delay = backoffRef.current
-          backoffRef.current = Math.min(backoffRef.current * 2, RECONNECT_MAX_MS)
-          reconnectTimerRef.current = setTimeout(() => {
-            reconnectTimerRef.current = null
-            if (!cancelled) connect()
-          }, delay)
+          scheduleReconnect()
         }
-      } catch { /* best-effort; try again on next mount */ }
+      } catch {
+        // Ticket mint failed (e.g. backend restarting). Best-effort: retry
+        // with backoff rather than silently giving up for the session.
+        scheduleReconnect()
+      }
     }
 
     connect()
