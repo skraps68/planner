@@ -21,6 +21,8 @@ import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 import { usePresence } from '../../realtime/usePresence'
 import { PresenceBadge } from '../../realtime/PresenceBadge'
+import { useEntityLock } from '../../realtime/useEntityLock'
+import { LockBanner } from '../../realtime/LockBanner'
 
 const WorkerDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -50,6 +52,14 @@ const WorkerDetailPage = () => {
   const isNewWorker = id === 'new'
 
   const { others: presentOthers } = usePresence('worker', isNewWorker ? undefined : id, isEditing)
+  const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
+    'worker',
+    isNewWorker ? undefined : id,
+    isEditing,
+  )
+  // Advisory: while blocked, render read-only even though isEditing is true
+  // (kept true so the hook keeps trying to acquire / show the banner).
+  const effectiveEditing = isEditing && lockState !== 'blocked'
 
   useEffect(() => {
     fetchWorkerTypes()
@@ -147,13 +157,15 @@ const WorkerDetailPage = () => {
         </Alert>
       )}
 
+      <LockBanner holder={lockHolder} state={lockState} onTakeOver={takeOverLock} />
+
       <Card>
         <CardContent>
           {!isNewWorker ? (
             <Grid container rowSpacing={1} columnSpacing={1}>
               <Grid item xs={12} sm={4}>
                 <Typography variant="caption" color="text.secondary">Name</Typography>
-                {isEditing ? (
+                {effectiveEditing ? (
                   <TextField fullWidth size="small" value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
                 ) : (
@@ -162,7 +174,7 @@ const WorkerDetailPage = () => {
               </Grid>
               <Grid item xs={12} sm={4}>
                 <Typography variant="caption" color="text.secondary">External ID</Typography>
-                {isEditing ? (
+                {effectiveEditing ? (
                   <TextField fullWidth size="small" value={formData.external_id}
                     onChange={(e) => setFormData({ ...formData, external_id: e.target.value })} sx={{ mt: 0.5 }} />
                 ) : (
@@ -174,6 +186,8 @@ const WorkerDetailPage = () => {
                   <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
                     Edit
                   </Button>
+                ) : lockState === 'blocked' ? (
+                  <Button variant="outlined" size="small" onClick={handleCancelEdit}>Close</Button>
                 ) : (
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button variant="outlined" size="small" onClick={handleCancelEdit} disabled={saving}>Cancel</Button>
@@ -185,7 +199,7 @@ const WorkerDetailPage = () => {
               </Grid>
               <Grid item xs={12} sm={4}>
                 <Typography variant="caption" color="text.secondary">Worker Type</Typography>
-                {isEditing ? (
+                {effectiveEditing ? (
                   <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
                     <Select value={formData.worker_type_id}
                       onChange={(e) => setFormData({ ...formData, worker_type_id: e.target.value })}>

@@ -35,6 +35,8 @@ import { hasPermission } from '../../utils/permissions'
 import { validatePercentage } from '../../utils/cellValidation'
 import { usePresence } from '../../realtime/usePresence'
 import { PresenceBadge } from '../../realtime/PresenceBadge'
+import { useEntityLock } from '../../realtime/useEntityLock'
+import { LockBanner } from '../../realtime/LockBanner'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
 
@@ -189,6 +191,15 @@ const ResourceAllocationCalendar: React.FC<{
   })
 
   const [isEditMode, setIsEditMode] = useState(false)
+  const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
+    'resource',
+    resourceId,
+    isEditMode,
+  )
+  // Advisory: while blocked, render the calendar read-only even though the
+  // user has clicked "Edit" (isEditMode stays true so the hook keeps trying
+  // to acquire); the L1 bulk-conflict handling above remains the backstop.
+  const effectiveEditMode = isEditMode && lockState !== 'blocked'
   const [isSaving, setIsSaving] = useState(false)
   // editedCells key: "${projectId}:${dateStr}:capital|expense"
   const [editedCells, setEditedCells] = useState<Map<string, number>>(new Map())
@@ -461,7 +472,7 @@ const ResourceAllocationCalendar: React.FC<{
                         }}>
                           <AllocationCell
                             value={val}
-                            isEditMode={isEditMode}
+                            isEditMode={effectiveEditMode}
                             isEdited={editedCells.has(key)}
                             hasError={validationErrors.has(key)}
                             errorMessage={validationErrors.get(key)}
@@ -487,7 +498,7 @@ const ResourceAllocationCalendar: React.FC<{
                         }}>
                           <AllocationCell
                             value={val}
-                            isEditMode={isEditMode}
+                            isEditMode={effectiveEditMode}
                             isEdited={editedCells.has(key)}
                             hasError={validationErrors.has(key)}
                             errorMessage={validationErrors.get(key)}
@@ -504,6 +515,8 @@ const ResourceAllocationCalendar: React.FC<{
         </TableContainer>
       </Box>
 
+      <LockBanner holder={lockHolder} state={lockState} onTakeOver={takeOverLock} />
+
       {/* Controls */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
         {!isEditMode ? (
@@ -512,6 +525,10 @@ const ResourceAllocationCalendar: React.FC<{
               Edit
             </Button>
           )
+        ) : lockState === 'blocked' ? (
+          <Button variant="outlined" size="small" onClick={handleCancel}>
+            Close
+          </Button>
         ) : (
           <>
             <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>

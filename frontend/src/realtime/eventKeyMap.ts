@@ -12,6 +12,7 @@ const MAP: Record<string, Array<Array<string>>> = {
   rate: [['rates'], ['forecast']],
   actual: [['actuals'], ['forecast']],
   presence: [['presence']],
+  lock: [['lock']],
 }
 
 export function queryKeyPrefixesFor(entityType: string): Array<Array<string>> {

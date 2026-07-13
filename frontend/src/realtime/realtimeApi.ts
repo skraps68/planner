@@ -1,5 +1,10 @@
 import apiClient from '../api/client'
 
+export interface LockHolder {
+  user_id: string
+  name: string
+}
+
 export const realtimeApi = {
   mintTicket: async (): Promise<string> => {
     const res = await apiClient.post<{ ticket: string }>('/realtime/ticket')
@@ -13,4 +18,16 @@ export const realtimeApi = {
     apiClient
       .get<{ present: Array<{ user_id: string; name: string }> }>(`/realtime/presence/${type}/${id}`)
       .then((r) => r.data.present),
+  acquireLock: (type: string, id: string): Promise<{ acquired: boolean; holder: LockHolder | null }> =>
+    apiClient
+      .post<{ acquired: boolean; holder: LockHolder | null }>(`/realtime/locks/${type}/${id}/acquire`)
+      .then((r) => r.data),
+  heartbeatLock: (type: string, id: string): Promise<{ refreshed: boolean }> =>
+    apiClient
+      .post<{ refreshed: boolean }>(`/realtime/locks/${type}/${id}/heartbeat`)
+      .then((r) => r.data),
+  releaseLock: (type: string, id: string): Promise<{ ok: boolean }> =>
+    apiClient.post<{ ok: boolean }>(`/realtime/locks/${type}/${id}/release`).then((r) => r.data),
+  getLock: (type: string, id: string): Promise<{ holder: LockHolder | null }> =>
+    apiClient.get<{ holder: LockHolder | null }>(`/realtime/locks/${type}/${id}`).then((r) => r.data),
 }
