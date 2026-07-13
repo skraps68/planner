@@ -33,6 +33,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
 import { validatePercentage } from '../../utils/cellValidation'
+import { usePresence } from '../../realtime/usePresence'
+import { PresenceBadge } from '../../realtime/PresenceBadge'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
 
@@ -550,6 +552,8 @@ const ResourceDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(isNew)
 
+  const { others: presentOthers } = usePresence('resource', id, isEditing)
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -730,9 +734,12 @@ const ResourceDetailPage: React.FC = () => {
       {/* No breadcrumbs here: this page shows the resource across ALL projects,
           so a project trail would be misleading; the browser back button covers
           returning to wherever you came from. */}
-      <Typography variant="h6" sx={{ mb: 1.5 }}>
-        Resource
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h6">
+          Resource
+        </Typography>
+        <PresenceBadge others={presentOthers} />
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 

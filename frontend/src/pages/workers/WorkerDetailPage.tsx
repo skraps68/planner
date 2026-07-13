@@ -19,6 +19,8 @@ import {
 import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
+import { usePresence } from '../../realtime/usePresence'
+import { PresenceBadge } from '../../realtime/PresenceBadge'
 
 const WorkerDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -46,6 +48,8 @@ const WorkerDetailPage = () => {
   const [isEditing, setIsEditing] = useState(false)
 
   const isNewWorker = id === 'new'
+
+  const { others: presentOthers } = usePresence('worker', id, isEditing)
 
   useEffect(() => {
     fetchWorkerTypes()
@@ -134,6 +138,7 @@ const WorkerDetailPage = () => {
         <Typography variant="h5">
           {isNewWorker ? 'Create Worker' : 'Worker Details'}
         </Typography>
+        <PresenceBadge others={presentOthers} />
       </Box>
 
       {error && (
