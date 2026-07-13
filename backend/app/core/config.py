@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
 
+    # Realtime collaboration (L2 freshness, L3 presence/locks)
+    REALTIME_ENABLED: bool = True
+    REALTIME_TOLERANCE_ACTIVE_MS: int = 3000
+    REALTIME_TOLERANCE_LIST_MS: int = 20000
+    REALTIME_TICKET_TTL_S: int = 30
+    LOCK_TTL_MS: int = 90000
+    LOCK_HEARTBEAT_MS: int = 30000
+
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"

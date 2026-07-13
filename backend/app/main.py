@@ -12,6 +12,7 @@ from app.api.middleware import (
 )
 from app.core.config import settings
 from app.core.error_handlers import register_error_handlers
+from app.realtime.listeners import install_listeners
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -151,6 +152,9 @@ if settings.cors_origins:
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Wire up SQLAlchemy commit listeners to auto-publish realtime change events
+install_listeners()
 
 
 @app.get("/")

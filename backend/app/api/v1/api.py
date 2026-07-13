@@ -4,8 +4,8 @@ Main API router for v1 endpoints.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
-    programs, projects, resources, workers, rates, 
-    assignments, actuals, reports, auth, users, audit, phases, portfolios
+    programs, projects, resources, workers, rates,
+    assignments, actuals, reports, auth, users, audit, phases, portfolios, realtime
 )
 
 api_router = APIRouter()
@@ -24,6 +24,7 @@ api_router.include_router(rates.router, prefix="/rates", tags=["rates"])
 api_router.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
 api_router.include_router(actuals.router, prefix="/actuals", tags=["actuals"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+api_router.include_router(realtime.router, prefix="/realtime", tags=["realtime"])
 
 @api_router.get("/")
 async def api_info():

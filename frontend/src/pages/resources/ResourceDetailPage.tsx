@@ -23,7 +23,7 @@ import {
 } from '@mui/material'
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
-import { assignmentsApi, BulkAssignmentUpdate } from '../../api/assignments'
+import { assignmentsApi, BulkAssignmentUpdate, BulkUpdateResult } from '../../api/assignments'
 import { Resource, ResourceAssignment } from '../../types'
 import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
@@ -33,6 +33,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
 import { validatePercentage } from '../../utils/cellValidation'
+import { usePresence } from '../../realtime/usePresence'
+import { PresenceBadge } from '../../realtime/PresenceBadge'
+import { useEntityLock } from '../../realtime/useEntityLock'
+import { LockBanner } from '../../realtime/LockBanner'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
 
@@ -187,6 +191,15 @@ const ResourceAllocationCalendar: React.FC<{
   })
 
   const [isEditMode, setIsEditMode] = useState(false)
+  const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
+    'resource',
+    resourceId,
+    isEditMode,
+  )
+  // Advisory: while blocked, render the calendar read-only even though the
+  // user has clicked "Edit" (isEditMode stays true so the hook keeps trying
+  // to acquire); the L1 bulk-conflict handling above remains the backstop.
+  const effectiveEditMode = isEditMode && lockState !== 'blocked'
   const [isSaving, setIsSaving] = useState(false)
   // editedCells key: "${projectId}:${dateStr}:capital|expense"
   const [editedCells, setEditedCells] = useState<Map<string, number>>(new Map())
@@ -325,13 +338,44 @@ const ResourceAllocationCalendar: React.FC<{
         })
       }
 
-      if (bulkUpdates.length > 0) await assignmentsApi.bulkUpdate(bulkUpdates)
+      let bulkResult: BulkUpdateResult = { succeeded: [], failed: [] }
+      if (bulkUpdates.length > 0) {
+        bulkResult = await assignmentsApi.bulkUpdate(bulkUpdates)
+      }
 
+      // Refresh so any successful updates (and up-to-date versions for
+      // conflicting ones) are reflected before we decide what to keep.
       await queryClient.invalidateQueries({ queryKey: ['assignments', 'resource', resourceId] })
-      setEditedCells(new Map())
-      setValidationErrors(new Map())
-      setIsEditMode(false)
-      setSaveSuccess(true)
+
+      if (bulkResult.failed.length > 0) {
+        // Partial failure: keep only the conflicting cells in edit mode so
+        // the user can review and re-save them; non-conflicting edits are
+        // already persisted, so drop them from editedCells.
+        const failedIds = new Set(bulkResult.failed.map((f) => f.id))
+        const nextEdits = new Map<string, number>()
+        const nextErrors = new Map<string, string>()
+        for (const [key, value] of editedCells) {
+          const [projectId, dateStr] = key.split(':')
+          const existing = assignments.find(
+            (a) => a.project_id === projectId && a.assignment_date === dateStr
+          )
+          if (existing && failedIds.has(existing.id)) {
+            nextEdits.set(key, value)
+            nextErrors.set(key, 'Changed by someone else — review and re-save')
+          }
+        }
+        setEditedCells(nextEdits)
+        setValidationErrors(nextErrors)
+        setSaveError(
+          `${bulkResult.failed.length} change(s) conflicted with edits by another user and were kept for review.`
+        )
+        // Stay in edit mode — do not clear edits or exit.
+      } else {
+        setEditedCells(new Map())
+        setValidationErrors(new Map())
+        setIsEditMode(false)
+        setSaveSuccess(true)
+      }
     } catch (err: any) {
       setSaveError(err.response?.data?.detail || 'Failed to save assignments')
     } finally {
@@ -428,7 +472,7 @@ const ResourceAllocationCalendar: React.FC<{
                         }}>
                           <AllocationCell
                             value={val}
-                            isEditMode={isEditMode}
+                            isEditMode={effectiveEditMode}
                             isEdited={editedCells.has(key)}
                             hasError={validationErrors.has(key)}
                             errorMessage={validationErrors.get(key)}
@@ -454,7 +498,7 @@ const ResourceAllocationCalendar: React.FC<{
                         }}>
                           <AllocationCell
                             value={val}
-                            isEditMode={isEditMode}
+                            isEditMode={effectiveEditMode}
                             isEdited={editedCells.has(key)}
                             hasError={validationErrors.has(key)}
                             errorMessage={validationErrors.get(key)}
@@ -471,6 +515,8 @@ const ResourceAllocationCalendar: React.FC<{
         </TableContainer>
       </Box>
 
+      <LockBanner holder={lockHolder} state={lockState} onTakeOver={takeOverLock} />
+
       {/* Controls */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
         {!isEditMode ? (
@@ -479,6 +525,10 @@ const ResourceAllocationCalendar: React.FC<{
               Edit
             </Button>
           )
+        ) : lockState === 'blocked' ? (
+          <Button variant="outlined" size="small" onClick={handleCancel}>
+            Close
+          </Button>
         ) : (
           <>
             <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
@@ -518,6 +568,8 @@ const ResourceDetailPage: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(isNew)
+
+  const { others: presentOthers } = usePresence('resource', isNew ? undefined : id, isEditing)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -699,9 +751,12 @@ const ResourceDetailPage: React.FC = () => {
       {/* No breadcrumbs here: this page shows the resource across ALL projects,
           so a project trail would be misleading; the browser back button covers
           returning to wherever you came from. */}
-      <Typography variant="h6" sx={{ mb: 1.5 }}>
-        Resource
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h6">
+          Resource
+        </Typography>
+        <PresenceBadge others={presentOthers} />
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -726,6 +781,19 @@ const ResourceDetailPage: React.FC = () => {
               ) : isEditing ? (
                 <TextField fullWidth size="small" value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
+              ) : formData.resource_type === 'LABOR' && selectedWorkerId ? (
+                <Box>
+                  <Typography
+                    variant="body1"
+                    component="a"
+                    onClick={() => navigate(`/workers/${selectedWorkerId}`, {
+                      state: { fromResource: { id: id!, name: resource?.name } },
+                    })}
+                    sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {formData.name}
+                  </Typography>
+                </Box>
               ) : (
                 <Typography variant="body1">{formData.name}</Typography>
               )}
