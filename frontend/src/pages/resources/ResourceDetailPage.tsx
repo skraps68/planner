@@ -781,6 +781,19 @@ const ResourceDetailPage: React.FC = () => {
               ) : isEditing ? (
                 <TextField fullWidth size="small" value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
+              ) : formData.resource_type === 'LABOR' && selectedWorkerId ? (
+                <Box>
+                  <Typography
+                    variant="body1"
+                    component="a"
+                    onClick={() => navigate(`/workers/${selectedWorkerId}`, {
+                      state: { fromResource: { id: id!, name: resource?.name } },
+                    })}
+                    sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {formData.name}
+                  </Typography>
+                </Box>
               ) : (
                 <Typography variant="body1">{formData.name}</Typography>
               )}

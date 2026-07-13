@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -27,6 +27,10 @@ import { LockBanner } from '../../realtime/LockBanner'
 const WorkerDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  // When reached from a resource detail page (Labor resource → worker link),
+  // the Back button returns to that resource rather than the workers list.
+  const fromResource = (location.state as any)?.fromResource as { id: string; name?: string } | undefined
   const [worker, setWorker] = useState<Worker | null>(null)
   const [workerTypes, setWorkerTypes] = useState<WorkerType[]>([])
   const [loading, setLoading] = useState(true)
@@ -142,8 +146,12 @@ const WorkerDetailPage = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/workers')} sx={{ mr: 1.5 }}>
-          Back
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(fromResource ? `/resources/${fromResource.id}` : '/workers')}
+          sx={{ mr: 1.5 }}
+        >
+          {fromResource ? 'Back to Resource' : 'Back'}
         </Button>
         <Typography variant="h5">
           {isNewWorker ? 'Create Worker' : 'Worker Details'}
