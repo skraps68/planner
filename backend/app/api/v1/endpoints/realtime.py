@@ -185,16 +185,17 @@ def lock_acquire(
     result = acquire_lock(
         entity_type, entity_id, str(current_user.id), current_user.username
     )
-    publish_change(
-        ChangeEvent(
-            type="lock",
-            id=entity_id,
-            action="created",
-            scope_ids=[],
-            actor_id=str(current_user.id),
-            ts=_time.time(),
+    if result.get("acquired"):
+        publish_change(
+            ChangeEvent(
+                type="lock",
+                id=entity_id,
+                action="created",
+                scope_ids=[],
+                actor_id=str(current_user.id),
+                ts=_time.time(),
+            )
         )
-    )
     return result
 
 
@@ -214,18 +215,19 @@ def lock_release(
     entity_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    release_lock(entity_type, entity_id, str(current_user.id))
-    publish_change(
-        ChangeEvent(
-            type="lock",
-            id=entity_id,
-            action="deleted",
-            scope_ids=[],
-            actor_id=str(current_user.id),
-            ts=_time.time(),
+    released = release_lock(entity_type, entity_id, str(current_user.id))
+    if released:
+        publish_change(
+            ChangeEvent(
+                type="lock",
+                id=entity_id,
+                action="deleted",
+                scope_ids=[],
+                actor_id=str(current_user.id),
+                ts=_time.time(),
+            )
         )
-    )
-    return {"ok": True}
+    return {"ok": released}
 
 
 @router.get("/locks/{entity_type}/{entity_id}")

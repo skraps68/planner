@@ -60,17 +60,25 @@ def heartbeat_lock(entity_type: str, entity_id: str, user_id: str) -> bool:
     return False
 
 
-def release_lock(entity_type: str, entity_id: str, user_id: str) -> None:
+def release_lock(entity_type: str, entity_id: str, user_id: str) -> bool:
+    """Delete the lock only if `user_id` is the current holder.
+
+    Returns True if the lock was actually deleted, False if it was a no-op
+    (caller isn't the holder, no lock exists, Redis is unavailable, or the
+    delete itself failed) — callers should treat False as "nothing changed".
+    """
     client = get_sync_redis()
     if client is None:
-        return
+        return False
     key = _key(entity_type, entity_id)
     holder = _holder(client, key)
     if holder and holder.get("user_id") == user_id:
         try:
             client.delete(key)
+            return True
         except Exception:  # noqa: BLE001
-            pass
+            return False
+    return False
 
 
 def get_lock(entity_type: str, entity_id: str) -> Optional[dict]:

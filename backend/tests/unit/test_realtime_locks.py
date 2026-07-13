@@ -88,21 +88,32 @@ def test_release_only_deletes_when_owner():
     fake = MagicMock()
     fake.get.return_value = '{"user_id": "u1", "name": "Alice"}'
     with patch("app.realtime.locks.get_sync_redis", return_value=fake):
-        locks.release_lock("resource", "r1", "u1")
+        result = locks.release_lock("resource", "r1", "u1")
     fake.delete.assert_called_once_with("rt:lock:resource:r1")
+    assert result is True
 
 
 def test_release_does_not_delete_when_not_owner():
     fake = MagicMock()
     fake.get.return_value = '{"user_id": "u2", "name": "Bob"}'
     with patch("app.realtime.locks.get_sync_redis", return_value=fake):
-        locks.release_lock("resource", "r1", "u1")
+        result = locks.release_lock("resource", "r1", "u1")
     fake.delete.assert_not_called()
+    assert result is False
+
+
+def test_release_returns_false_when_no_lock_held():
+    fake = MagicMock()
+    fake.get.return_value = None
+    with patch("app.realtime.locks.get_sync_redis", return_value=fake):
+        result = locks.release_lock("resource", "r1", "u1")
+    fake.delete.assert_not_called()
+    assert result is False
 
 
 def test_release_is_noop_when_redis_unavailable():
     with patch("app.realtime.locks.get_sync_redis", return_value=None):
-        locks.release_lock("resource", "r1", "u1")
+        assert locks.release_lock("resource", "r1", "u1") is False
 
 
 def test_release_swallows_redis_errors():
@@ -110,7 +121,7 @@ def test_release_swallows_redis_errors():
     fake.get.return_value = '{"user_id": "u1", "name": "Alice"}'
     fake.delete.side_effect = RuntimeError("boom")
     with patch("app.realtime.locks.get_sync_redis", return_value=fake):
-        locks.release_lock("resource", "r1", "u1")
+        assert locks.release_lock("resource", "r1", "u1") is False
 
 
 def test_get_lock_returns_current_holder():
