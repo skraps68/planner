@@ -135,6 +135,67 @@ class TestVisible:
         assert _visible(event, False, {"p-1", "p-2"}) is False
 
 
+class TestPresenceEndpoints:
+    """POST/DELETE/GET /realtime/presence/{entity_type}/{entity_id}."""
+
+    def test_register_requires_auth(self, client):
+        resp = client.post("/api/v1/realtime/presence/resource/r1")
+        assert resp.status_code in (401, 403)
+
+    def test_release_requires_auth(self, client):
+        resp = client.delete("/api/v1/realtime/presence/resource/r1")
+        assert resp.status_code in (401, 403)
+
+    def test_get_requires_auth(self, client):
+        resp = client.get("/api/v1/realtime/presence/resource/r1")
+        assert resp.status_code in (401, 403)
+
+    def test_register_calls_store_and_publishes_event(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.register_presence"
+        ) as register, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.post("/api/v1/realtime/presence/resource/r1")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        register.assert_called_once_with(
+            "resource", "r1", str(authed_client.user.id), authed_client.user.username
+        )
+        publish.assert_called_once()
+        event = publish.call_args[0][0]
+        assert event.type == "presence"
+        assert event.id == "r1"
+        assert event.action == "updated"
+        assert event.scope_ids == []
+        assert event.actor_id == str(authed_client.user.id)
+
+    def test_release_calls_store_and_publishes_event(self, authed_client):
+        with patch(
+            "app.api.v1.endpoints.realtime.release_presence"
+        ) as release, patch(
+            "app.api.v1.endpoints.realtime.publish_change"
+        ) as publish:
+            resp = authed_client.delete("/api/v1/realtime/presence/resource/r1")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        release.assert_called_once_with("resource", "r1", str(authed_client.user.id))
+        publish.assert_called_once()
+        event = publish.call_args[0][0]
+        assert event.type == "presence"
+        assert event.action == "updated"
+
+    def test_get_returns_present_list(self, authed_client):
+        fake_list = [{"user_id": "u1", "name": "Alice"}]
+        with patch(
+            "app.api.v1.endpoints.realtime.list_presence", return_value=fake_list
+        ) as list_fn:
+            resp = authed_client.get("/api/v1/realtime/presence/resource/r1")
+        assert resp.status_code == 200
+        assert resp.json() == {"present": fake_list}
+        list_fn.assert_called_once_with("resource", "r1")
+
+
 class TestAccessibleScope:
     """_accessible_scope reuses the scope services and degrades conservatively."""
 

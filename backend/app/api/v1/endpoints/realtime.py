@@ -1,7 +1,8 @@
-"""Realtime endpoints: SSE ticket + change stream."""
+"""Realtime endpoints: SSE ticket + change stream + editing presence."""
 import contextlib
 import json
 import logging
+import time as _time
 from typing import Set
 from uuid import UUID
 
@@ -12,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import SessionLocal
 from app.models.user import User
+from app.realtime.events import ChangeEvent, publish_change
+from app.realtime.presence import list_presence, register_presence, release_presence
 from app.realtime.redis_clients import CHANGES_CHANNEL, make_async_redis
 from app.realtime.tickets import consume_ticket, mint_ticket
 from app.services.scope_validator import scope_validator_service
@@ -121,3 +124,52 @@ async def stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/presence/{entity_type}/{entity_id}")
+def presence_register(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    register_presence(entity_type, entity_id, str(current_user.id), current_user.username)
+    publish_change(
+        ChangeEvent(
+            type="presence",
+            id=entity_id,
+            action="updated",
+            scope_ids=[],
+            actor_id=str(current_user.id),
+            ts=_time.time(),
+        )
+    )
+    return {"ok": True}
+
+
+@router.delete("/presence/{entity_type}/{entity_id}")
+def presence_release(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    release_presence(entity_type, entity_id, str(current_user.id))
+    publish_change(
+        ChangeEvent(
+            type="presence",
+            id=entity_id,
+            action="updated",
+            scope_ids=[],
+            actor_id=str(current_user.id),
+            ts=_time.time(),
+        )
+    )
+    return {"ok": True}
+
+
+@router.get("/presence/{entity_type}/{entity_id}")
+def presence_get(
+    entity_type: str,
+    entity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    return {"present": list_presence(entity_type, entity_id)}
