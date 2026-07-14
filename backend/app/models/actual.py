@@ -12,34 +12,34 @@ from app.models.base import BaseModel, GUID
 
 if TYPE_CHECKING:
     from app.models.project import Project
-    from app.models.resource_assignment import ResourceAssignment
+    from app.models.resource import Resource
 
 
 class Actual(BaseModel):
     """Actual model for tracking actual work performed on projects."""
-    
+
     __tablename__ = "actuals"
-    
+
     # Foreign keys
     project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
-    resource_assignment_id = Column(GUID(), ForeignKey("resource_assignments.id"), nullable=True, index=True)
-    
-    # Required fields
-    external_worker_id = Column(String(100), nullable=False, index=True)
-    worker_name = Column(String(255), nullable=False)
+    resource_id = Column(GUID(), ForeignKey("resources.id"), nullable=False, index=True)
+
+    # Labor columns (nullable for non-labor actuals)
+    external_worker_id = Column(String(100), nullable=True, index=True)
+    worker_name = Column(String(255), nullable=True)
     actual_date = Column(Date, nullable=False, index=True)
-    allocation_percentage = Column(Numeric(5, 2), nullable=False)  # 0.00 to 100.00
+    allocation_percentage = Column(Numeric(5, 2), nullable=True)  # 0.00 to 100.00
     actual_cost = Column(Numeric(15, 2), nullable=False)
     capital_amount = Column(Numeric(15, 2), nullable=False)
     expense_amount = Column(Numeric(15, 2), nullable=False)
-    
+
     # Relationships
     project = relationship("Project", back_populates="actuals")
-    resource_assignment = relationship("ResourceAssignment", back_populates="actuals")
+    resource = relationship("Resource")
     
     # Constraints
     __table_args__ = (
-        CheckConstraint('allocation_percentage >= 0 AND allocation_percentage <= 100', name='check_actual_allocation_percentage'),
+        CheckConstraint('allocation_percentage IS NULL OR (allocation_percentage >= 0 AND allocation_percentage <= 100)', name='check_actual_allocation_percentage'),
         CheckConstraint('actual_cost >= 0', name='check_actual_cost_positive'),
         CheckConstraint('capital_amount >= 0', name='check_capital_amount_positive'),
         CheckConstraint('expense_amount >= 0', name='check_expense_amount_positive'),

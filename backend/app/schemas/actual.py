@@ -13,9 +13,8 @@ from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 class ActualBase(BaseSchema):
     """Base actual schema with common fields."""
-    
+
     project_id: UUID = Field(description="Project ID")
-    resource_assignment_id: Optional[UUID] = Field(default=None, description="Resource assignment ID")
     external_worker_id: str = Field(min_length=1, max_length=100, description="External worker ID")
     worker_name: str = Field(min_length=1, max_length=255, description="Worker name")
     actual_date: date = Field(description="Actual work date")
@@ -47,9 +46,8 @@ class ActualCreate(BaseSchema):
 
 class ActualUpdate(VersionedSchema):
     """Schema for updating an existing actual."""
-    
+
     project_id: Optional[UUID] = Field(default=None, description="Project ID")
-    resource_assignment_id: Optional[UUID] = Field(default=None, description="Resource assignment ID")
     external_worker_id: Optional[str] = Field(default=None, min_length=1, max_length=100, description="External worker ID")
     worker_name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Worker name")
     actual_date: Optional[date] = Field(default=None, description="Actual work date")

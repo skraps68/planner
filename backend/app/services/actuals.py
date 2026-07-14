@@ -116,7 +116,6 @@ class ActualsService:
         # Create actual record
         actual_data = {
             "project_id": project_id,
-            "resource_assignment_id": cost_data.get("resource_assignment_id"),
             "external_worker_id": external_worker_id,
             "worker_name": worker_name,
             "actual_date": actual_date,
@@ -168,8 +167,7 @@ class ActualsService:
         # the worker to a resource and find the assignment
         capital_percentage = Decimal('50.00')  # Default 50/50 split
         expense_percentage = Decimal('50.00')
-        resource_assignment_id = None
-        
+
         # Try to find a resource assignment for this project and date
         # This is a simplified lookup - in production, you'd need more sophisticated matching
         assignments = resource_assignment_repository.get_by_project(db, project_id)
@@ -178,7 +176,6 @@ class ActualsService:
                 # Found a matching assignment - use its ratios
                 capital_percentage = assignment.capital_percentage
                 expense_percentage = assignment.expense_percentage
-                resource_assignment_id = assignment.id
                 break
         
         # Calculate capital and expense amounts
@@ -199,7 +196,6 @@ class ActualsService:
             "actual_cost": actual_cost,
             "capital_amount": capital_amount,
             "expense_amount": expense_amount,
-            "resource_assignment_id": resource_assignment_id,
             "rate_used": daily_rate,
             "capital_percentage": capital_percentage,
             "expense_percentage": expense_percentage

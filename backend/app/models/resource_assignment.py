@@ -45,7 +45,6 @@ class ResourceAssignment(BaseModel):
     resource = relationship("Resource", back_populates="resource_assignments")
     project = relationship("Project", back_populates="resource_assignments")
     # Note: project_phase relationship removed (now implicit via dates)
-    actuals = relationship("Actual", back_populates="resource_assignment", cascade="all, delete-orphan")
     
     # Constraints
     __table_args__ = (
