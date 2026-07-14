@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.actual import Actual
 from app.repositories.actual import actual_repository
-from app.repositories.resource import worker_repository
+from app.repositories.resource import worker_repository, resource_repository
 from app.repositories.rate import rate_repository
 from app.repositories.resource_assignment import resource_assignment_repository
 from app.repositories.project import project_repository
@@ -104,7 +104,7 @@ class ActualsService:
                     message=f"Worker '{worker_name}' already has {existing}% allocated on {actual_date}, cannot add {allocation_percentage}%"
                 )
         
-        # Calculate cost
+        # Calculate cost (resolves the worker's resource + planned assignment split)
         cost_data = self._calculate_cost(
             db=db,
             worker=worker,
@@ -112,10 +112,11 @@ class ActualsService:
             actual_date=actual_date,
             allocation_percentage=allocation_percentage
         )
-        
+
         # Create actual record
         actual_data = {
             "project_id": project_id,
+            "resource_id": cost_data["resource_id"],
             "external_worker_id": external_worker_id,
             "worker_name": worker_name,
             "actual_date": actual_date,
@@ -124,9 +125,9 @@ class ActualsService:
             "capital_amount": cost_data["capital_amount"],
             "expense_amount": cost_data["expense_amount"]
         }
-        
+
         return actual_repository.create(db, obj_in=actual_data)
-    
+
     def _calculate_cost(
         self,
         db: Session,
@@ -136,17 +137,23 @@ class ActualsService:
         allocation_percentage: Decimal
     ) -> Dict[str, Any]:
         """
-        Calculate cost for an actual based on worker rate and assignment ratios.
-        
+        Calculate cost for an actual based on worker rate and the worker's
+        resource's planned assignment for the date.
+
+        The worker must be linked to a (LABOR) resource, and that resource
+        must have a planned ResourceAssignment on `actual_date` to supply the
+        capital/expense split -- there is no 50/50 fallback. If either is
+        missing, a BusinessRuleViolationError is raised.
+
         Args:
             db: Database session
             worker: Worker object
             project_id: Project ID
             actual_date: Date of actual work
             allocation_percentage: Allocation percentage
-            
+
         Returns:
-            Dictionary with cost breakdown
+            Dictionary with cost breakdown and the resolved resource_id
         """
         # Get worker's rate for the date
         rate = rate_repository.get_active_rate(
@@ -154,53 +161,105 @@ class ActualsService:
             worker_type_id=worker.worker_type_id,
             as_of_date=actual_date
         )
-        
+
         if not rate:
             raise RateNotFoundError(worker.worker_type_id, str(actual_date))
-        
+
+        # Resolve the resource linked to this worker
+        resource = resource_repository.get_by_worker_id(db, worker.id)
+        if not resource:
+            raise BusinessRuleViolationError(
+                f"No resource linked to worker '{worker.external_id}'",
+                rule_code="NO_RESOURCE_FOR_WORKER",
+                details={"worker_id": str(worker.id)}
+            )
+
+        # Planned assignment for this resource on this date supplies the cap/exp split
+        assignments = resource_assignment_repository.get_by_project(db, project_id)
+        planned = next(
+            (a for a in assignments
+             if a.resource_id == resource.id and a.assignment_date == actual_date),
+            None
+        )
+        if planned is None:
+            raise BusinessRuleViolationError(
+                f"No planned assignment for worker '{worker.external_id}' on {actual_date}; cannot split cost",
+                rule_code="NO_PLANNED_ASSIGNMENT",
+                details={"resource_id": str(resource.id), "date": str(actual_date)}
+            )
+
         # Calculate base cost (daily rate * allocation percentage)
         daily_rate = rate.rate_amount
-        actual_cost = (daily_rate * allocation_percentage) / Decimal('100.00')
-        
-        # Try to find matching resource assignment for capital/expense split
-        # Note: This is a simplified approach - in reality, we'd need to match
-        # the worker to a resource and find the assignment
-        capital_percentage = Decimal('50.00')  # Default 50/50 split
-        expense_percentage = Decimal('50.00')
+        actual_cost = ((daily_rate * allocation_percentage) / Decimal('100.00')).quantize(Decimal('0.01'))
 
-        # Try to find a resource assignment for this project and date
-        # This is a simplified lookup - in production, you'd need more sophisticated matching
-        assignments = resource_assignment_repository.get_by_project(db, project_id)
-        for assignment in assignments:
-            if assignment.assignment_date == actual_date:
-                # Found a matching assignment - use its ratios
-                capital_percentage = assignment.capital_percentage
-                expense_percentage = assignment.expense_percentage
-                break
-        
-        # Calculate capital and expense amounts
-        capital_amount = (actual_cost * capital_percentage) / Decimal('100.00')
-        expense_amount = (actual_cost * expense_percentage) / Decimal('100.00')
-        
-        # Round to 2 decimal places
-        actual_cost = actual_cost.quantize(Decimal('0.01'))
-        capital_amount = capital_amount.quantize(Decimal('0.01'))
-        expense_amount = expense_amount.quantize(Decimal('0.01'))
-        
+        total_pct = planned.capital_percentage + planned.expense_percentage
+        if total_pct == 0:
+            cap_ratio = Decimal('0')
+            exp_ratio = Decimal('0')
+        else:
+            cap_ratio = planned.capital_percentage / total_pct
+            exp_ratio = planned.expense_percentage / total_pct
+
+        capital_amount = (actual_cost * cap_ratio).quantize(Decimal('0.01'))
         # Ensure capital + expense = actual_cost (handle rounding)
-        if capital_amount + expense_amount != actual_cost:
-            # Adjust expense to match
-            expense_amount = actual_cost - capital_amount
-        
+        expense_amount = actual_cost - capital_amount
+
         return {
             "actual_cost": actual_cost,
             "capital_amount": capital_amount,
             "expense_amount": expense_amount,
             "rate_used": daily_rate,
-            "capital_percentage": capital_percentage,
-            "expense_percentage": expense_percentage
+            "resource_id": resource.id
         }
-    
+
+    def create_nonlabor_actual(
+        self,
+        db: Session,
+        project_id: UUID,
+        resource_id: UUID,
+        actual_date: date,
+        capital_amount: Decimal,
+        expense_amount: Decimal
+    ) -> Actual:
+        """
+        Create a non-labor actual directly from dollar amounts.
+
+        Non-labor actuals have no worker, allocation percentage, or rate --
+        they record capital/expense dollars against a NON_LABOR resource.
+
+        Args:
+            db: Database session
+            project_id: Project ID
+            resource_id: NON_LABOR Resource ID
+            actual_date: Date of the actual
+            capital_amount: Capital dollars
+            expense_amount: Expense dollars
+
+        Returns:
+            Created Actual object
+        """
+        project = project_repository.get(db, project_id)
+        if not project:
+            raise ProjectNotFoundError(project_id)
+
+        resource = resource_repository.get(db, resource_id)
+        if not resource:
+            raise ResourceNotFoundError("Resource", resource_id=resource_id)
+
+        actual_data = {
+            "project_id": project_id,
+            "resource_id": resource_id,
+            "external_worker_id": None,
+            "worker_name": None,
+            "actual_date": actual_date,
+            "allocation_percentage": None,
+            "actual_cost": capital_amount + expense_amount,
+            "capital_amount": capital_amount,
+            "expense_amount": expense_amount,
+        }
+
+        return actual_repository.create(db, obj_in=actual_data)
+
     def import_actuals_batch(
         self,
         db: Session,
