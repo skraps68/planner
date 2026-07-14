@@ -13,7 +13,7 @@ from .base import BaseSchema, TimestampMixin, VersionedSchema
 
 class PhaseBase(BaseSchema):
     """Base phase schema with common fields."""
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -22,22 +22,26 @@ class PhaseBase(BaseSchema):
                     "start_date": "2024-01-01",
                     "end_date": "2024-03-31",
                     "description": "Initial planning phase",
-                    "capital_budget": 50000.00,
-                    "expense_budget": 25000.00,
+                    "labor_capital_budget": 30000.00,
+                    "labor_expense_budget": 20000.00,
+                    "nonlabor_capital_budget": 15000.00,
+                    "nonlabor_expense_budget": 10000.00,
                     "total_budget": 75000.00
                 }
             ]
         }
     }
-    
+
     name: str = Field(min_length=1, max_length=100, description="Phase name")
     start_date: date = Field(description="Phase start date")
     end_date: date = Field(description="Phase end date")
     description: Optional[str] = Field(default=None, max_length=500, description="Phase description")
-    capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Capital budget")
-    expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Expense budget")
+    labor_capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Labor capital budget")
+    labor_expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Labor expense budget")
+    nonlabor_capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Non-labor capital budget")
+    nonlabor_expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Non-labor expense budget")
     total_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Total budget")
-    
+
     @field_validator('end_date')
     @classmethod
     def validate_end_date(cls, v, info):
@@ -45,15 +49,17 @@ class PhaseBase(BaseSchema):
         if 'start_date' in info.data and v < info.data['start_date']:
             raise ValueError('End date must be on or after start date')
         return v
-    
+
     @field_validator('total_budget')
     @classmethod
     def validate_total_budget(cls, v, info):
-        """Validate that total_budget equals capital_budget + expense_budget."""
-        if 'capital_budget' in info.data and 'expense_budget' in info.data:
-            expected_total = info.data['capital_budget'] + info.data['expense_budget']
-            if v != expected_total:
-                raise ValueError(f'Total budget must equal capital + expense ({expected_total})')
+        """Validate that total_budget equals sum of four category budgets."""
+        keys = ('labor_capital_budget', 'labor_expense_budget',
+                'nonlabor_capital_budget', 'nonlabor_expense_budget')
+        if all(k in info.data for k in keys):
+            expected = sum(info.data[k] for k in keys)
+            if v != expected:
+                raise ValueError(f'Total budget must equal the four category budgets ({expected})')
         return v
 
 
@@ -64,22 +70,26 @@ class PhaseCreate(PhaseBase):
 
 class PhaseUpdate(VersionedSchema):
     """Schema for updating an existing phase."""
-    
+
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     start_date: Optional[date] = Field(default=None)
     end_date: Optional[date] = Field(default=None)
     description: Optional[str] = Field(default=None, max_length=500)
-    capital_budget: Optional[Decimal] = Field(default=None, ge=0)
-    expense_budget: Optional[Decimal] = Field(default=None, ge=0)
+    labor_capital_budget: Optional[Decimal] = Field(default=None, ge=0)
+    labor_expense_budget: Optional[Decimal] = Field(default=None, ge=0)
+    nonlabor_capital_budget: Optional[Decimal] = Field(default=None, ge=0)
+    nonlabor_expense_budget: Optional[Decimal] = Field(default=None, ge=0)
     total_budget: Optional[Decimal] = Field(default=None, ge=0)
 
 
 class PhaseResponse(PhaseBase, TimestampMixin, VersionedSchema):
     """Schema for phase response."""
-    
+
     id: UUID
     project_id: UUID
     assignment_count: Optional[int] = Field(default=0, description="Number of assignments in this phase")
+    capital_budget: Decimal = Field(default=Decimal("0"), description="Derived: labor+nonlabor capital")
+    expense_budget: Decimal = Field(default=Decimal("0"), description="Derived: labor+nonlabor expense")
 
 
 class PhaseValidationRequest(BaseSchema):
@@ -142,16 +152,18 @@ class PhaseValidationResult(BaseSchema):
 
 class PhaseBatchItem(BaseSchema):
     """Schema for a single phase in a batch update."""
-    
+
     id: Optional[UUID] = Field(default=None, description="Phase ID (null for new phases)")
     name: str = Field(min_length=1, max_length=100, description="Phase name")
     start_date: date = Field(description="Phase start date")
     end_date: date = Field(description="Phase end date")
     description: Optional[str] = Field(default=None, max_length=500, description="Phase description")
-    capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Capital budget")
-    expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Expense budget")
+    labor_capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Labor capital budget")
+    labor_expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Labor expense budget")
+    nonlabor_capital_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Non-labor capital budget")
+    nonlabor_expense_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Non-labor expense budget")
     total_budget: Decimal = Field(ge=0, default=Decimal("0"), description="Total budget")
-    
+
     @field_validator('end_date')
     @classmethod
     def validate_end_date(cls, v, info):
@@ -159,21 +171,23 @@ class PhaseBatchItem(BaseSchema):
         if 'start_date' in info.data and v < info.data['start_date']:
             raise ValueError('End date must be on or after start date')
         return v
-    
+
     @field_validator('total_budget')
     @classmethod
     def validate_total_budget(cls, v, info):
-        """Validate that total_budget equals capital_budget + expense_budget."""
-        if 'capital_budget' in info.data and 'expense_budget' in info.data:
-            expected_total = info.data['capital_budget'] + info.data['expense_budget']
-            if v != expected_total:
-                raise ValueError(f'Total budget must equal capital + expense ({expected_total})')
+        """Validate that total_budget equals sum of four category budgets."""
+        keys = ('labor_capital_budget', 'labor_expense_budget',
+                'nonlabor_capital_budget', 'nonlabor_expense_budget')
+        if all(k in info.data for k in keys):
+            expected = sum(info.data[k] for k in keys)
+            if v != expected:
+                raise ValueError(f'Total budget must equal the four category budgets ({expected})')
         return v
 
 
 class PhaseBatchUpdate(BaseSchema):
     """Schema for batch updating all phases for a project."""
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -185,8 +199,10 @@ class PhaseBatchUpdate(BaseSchema):
                             "start_date": "2024-01-01",
                             "end_date": "2024-03-31",
                             "description": "Initial planning phase",
-                            "capital_budget": 50000.00,
-                            "expense_budget": 25000.00,
+                            "labor_capital_budget": 30000.00,
+                            "labor_expense_budget": 20000.00,
+                            "nonlabor_capital_budget": 15000.00,
+                            "nonlabor_expense_budget": 10000.00,
                             "total_budget": 75000.00
                         },
                         {
@@ -195,8 +211,10 @@ class PhaseBatchUpdate(BaseSchema):
                             "start_date": "2024-04-01",
                             "end_date": "2024-12-31",
                             "description": "Main execution phase",
-                            "capital_budget": 150000.00,
-                            "expense_budget": 75000.00,
+                            "labor_capital_budget": 90000.00,
+                            "labor_expense_budget": 60000.00,
+                            "nonlabor_capital_budget": 45000.00,
+                            "nonlabor_expense_budget": 30000.00,
                             "total_budget": 225000.00
                         }
                     ]
@@ -204,5 +222,5 @@ class PhaseBatchUpdate(BaseSchema):
             ]
         }
     }
-    
+
     phases: List[PhaseBatchItem] = Field(description="Complete list of phases for the project")
