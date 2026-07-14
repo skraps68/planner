@@ -404,18 +404,32 @@ class LaborActualsImportService:
                     "importer; use the non-labor actuals importer instead"
                 )
 
-            has_single = "percentage" in fieldnames
-            has_split = "capital_percentage" in fieldnames and "expense_percentage" in fieldnames
+            has_percentage = "percentage" in fieldnames
+            has_capital = "capital_percentage" in fieldnames
+            has_expense = "expense_percentage" in fieldnames
 
-            if has_single and has_split:
-                raise ActualsImportError(
-                    "CSV must not contain both 'percentage' and "
-                    "'capital_percentage'/'expense_percentage' columns"
-                )
+            has_single = has_percentage and not has_capital and not has_expense
+            has_split = has_capital and has_expense and not has_percentage
+
             if not has_single and not has_split:
+                present = []
+                if has_percentage:
+                    present.append("percentage")
+                if has_capital:
+                    present.append("capital_percentage")
+                if has_expense:
+                    present.append("expense_percentage")
+
+                if not present:
+                    raise ActualsImportError(
+                        "CSV must contain either a 'percentage' column or both "
+                        "'capital_percentage' and 'expense_percentage' columns"
+                    )
                 raise ActualsImportError(
-                    "CSV must contain either a 'percentage' column or both "
-                    "'capital_percentage' and 'expense_percentage' columns"
+                    "CSV must contain exactly one of: a single 'percentage' "
+                    "column, or both 'capital_percentage' and "
+                    "'expense_percentage' columns together (found conflicting "
+                    f"or incomplete columns: {', '.join(present)})"
                 )
 
             records = []
@@ -588,10 +602,6 @@ class LaborActualsImportService:
         if total > Decimal('100.00'):
             record.validation_errors.append(
                 f"capital_percentage + expense_percentage must be <= 100.0, got {total}"
-            )
-        if total <= Decimal('0.00'):
-            record.validation_errors.append(
-                "At least one of capital_percentage/expense_percentage must be > 0"
             )
 
     def get_validation_errors(
