@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
+from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, ResourceType, Worker, WorkerType
@@ -39,7 +40,19 @@ def db():
 @pytest.fixture
 def sample_program(db):
     """Create a sample program for testing."""
+    portfolio = Portfolio(
+        name="Test Portfolio",
+        description="Test portfolio for testing",
+        owner="Test Owner",
+        reporting_start_date=date(2024, 1, 1),
+        reporting_end_date=date(2024, 12, 31)
+    )
+    db.add(portfolio)
+    db.commit()
+    db.refresh(portfolio)
+
     program = Program(
+        portfolio_id=portfolio.id,
         name="Test Program",
         business_sponsor="John Doe",
         program_manager="Jane Smith",
@@ -76,8 +89,10 @@ def sample_project(db, sample_program):
         name="Execution Phase",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
-        capital_budget=Decimal('100000.00'),
-        expense_budget=Decimal('50000.00'),
+        labor_capital_budget=Decimal('60000.00'),
+        nonlabor_capital_budget=Decimal('40000.00'),
+        labor_expense_budget=Decimal('30000.00'),
+        nonlabor_expense_budget=Decimal('20000.00'),
         total_budget=Decimal('150000.00')
     )
     db.add(execution_phase)

@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column, Date, String, Numeric, ForeignKey,
     CheckConstraint
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel, GUID
@@ -61,35 +62,50 @@ class Project(BaseModel):
 
 class ProjectPhase(BaseModel):
     """Project phase model with user-definable date ranges."""
-    
+
     __tablename__ = "project_phases"
-    
+
     # Foreign keys
     project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
-    
+
     # Required fields
     name = Column(String(100), nullable=False)
     start_date = Column(Date, nullable=False, index=True)
     end_date = Column(Date, nullable=False, index=True)
-    capital_budget = Column(Numeric(15, 2), nullable=False, default=0)
-    expense_budget = Column(Numeric(15, 2), nullable=False, default=0)
+    labor_capital_budget = Column(Numeric(15, 2), nullable=False, default=0)
+    labor_expense_budget = Column(Numeric(15, 2), nullable=False, default=0)
+    nonlabor_capital_budget = Column(Numeric(15, 2), nullable=False, default=0)
+    nonlabor_expense_budget = Column(Numeric(15, 2), nullable=False, default=0)
     total_budget = Column(Numeric(15, 2), nullable=False, default=0)
-    
+
     # Optional fields
     description = Column(String(500), nullable=True)
-    
+
     # Relationships
     project = relationship("Project", back_populates="phases")
     # Note: resource_assignments relationship removed (now implicit via dates)
-    
+
+    @hybrid_property
+    def capital_budget(self):
+        return (self.labor_capital_budget or 0) + (self.nonlabor_capital_budget or 0)
+
+    @hybrid_property
+    def expense_budget(self):
+        return (self.labor_expense_budget or 0) + (self.nonlabor_expense_budget or 0)
+
     # Constraints
     __table_args__ = (
         CheckConstraint('start_date <= end_date', name='check_phase_dates'),
-        CheckConstraint('capital_budget >= 0', name='check_capital_budget_positive'),
-        CheckConstraint('expense_budget >= 0', name='check_expense_budget_positive'),
+        CheckConstraint('labor_capital_budget >= 0', name='check_labor_capital_budget_positive'),
+        CheckConstraint('labor_expense_budget >= 0', name='check_labor_expense_budget_positive'),
+        CheckConstraint('nonlabor_capital_budget >= 0', name='check_nonlabor_capital_budget_positive'),
+        CheckConstraint('nonlabor_expense_budget >= 0', name='check_nonlabor_expense_budget_positive'),
         CheckConstraint('total_budget >= 0', name='check_total_budget_positive'),
-        CheckConstraint('capital_budget + expense_budget = total_budget', name='check_budget_sum'),
+        CheckConstraint(
+            'labor_capital_budget + labor_expense_budget + '
+            'nonlabor_capital_budget + nonlabor_expense_budget = total_budget',
+            name='check_budget_sum'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<ProjectPhase(id={self.id}, project_id={self.project_id}, name='{self.name}')>"
