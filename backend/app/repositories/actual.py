@@ -7,7 +7,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.actual import Actual
 from app.repositories.base import BaseRepository
@@ -68,18 +68,28 @@ class ActualRepository(BaseRepository[Actual]):
         db: Session,
         project_id: Optional[UUID] = None,
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        eager_resource: bool = False
     ) -> List[Actual]:
-        """Get actuals within a date range, optionally filtered by project."""
+        """Get actuals within a date range, optionally filtered by project.
+
+        Args:
+            eager_resource: when True, eager-loads the `resource` relationship
+                (joinedload) so callers can read `actual.resource.resource_type`
+                without triggering a per-row N+1 query.
+        """
         query = db.query(Actual)
-        
+
+        if eager_resource:
+            query = query.options(joinedload(Actual.resource))
+
         if project_id:
             query = query.filter(Actual.project_id == project_id)
         if start_date:
             query = query.filter(Actual.actual_date >= start_date)
         if end_date:
             query = query.filter(Actual.actual_date <= end_date)
-        
+
         return query.order_by(Actual.actual_date).all()
     
     def get_project_total_cost(

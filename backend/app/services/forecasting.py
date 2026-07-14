@@ -33,7 +33,22 @@ class ForecastData:
         expense_actual: Decimal,
         total_forecast: Decimal,
         capital_forecast: Decimal,
-        expense_forecast: Decimal
+        expense_forecast: Decimal,
+        # Four-way labor/non-labor breakdown (portfolio-extensibility requirement:
+        # these accumulate generically across the Portfolio -> Program -> Project
+        # hierarchy; keyword-only with defaults so existing call sites don't break).
+        budget_labor_capital: Decimal = Decimal('0.00'),
+        budget_labor_expense: Decimal = Decimal('0.00'),
+        budget_nonlabor_capital: Decimal = Decimal('0.00'),
+        budget_nonlabor_expense: Decimal = Decimal('0.00'),
+        actual_labor_capital: Decimal = Decimal('0.00'),
+        actual_labor_expense: Decimal = Decimal('0.00'),
+        actual_nonlabor_capital: Decimal = Decimal('0.00'),
+        actual_nonlabor_expense: Decimal = Decimal('0.00'),
+        forecast_labor_capital: Decimal = Decimal('0.00'),
+        forecast_labor_expense: Decimal = Decimal('0.00'),
+        forecast_nonlabor_capital: Decimal = Decimal('0.00'),
+        forecast_nonlabor_expense: Decimal = Decimal('0.00')
     ):
         self.entity_id = entity_id
         self.entity_name = entity_name
@@ -47,6 +62,18 @@ class ForecastData:
         self.total_forecast = total_forecast
         self.capital_forecast = capital_forecast
         self.expense_forecast = expense_forecast
+        self.budget_labor_capital = budget_labor_capital
+        self.budget_labor_expense = budget_labor_expense
+        self.budget_nonlabor_capital = budget_nonlabor_capital
+        self.budget_nonlabor_expense = budget_nonlabor_expense
+        self.actual_labor_capital = actual_labor_capital
+        self.actual_labor_expense = actual_labor_expense
+        self.actual_nonlabor_capital = actual_nonlabor_capital
+        self.actual_nonlabor_expense = actual_nonlabor_expense
+        self.forecast_labor_capital = forecast_labor_capital
+        self.forecast_labor_expense = forecast_labor_expense
+        self.forecast_nonlabor_capital = forecast_nonlabor_capital
+        self.forecast_nonlabor_expense = forecast_nonlabor_expense
     
     @property
     def budget_remaining(self) -> Decimal:
@@ -74,24 +101,44 @@ class ForecastData:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert forecast data to dictionary."""
+        # Derived capital/expense per series are computed from the four-way
+        # values for internal consistency; "total" remains whatever was stored.
+        budget_capital = self.budget_labor_capital + self.budget_nonlabor_capital
+        budget_expense = self.budget_labor_expense + self.budget_nonlabor_expense
+        actual_capital = self.actual_labor_capital + self.actual_nonlabor_capital
+        actual_expense = self.actual_labor_expense + self.actual_nonlabor_expense
+        forecast_capital = self.forecast_labor_capital + self.forecast_nonlabor_capital
+        forecast_expense = self.forecast_labor_expense + self.forecast_nonlabor_expense
         return {
             "entity_id": str(self.entity_id),
             "entity_name": self.entity_name,
             "entity_type": self.entity_type,
             "budget": {
                 "total": float(self.total_budget),
-                "capital": float(self.capital_budget),
-                "expense": float(self.expense_budget)
+                "capital": float(budget_capital),
+                "expense": float(budget_expense),
+                "labor_capital": float(self.budget_labor_capital),
+                "labor_expense": float(self.budget_labor_expense),
+                "nonlabor_capital": float(self.budget_nonlabor_capital),
+                "nonlabor_expense": float(self.budget_nonlabor_expense)
             },
             "actual": {
                 "total": float(self.total_actual),
-                "capital": float(self.capital_actual),
-                "expense": float(self.expense_actual)
+                "capital": float(actual_capital),
+                "expense": float(actual_expense),
+                "labor_capital": float(self.actual_labor_capital),
+                "labor_expense": float(self.actual_labor_expense),
+                "nonlabor_capital": float(self.actual_nonlabor_capital),
+                "nonlabor_expense": float(self.actual_nonlabor_expense)
             },
             "forecast": {
                 "total": float(self.total_forecast),
-                "capital": float(self.capital_forecast),
-                "expense": float(self.expense_forecast)
+                "capital": float(forecast_capital),
+                "expense": float(forecast_expense),
+                "labor_capital": float(self.forecast_labor_capital),
+                "labor_expense": float(self.forecast_labor_expense),
+                "nonlabor_capital": float(self.forecast_nonlabor_capital),
+                "nonlabor_expense": float(self.forecast_nonlabor_expense)
             },
             "analysis": {
                 "budget_remaining": float(self.budget_remaining),
@@ -152,17 +199,25 @@ class ForecastingService:
             
             phase_start_date = phase.start_date
             phase_end_date = phase.end_date
-            
+
             # Calculate budget from single phase
             total_budget = phase.total_budget
             capital_budget = phase.capital_budget
             expense_budget = phase.expense_budget
+            budget_labor_capital = phase.labor_capital_budget
+            budget_labor_expense = phase.labor_expense_budget
+            budget_nonlabor_capital = phase.nonlabor_capital_budget
+            budget_nonlabor_expense = phase.nonlabor_expense_budget
         else:
             # Get all project phases to calculate total budget
             phases = project_phase_repository.get_by_project(db, project_id)
             total_budget = sum(phase.total_budget for phase in phases)
             capital_budget = sum(phase.capital_budget for phase in phases)
             expense_budget = sum(phase.expense_budget for phase in phases)
+            budget_labor_capital = sum(phase.labor_capital_budget for phase in phases)
+            budget_labor_expense = sum(phase.labor_expense_budget for phase in phases)
+            budget_nonlabor_capital = sum(phase.nonlabor_capital_budget for phase in phases)
+            budget_nonlabor_expense = sum(phase.nonlabor_expense_budget for phase in phases)
         
         # Calculate actuals (historical data up to as_of_date)
         # Filter by phase date range if phase_id is provided
@@ -173,12 +228,27 @@ class ForecastingService:
             db=db,
             project_id=project_id,
             start_date=actuals_start_date,
-            end_date=actuals_end_date
+            end_date=actuals_end_date,
+            eager_resource=True
         )
-        
+
         total_actual = sum(a.actual_cost for a in actuals)
         capital_actual = sum(a.capital_amount for a in actuals)
         expense_actual = sum(a.expense_amount for a in actuals)
+
+        # Route each actual's capital/expense amounts into labor/non-labor
+        # buckets by its resource's resource_type (the only classifier).
+        actual_labor_capital = Decimal('0.00')
+        actual_labor_expense = Decimal('0.00')
+        actual_nonlabor_capital = Decimal('0.00')
+        actual_nonlabor_expense = Decimal('0.00')
+        for a in actuals:
+            if a.resource and a.resource.resource_type == ResourceType.LABOR:
+                actual_labor_capital += a.capital_amount
+                actual_labor_expense += a.expense_amount
+            else:
+                actual_nonlabor_capital += a.capital_amount
+                actual_nonlabor_expense += a.expense_amount
         
         # Calculate forecast from resource assignments (future work)
         assignments = resource_assignment_repository.get_by_project(db, project_id)
@@ -198,7 +268,11 @@ class ForecastingService:
         forecast_cost = Decimal('0.00')
         forecast_capital = Decimal('0.00')
         forecast_expense = Decimal('0.00')
-        
+        forecast_labor_capital = Decimal('0.00')
+        forecast_labor_expense = Decimal('0.00')
+        forecast_nonlabor_capital = Decimal('0.00')
+        forecast_nonlabor_expense = Decimal('0.00')
+
         for assignment in future_assignments:
             # Get the resource to find worker information
             # Note: This is simplified - in reality, we'd need to handle both
@@ -207,36 +281,44 @@ class ForecastingService:
                 # Try to get worker rate for cost calculation
                 # This assumes the resource is linked to a worker
                 # In a full implementation, we'd need to handle non-labor resources
-                
+
                 # For now, we'll use a simplified approach:
                 # Get rate based on assignment date
                 # We need to find the worker associated with this resource
-                
+
                 # Simplified: calculate cost based on allocation percentage
                 # In reality, we'd look up the worker's rate for that date
-                assignment_cost = self._calculate_assignment_cost(
+                result = self._calculate_assignment_cost(
                     db=db,
                     assignment=assignment
                 )
-                
-                if assignment_cost:
+
+                if result:
+                    assignment_cost, resource_type = result
                     forecast_cost += assignment_cost
-                    
+
                     # Apply capital/expense split from assignment
                     capital_portion = (assignment_cost * assignment.capital_percentage) / Decimal('100.00')
                     expense_portion = (assignment_cost * assignment.expense_percentage) / Decimal('100.00')
-                    
+
                     forecast_capital += capital_portion
                     forecast_expense += expense_portion
-                    
+
+                    if resource_type == ResourceType.LABOR:
+                        forecast_labor_capital += capital_portion
+                        forecast_labor_expense += expense_portion
+                    else:
+                        forecast_nonlabor_capital += capital_portion
+                        forecast_nonlabor_expense += expense_portion
+
             except Exception:
                 # If we can't calculate cost for this assignment, skip it
                 continue
-        
+
         # Total forecast = actuals to date + forecast for future
         # Note: We return the future forecast separately, not the total
         # The frontend will calculate current_forecast = actuals + forecast
-        
+
         return ForecastData(
             entity_id=project_id,
             entity_name=project.name,
@@ -249,32 +331,44 @@ class ForecastingService:
             expense_actual=expense_actual,
             total_forecast=forecast_cost,  # Return only future forecast, not total
             capital_forecast=forecast_capital,
-            expense_forecast=forecast_expense
+            expense_forecast=forecast_expense,
+            budget_labor_capital=budget_labor_capital,
+            budget_labor_expense=budget_labor_expense,
+            budget_nonlabor_capital=budget_nonlabor_capital,
+            budget_nonlabor_expense=budget_nonlabor_expense,
+            actual_labor_capital=actual_labor_capital,
+            actual_labor_expense=actual_labor_expense,
+            actual_nonlabor_capital=actual_nonlabor_capital,
+            actual_nonlabor_expense=actual_nonlabor_expense,
+            forecast_labor_capital=forecast_labor_capital,
+            forecast_labor_expense=forecast_labor_expense,
+            forecast_nonlabor_capital=forecast_nonlabor_capital,
+            forecast_nonlabor_expense=forecast_nonlabor_expense
         )
     
     def _calculate_assignment_cost(
         self,
         db: Session,
         assignment: Any
-    ) -> Optional[Decimal]:
+    ) -> Optional[tuple]:
         """
         Calculate cost for a resource assignment.
-        
+
         Args:
             db: Database session
             assignment: ResourceAssignment object
-            
+
         Returns:
-            Calculated cost or None if cannot be calculated
+            Tuple of (calculated cost, resource_type) or None if cannot be calculated
         """
         try:
             # Get the resource
             from app.repositories.resource import resource_repository
             resource = resource_repository.get(db, assignment.resource_id)
-            
+
             if not resource:
                 return None
-            
+
             # For labor resources, try to get actual worker rate via FK
             if resource.resource_type == ResourceType.LABOR and resource.worker_id:
                 worker = worker_repository.get(db, resource.worker_id)
@@ -286,14 +380,14 @@ class ForecastingService:
                         worker_type_id=worker.worker_type_id,
                         as_of_date=assignment.assignment_date
                     )
-                    
+
                     if rate:
                         # Calculate total allocation from capital + expense percentages
                         total_allocation = assignment.capital_percentage + assignment.expense_percentage
                         # Calculate cost: daily_rate * total_allocation / 100
                         cost = (rate.rate_amount * total_allocation) / Decimal('100.00')
-                        return cost.quantize(Decimal('0.01'))
-            
+                        return (cost.quantize(Decimal('0.01')), resource.resource_type)
+
             # If we can't determine exact rate, use a default daily rate
             # This ensures forecast calculations work even without worker linkage
             # Default: $1000/day for labor resources, $500/day for non-labor
@@ -301,19 +395,21 @@ class ForecastingService:
                 default_rate = Decimal('1000.00')
             else:
                 default_rate = Decimal('500.00')
-            
+
             # Calculate total allocation from capital + expense percentages
             total_allocation = assignment.capital_percentage + assignment.expense_percentage
             cost = (default_rate * total_allocation) / Decimal('100.00')
-            return cost.quantize(Decimal('0.01'))
-            
+            return (cost.quantize(Decimal('0.01')), resource.resource_type)
+
         except Exception as e:
-            # If anything fails, use a conservative default
+            # If anything fails, use a conservative default. We don't know the
+            # resource's type on this path (resource lookup itself may have
+            # failed), so default to LABOR since $1000/day is the labor default.
             default_rate = Decimal('1000.00')
             # Calculate total allocation from capital + expense percentages
             total_allocation = assignment.capital_percentage + assignment.expense_percentage
             cost = (default_rate * total_allocation) / Decimal('100.00')
-            return cost.quantize(Decimal('0.01'))
+            return (cost.quantize(Decimal('0.01')), ResourceType.LABOR)
     
     def calculate_program_forecast(
         self,
@@ -346,7 +442,12 @@ class ForecastingService:
         # Get all projects in the program
         projects = project_repository.get_by_program(db, program_id)
         
-        # Aggregate forecasts from all projects
+        # Aggregate forecasts from all projects.
+        #
+        # Portfolio-extensibility: this is a generic per-series summation over
+        # a list of child ForecastData objects. A future calculate_portfolio_forecast
+        # can reuse this exact pattern by looping `portfolio.programs` and summing
+        # each program's ForecastData the same way - no two-level assumption here.
         total_budget = Decimal('0.00')
         capital_budget = Decimal('0.00')
         expense_budget = Decimal('0.00')
@@ -356,14 +457,26 @@ class ForecastingService:
         total_forecast = Decimal('0.00')
         capital_forecast = Decimal('0.00')
         expense_forecast = Decimal('0.00')
-        
+        budget_labor_capital = Decimal('0.00')
+        budget_labor_expense = Decimal('0.00')
+        budget_nonlabor_capital = Decimal('0.00')
+        budget_nonlabor_expense = Decimal('0.00')
+        actual_labor_capital = Decimal('0.00')
+        actual_labor_expense = Decimal('0.00')
+        actual_nonlabor_capital = Decimal('0.00')
+        actual_nonlabor_expense = Decimal('0.00')
+        forecast_labor_capital = Decimal('0.00')
+        forecast_labor_expense = Decimal('0.00')
+        forecast_nonlabor_capital = Decimal('0.00')
+        forecast_nonlabor_expense = Decimal('0.00')
+
         for project in projects:
             project_forecast = self.calculate_project_forecast(
                 db=db,
                 project_id=project.id,
                 as_of_date=as_of_date
             )
-            
+
             total_budget += project_forecast.total_budget
             capital_budget += project_forecast.capital_budget
             expense_budget += project_forecast.expense_budget
@@ -373,7 +486,19 @@ class ForecastingService:
             total_forecast += project_forecast.total_forecast
             capital_forecast += project_forecast.capital_forecast
             expense_forecast += project_forecast.expense_forecast
-        
+            budget_labor_capital += project_forecast.budget_labor_capital
+            budget_labor_expense += project_forecast.budget_labor_expense
+            budget_nonlabor_capital += project_forecast.budget_nonlabor_capital
+            budget_nonlabor_expense += project_forecast.budget_nonlabor_expense
+            actual_labor_capital += project_forecast.actual_labor_capital
+            actual_labor_expense += project_forecast.actual_labor_expense
+            actual_nonlabor_capital += project_forecast.actual_nonlabor_capital
+            actual_nonlabor_expense += project_forecast.actual_nonlabor_expense
+            forecast_labor_capital += project_forecast.forecast_labor_capital
+            forecast_labor_expense += project_forecast.forecast_labor_expense
+            forecast_nonlabor_capital += project_forecast.forecast_nonlabor_capital
+            forecast_nonlabor_expense += project_forecast.forecast_nonlabor_expense
+
         return ForecastData(
             entity_id=program_id,
             entity_name=program.name,
@@ -386,7 +511,19 @@ class ForecastingService:
             expense_actual=expense_actual,
             total_forecast=total_forecast,
             capital_forecast=capital_forecast,
-            expense_forecast=expense_forecast
+            expense_forecast=expense_forecast,
+            budget_labor_capital=budget_labor_capital,
+            budget_labor_expense=budget_labor_expense,
+            budget_nonlabor_capital=budget_nonlabor_capital,
+            budget_nonlabor_expense=budget_nonlabor_expense,
+            actual_labor_capital=actual_labor_capital,
+            actual_labor_expense=actual_labor_expense,
+            actual_nonlabor_capital=actual_nonlabor_capital,
+            actual_nonlabor_expense=actual_nonlabor_expense,
+            forecast_labor_capital=forecast_labor_capital,
+            forecast_labor_expense=forecast_labor_expense,
+            forecast_nonlabor_capital=forecast_nonlabor_capital,
+            forecast_nonlabor_expense=forecast_nonlabor_expense
         )
     
     def get_budget_vs_actual_vs_forecast(
@@ -495,8 +632,9 @@ class ForecastingService:
                 }
             
             # Calculate cost for this assignment
-            cost = self._calculate_assignment_cost(db, assignment)
-            
+            result = self._calculate_assignment_cost(db, assignment)
+            cost, _resource_type = result if result else (None, None)
+
             if cost:
                 capital_portion = (cost * assignment.capital_percentage) / Decimal('100.00')
                 expense_portion = (cost * assignment.expense_percentage) / Decimal('100.00')
@@ -650,8 +788,9 @@ class ForecastingService:
         forecast_expense = Decimal('0.00')
         
         for assignment in future_assignments:
-            assignment_cost = self._calculate_assignment_cost(db, assignment)
-            
+            result = self._calculate_assignment_cost(db, assignment)
+            assignment_cost, _resource_type = result if result else (None, None)
+
             if assignment_cost:
                 forecast_cost += assignment_cost
                 
