@@ -35,11 +35,8 @@ def upgrade() -> None:
     op.drop_constraint('check_actual_allocation_percentage', 'actuals', type_='check')
     op.create_check_constraint('check_actual_allocation_percentage', 'actuals',
         'allocation_percentage IS NULL OR (allocation_percentage >= 0 AND allocation_percentage <= 100)')
-    # drop write-only assignment link (FK name may vary; inspect if needed)
-    try:
-        op.drop_constraint('actuals_resource_assignment_id_fkey', 'actuals', type_='foreignkey')
-    except Exception:
-        pass
+    # drop write-only assignment link
+    op.drop_constraint('actuals_resource_assignment_id_fkey', 'actuals', type_='foreignkey')
     op.drop_index('ix_actuals_resource_assignment_id', table_name='actuals')
     op.drop_column('actuals', 'resource_assignment_id')
     count = conn.execute(sa.text("SELECT COUNT(*) FROM actuals WHERE resource_id IS NULL")).scalar()
@@ -49,6 +46,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # PRECONDITION: downgrade only supports the all-labor pre-migration state.
+    # Restoring NOT NULL on external_worker_id/worker_name/allocation_percentage
+    # will fail if non-labor actuals (NULL worker fields) exist — delete or
+    # re-classify those rows first. This matches the plan's accepted posture.
     from app.models.base import GUID
     op.add_column('actuals', sa.Column('resource_assignment_id', GUID(), nullable=True))
     op.create_index('ix_actuals_resource_assignment_id', 'actuals', ['resource_assignment_id'])
