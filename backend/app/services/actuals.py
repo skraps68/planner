@@ -16,7 +16,7 @@ from app.repositories.rate import rate_repository
 from app.repositories.resource_assignment import resource_assignment_repository
 from app.repositories.project import project_repository
 from app.services.allocation_validator import allocation_validator_service, AllocationConflict
-from app.services.actuals_import import ActualsImportRecord
+from app.services.actuals_import import ActualsImportRecord, LaborImportRecord, NonLaborImportRecord
 from app.core.exceptions import (
     ProjectNotFoundError,
     WorkerNotFoundError,
@@ -367,7 +367,295 @@ class ActualsService:
         except Exception as e:
             db.rollback()
             raise ImportException(f"Import failed: {str(e)}")
-    
+
+    def _create_labor_split_actual(
+        self,
+        db: Session,
+        project_id: UUID,
+        external_worker_id: str,
+        worker_name: str,
+        actual_date: date,
+        capital_percentage: Decimal,
+        expense_percentage: Decimal
+    ) -> Actual:
+        """
+        Create a labor actual whose capital/expense split is given explicitly
+        (via capital_percentage/expense_percentage import columns), rather
+        than derived from the worker's planned ResourceAssignment.
+
+        Unlike create_actual's single-percentage path, this does NOT require
+        a planned assignment on actual_date -- the split is already known.
+
+        Args:
+            db: Database session
+            project_id: Project ID
+            external_worker_id: Worker's external ID
+            worker_name: Worker's name
+            actual_date: Date of actual work
+            capital_percentage: Capital allocation percentage (0-100)
+            expense_percentage: Expense allocation percentage (0-100)
+
+        Returns:
+            Created Actual object
+        """
+        project = project_repository.get(db, project_id)
+        if not project:
+            raise ProjectNotFoundError(project_id)
+
+        worker = worker_repository.get_by_external_id(db, external_worker_id)
+        if not worker:
+            raise WorkerNotFoundError(external_id=external_worker_id)
+
+        if worker.name != worker_name:
+            raise BusinessRuleViolationError(
+                f"Worker name mismatch: expected '{worker.name}', got '{worker_name}'",
+                rule_code="WORKER_NAME_MISMATCH",
+                details={
+                    "external_worker_id": external_worker_id,
+                    "expected_name": worker.name,
+                    "provided_name": worker_name
+                }
+            )
+
+        rate = rate_repository.get_active_rate(
+            db=db,
+            worker_type_id=worker.worker_type_id,
+            as_of_date=actual_date
+        )
+        if not rate:
+            raise RateNotFoundError(worker.worker_type_id, str(actual_date))
+
+        resource = resource_repository.get_by_worker_id(db, worker.id)
+        if not resource:
+            raise BusinessRuleViolationError(
+                f"No resource linked to worker '{worker.external_id}'",
+                rule_code="NO_RESOURCE_FOR_WORKER",
+                details={"worker_id": str(worker.id)}
+            )
+
+        allocation_percentage = capital_percentage + expense_percentage
+        daily_rate = rate.rate_amount
+        actual_cost = ((daily_rate * allocation_percentage) / Decimal('100.00')).quantize(Decimal('0.01'))
+        capital_amount = ((daily_rate * capital_percentage) / Decimal('100.00')).quantize(Decimal('0.01'))
+        # Ensure capital + expense = actual_cost exactly (handle rounding)
+        expense_amount = actual_cost - capital_amount
+
+        actual_data = {
+            "project_id": project_id,
+            "resource_id": resource.id,
+            "external_worker_id": external_worker_id,
+            "worker_name": worker_name,
+            "actual_date": actual_date,
+            "allocation_percentage": allocation_percentage,
+            "actual_cost": actual_cost,
+            "capital_amount": capital_amount,
+            "expense_amount": expense_amount
+        }
+
+        return actual_repository.create(db, obj_in=actual_data)
+
+    def import_labor_batch(
+        self,
+        db: Session,
+        records: List[LaborImportRecord],
+        validate_allocation: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Import a batch of labor actuals from validated LaborImportRecord objects.
+
+        Records carrying a single `percentage` delegate to create_actual,
+        which resolves the capital/expense split from the worker's planned
+        ResourceAssignment (and rejects rows with no such assignment).
+        Records carrying explicit `capital_percentage`/`expense_percentage`
+        are costed directly from the worker's rate via
+        _create_labor_split_actual, bypassing the assignment lookup.
+
+        Args:
+            db: Database session
+            records: List of validated LaborImportRecord objects
+            validate_allocation: Whether to validate allocation limits
+
+        Returns:
+            Dictionary with import results
+
+        Raises:
+            ImportException: If import fails
+        """
+        # Validate all records are valid
+        invalid_records = [r for r in records if not r.is_valid()]
+        if invalid_records:
+            raise ImportException(
+                f"Cannot import: {len(invalid_records)} records have validation errors",
+                row_errors=[{
+                    "row": r.row_number,
+                    "errors": r.validation_errors
+                } for r in invalid_records]
+            )
+
+        # Check for allocation conflicts if validation is enabled
+        if validate_allocation:
+            actuals_data = [
+                {
+                    "external_worker_id": r.external_worker_id,
+                    "worker_name": r.worker_name,
+                    "actual_date": r.actual_date,
+                    "allocation_percentage": (
+                        r.percentage if r.percentage is not None
+                        else r.capital_percentage + r.expense_percentage
+                    )
+                }
+                for r in records
+            ]
+
+            conflicts = allocation_validator_service.validate_batch_actuals(
+                db=db,
+                actuals_data=actuals_data
+            )
+
+            if conflicts:
+                conflict_details = [c.to_dict() for c in conflicts]
+                raise ImportException(
+                    f"Allocation conflicts detected: {len(conflicts)} worker-date combinations would exceed 100% allocation",
+                    details={"conflicts": conflict_details}
+                )
+
+        # Import actuals in a transaction
+        created_actuals = []
+        errors = []
+
+        try:
+            for record in records:
+                try:
+                    if record.percentage is not None:
+                        actual = self.create_actual(
+                            db=db,
+                            project_id=record.project_id,
+                            external_worker_id=record.external_worker_id,
+                            worker_name=record.worker_name,
+                            actual_date=record.actual_date,
+                            allocation_percentage=record.percentage,
+                            validate_allocation=False  # Already validated in batch
+                        )
+                    else:
+                        actual = self._create_labor_split_actual(
+                            db=db,
+                            project_id=record.project_id,
+                            external_worker_id=record.external_worker_id,
+                            worker_name=record.worker_name,
+                            actual_date=record.actual_date,
+                            capital_percentage=record.capital_percentage,
+                            expense_percentage=record.expense_percentage
+                        )
+                    created_actuals.append(actual)
+                except Exception as e:
+                    errors.append({
+                        "row": record.row_number,
+                        "error": str(e)
+                    })
+
+            if errors:
+                # Rollback transaction
+                db.rollback()
+                raise ImportException(
+                    f"Import failed with {len(errors)} errors",
+                    row_errors=errors
+                )
+
+            # Commit transaction
+            db.commit()
+
+            return {
+                "status": "success",
+                "imported_count": len(created_actuals),
+                "actuals": created_actuals
+            }
+
+        except ImportException:
+            # Re-raise import exceptions
+            raise
+        except Exception as e:
+            db.rollback()
+            raise ImportException(f"Import failed: {str(e)}")
+
+    def import_nonlabor_batch(
+        self,
+        db: Session,
+        records: List[NonLaborImportRecord]
+    ) -> Dict[str, Any]:
+        """
+        Import a batch of non-labor actuals from validated
+        NonLaborImportRecord objects.
+
+        Non-labor actuals carry no worker or allocation percentage, so no
+        allocation-conflict validation applies here.
+
+        Args:
+            db: Database session
+            records: List of validated NonLaborImportRecord objects
+
+        Returns:
+            Dictionary with import results
+
+        Raises:
+            ImportException: If import fails
+        """
+        # Validate all records are valid
+        invalid_records = [r for r in records if not r.is_valid()]
+        if invalid_records:
+            raise ImportException(
+                f"Cannot import: {len(invalid_records)} records have validation errors",
+                row_errors=[{
+                    "row": r.row_number,
+                    "errors": r.validation_errors
+                } for r in invalid_records]
+            )
+
+        # Import actuals in a transaction
+        created_actuals = []
+        errors = []
+
+        try:
+            for record in records:
+                try:
+                    actual = self.create_nonlabor_actual(
+                        db=db,
+                        project_id=record.project_id,
+                        resource_id=record.resource_id,
+                        actual_date=record.actual_date,
+                        capital_amount=record.capital,
+                        expense_amount=record.expense
+                    )
+                    created_actuals.append(actual)
+                except Exception as e:
+                    errors.append({
+                        "row": record.row_number,
+                        "error": str(e)
+                    })
+
+            if errors:
+                # Rollback transaction
+                db.rollback()
+                raise ImportException(
+                    f"Import failed with {len(errors)} errors",
+                    row_errors=errors
+                )
+
+            # Commit transaction
+            db.commit()
+
+            return {
+                "status": "success",
+                "imported_count": len(created_actuals),
+                "actuals": created_actuals
+            }
+
+        except ImportException:
+            # Re-raise import exceptions
+            raise
+        except Exception as e:
+            db.rollback()
+            raise ImportException(f"Import failed: {str(e)}")
+
     def get_actuals_by_project(
         self,
         db: Session,

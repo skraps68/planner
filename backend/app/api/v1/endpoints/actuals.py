@@ -23,7 +23,11 @@ from app.schemas.actual import (
 )
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.actuals import actuals_service
-from app.services.actuals_import import actuals_import_service, ActualsImportValidationError
+from app.services.actuals_import import (
+    labor_actuals_import_service,
+    nonlabor_actuals_import_service,
+    ActualsImportValidationError
+)
 from app.services.variance_analysis import variance_analysis_service
 from app.core.exceptions import (
     BusinessRuleViolationError,
@@ -324,34 +328,47 @@ async def delete_actual(
 
 
 @router.post(
-    "/import",
+    "/import/labor",
     response_model=ActualImportResponse,
-    summary="Import actuals from CSV",
-    description="Import actual work records from CSV file with validation"
+    summary="Import labor actuals from CSV",
+    description="Import labor actual work records from CSV file with validation"
 )
-async def import_actuals(
-    file: UploadFile = File(..., description="CSV file with actuals"),
+async def import_labor_actuals(
+    file: UploadFile = File(..., description="CSV file with labor actuals"),
     validate_only: bool = Query(False, description="Only validate, don't import"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Import actual work records from CSV file.
-    
-    CSV Format:
+    Import labor actual work records from CSV file.
+
+    CSV Format (single allocation bucket):
     project_id,external_worker_id,worker_name,date,percentage
-    
-    Example:
+
+    CSV Format (explicit capital/expense split):
+    project_id,external_worker_id,worker_name,date,capital_percentage,expense_percentage
+
+    Exactly one of the two forms must be present in the header -- either the
+    single `percentage` column, or both `capital_percentage` and
+    `expense_percentage` together. A `resource_id` column is rejected (that
+    belongs to the non-labor importer).
+
+    Example (single allocation bucket):
     550e8400-e29b-41d4-a716-446655440000,EMP001,John Smith,2024-01-15,75.0
-    
+
     Validation:
     - All required fields must be present
     - Project must exist
     - Worker must exist and name must match
     - Date must be valid (YYYY-MM-DD format)
-    - Percentage must be 0-100
+    - Percentage(s) must be 0-100 (capital + expense must also be <= 100)
     - Total allocation for worker on any date cannot exceed 100%
-    
+
+    Single-bucket rows are costed by splitting the worker's rate according to
+    their planned ResourceAssignment for the date (rejected if none exists).
+    Explicit-split rows are costed directly from the worker's rate using the
+    given capital/expense percentages, with no planned-assignment lookup.
+
     Returns:
     - total_rows: Total number of rows processed
     - successful_imports: Number of successful imports
@@ -363,14 +380,14 @@ async def import_actuals(
         # Read CSV content
         content = await file.read()
         csv_content = content.decode('utf-8')
-        
+
         # Parse and validate CSV
-        records = actuals_import_service.parse_csv(csv_content)
-        validated_records = actuals_import_service.validate_records(db, records)
-        
+        records = labor_actuals_import_service.parse_csv(csv_content)
+        validated_records = labor_actuals_import_service.validate_records(db, records)
+
         # Check for validation errors
-        validation_errors = actuals_import_service.get_validation_errors(validated_records)
-        
+        validation_errors = labor_actuals_import_service.get_validation_errors(validated_records)
+
         # If validation only, return validation results
         if validate_only:
             results = []
@@ -382,7 +399,7 @@ async def import_actuals(
                     errors=record.validation_errors if not record.is_valid() else None,
                     warnings=None
                 ))
-            
+
             return ActualImportResponse(
                 total_rows=len(records),
                 successful_imports=len([r for r in records if r.is_valid()]),
@@ -390,7 +407,7 @@ async def import_actuals(
                 results=results,
                 validation_only=True
             )
-        
+
         # If there are validation errors, return them
         if validation_errors:
             results = []
@@ -402,7 +419,7 @@ async def import_actuals(
                     errors=record.validation_errors if not record.is_valid() else None,
                     warnings=None
                 ))
-            
+
             return ActualImportResponse(
                 total_rows=len(records),
                 successful_imports=0,
@@ -410,15 +427,15 @@ async def import_actuals(
                 results=results,
                 validation_only=False
             )
-        
+
         # Import actuals
         valid_records = [r for r in validated_records if r.is_valid()]
-        import_result = actuals_service.import_actuals_batch(
+        import_result = actuals_service.import_labor_batch(
             db=db,
             records=valid_records,
             validate_allocation=True
         )
-        
+
         # Build response
         results = []
         for i, record in enumerate(valid_records):
@@ -430,7 +447,7 @@ async def import_actuals(
                 errors=None,
                 warnings=None
             ))
-        
+
         return ActualImportResponse(
             total_rows=len(records),
             successful_imports=import_result["imported_count"],
@@ -438,7 +455,7 @@ async def import_actuals(
             results=results,
             validation_only=False
         )
-        
+
     except ActualsImportValidationError as e:
         # Return validation errors
         results = []
@@ -450,7 +467,154 @@ async def import_actuals(
                 errors=error["errors"],
                 warnings=None
             ))
-        
+
+        return ActualImportResponse(
+            total_rows=len(e.errors),
+            successful_imports=0,
+            failed_imports=len(e.errors),
+            results=results,
+            validation_only=validate_only
+        )
+    except (BusinessRuleViolationError, ImportException, ActualsImportValidationError) as e:
+        # These exceptions are already handled by global error handlers
+        raise
+    except Exception as e:
+        # Unexpected errors are handled by global error handler
+        raise
+
+
+@router.post(
+    "/import/non-labor",
+    response_model=ActualImportResponse,
+    summary="Import non-labor actuals from CSV",
+    description="Import non-labor actual records from CSV file with validation"
+)
+async def import_nonlabor_actuals(
+    file: UploadFile = File(..., description="CSV file with non-labor actuals"),
+    validate_only: bool = Query(False, description="Only validate, don't import"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Import non-labor actual records from CSV file.
+
+    CSV Format:
+    project_id,resource_id,date,capital,expense
+
+    Example:
+    550e8400-e29b-41d4-a716-446655440000,6ba7b810-9dad-11d1-80b4-00c04fd430c8,2024-01-15,400,100
+
+    Non-labor actuals record capital/expense dollar amounts directly against
+    a NON_LABOR resource -- there is no worker, allocation percentage, or
+    rate involved. Any labor-form column (external_worker_id, worker_name,
+    percentage, capital_percentage, expense_percentage) is rejected; use the
+    labor actuals importer for those rows instead.
+
+    Validation:
+    - All required fields must be present
+    - Project must exist
+    - Resource must exist and must be a non-labor resource
+    - Date must be valid (YYYY-MM-DD format)
+    - Capital and expense must each be >= 0
+
+    Returns:
+    - total_rows: Total number of rows processed
+    - successful_imports: Number of successful imports
+    - failed_imports: Number of failed imports
+    - results: Detailed results for each row
+    - validation_only: Whether this was validation only
+    """
+    try:
+        # Read CSV content
+        content = await file.read()
+        csv_content = content.decode('utf-8')
+
+        # Parse and validate CSV
+        records = nonlabor_actuals_import_service.parse_csv(csv_content)
+        validated_records = nonlabor_actuals_import_service.validate_records(db, records)
+
+        # Check for validation errors
+        validation_errors = nonlabor_actuals_import_service.get_validation_errors(validated_records)
+
+        # If validation only, return validation results
+        if validate_only:
+            results = []
+            for record in validated_records:
+                results.append(ActualImportResult(
+                    row_number=record.row_number,
+                    success=record.is_valid(),
+                    actual_id=None,
+                    errors=record.validation_errors if not record.is_valid() else None,
+                    warnings=None
+                ))
+
+            return ActualImportResponse(
+                total_rows=len(records),
+                successful_imports=len([r for r in records if r.is_valid()]),
+                failed_imports=len(validation_errors),
+                results=results,
+                validation_only=True
+            )
+
+        # If there are validation errors, return them
+        if validation_errors:
+            results = []
+            for record in validated_records:
+                results.append(ActualImportResult(
+                    row_number=record.row_number,
+                    success=record.is_valid(),
+                    actual_id=None,
+                    errors=record.validation_errors if not record.is_valid() else None,
+                    warnings=None
+                ))
+
+            return ActualImportResponse(
+                total_rows=len(records),
+                successful_imports=0,
+                failed_imports=len(validation_errors),
+                results=results,
+                validation_only=False
+            )
+
+        # Import actuals
+        valid_records = [r for r in validated_records if r.is_valid()]
+        import_result = actuals_service.import_nonlabor_batch(
+            db=db,
+            records=valid_records
+        )
+
+        # Build response
+        results = []
+        for i, record in enumerate(valid_records):
+            actual = import_result["actuals"][i] if i < len(import_result["actuals"]) else None
+            results.append(ActualImportResult(
+                row_number=record.row_number,
+                success=True,
+                actual_id=actual.id if actual else None,
+                errors=None,
+                warnings=None
+            ))
+
+        return ActualImportResponse(
+            total_rows=len(records),
+            successful_imports=import_result["imported_count"],
+            failed_imports=0,
+            results=results,
+            validation_only=False
+        )
+
+    except ActualsImportValidationError as e:
+        # Return validation errors
+        results = []
+        for error in e.errors:
+            results.append(ActualImportResult(
+                row_number=error["row"],
+                success=False,
+                actual_id=None,
+                errors=error["errors"],
+                warnings=None
+            ))
+
         return ActualImportResponse(
             total_rows=len(e.errors),
             successful_imports=0,
@@ -682,40 +846,50 @@ async def check_allocation_conflicts(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Check if importing actuals would cause allocation conflicts.
-    
+    Check if importing labor actuals would cause allocation conflicts.
+
     Returns conflicts where total allocation would exceed 100% on any given day.
-    
-    CSV Format:
+    This is percentage-based, so it uses the labor actuals importer's parsing
+    and validation (both the single `percentage` form and the explicit
+    `capital_percentage`/`expense_percentage` split form are accepted; for
+    the split form, allocation is the sum of the two percentages).
+
+    CSV Format (single allocation bucket):
     project_id,external_worker_id,worker_name,date,percentage
+
+    CSV Format (explicit capital/expense split):
+    project_id,external_worker_id,worker_name,date,capital_percentage,expense_percentage
     """
     try:
         # Read CSV content
         content = await file.read()
         csv_content = content.decode('utf-8')
-        
+
         # Parse and validate CSV
-        records = actuals_import_service.parse_csv(csv_content)
-        validated_records = actuals_import_service.validate_records(db, records)
-        
+        records = labor_actuals_import_service.parse_csv(csv_content)
+        validated_records = labor_actuals_import_service.validate_records(db, records)
+
         # Get valid records
         valid_records = [r for r in validated_records if r.is_valid()]
-        
+
         if not valid_records:
             return AllocationConflictResponse(
                 has_conflicts=False,
                 conflicts=[]
             )
-        
+
         # Check for allocation conflicts
         from app.services.allocation_validator import allocation_validator_service
-        
+
         actuals_data = [
             {
                 "external_worker_id": r.external_worker_id,
                 "worker_name": r.worker_name,
                 "actual_date": r.actual_date,
-                "allocation_percentage": r.percentage
+                "allocation_percentage": (
+                    r.percentage if r.percentage is not None
+                    else r.capital_percentage + r.expense_percentage
+                )
             }
             for r in valid_records
         ]
