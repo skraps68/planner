@@ -32,13 +32,15 @@ class PhaseService:
         start_date: date,
         end_date: date,
         description: Optional[str] = None,
-        capital_budget: Optional[Decimal] = None,
-        expense_budget: Optional[Decimal] = None,
+        labor_capital_budget: Optional[Decimal] = None,
+        labor_expense_budget: Optional[Decimal] = None,
+        nonlabor_capital_budget: Optional[Decimal] = None,
+        nonlabor_expense_budget: Optional[Decimal] = None,
         total_budget: Optional[Decimal] = None
     ) -> ProjectPhase:
         """
         Create a new phase with validation.
-        
+
         Args:
             db: Database session
             project_id: Project ID this phase belongs to
@@ -46,13 +48,15 @@ class PhaseService:
             start_date: Phase start date
             end_date: Phase end date
             description: Optional phase description
-            capital_budget: Optional capital budget (default: 0)
-            expense_budget: Optional expense budget (default: 0)
-            total_budget: Optional total budget (default: capital + expense)
-            
+            labor_capital_budget: Optional labor capital budget (default: 0)
+            labor_expense_budget: Optional labor expense budget (default: 0)
+            nonlabor_capital_budget: Optional non-labor capital budget (default: 0)
+            nonlabor_expense_budget: Optional non-labor expense budget (default: 0)
+            total_budget: Optional total budget (default: sum of the four)
+
         Returns:
             Created phase
-            
+
         Raises:
             NotFoundError: If project not found
             ValidationError: If phase validation fails
@@ -61,18 +65,21 @@ class PhaseService:
         project = self.project_repo.get(db, project_id)
         if not project:
             raise ResourceNotFoundError("Project", resource_id=project_id)
-        
+
         # Set default budgets
-        capital = capital_budget if capital_budget is not None else Decimal("0")
-        expense = expense_budget if expense_budget is not None else Decimal("0")
-        total = total_budget if total_budget is not None else (capital + expense)
-        
+        lc = labor_capital_budget if labor_capital_budget is not None else Decimal("0")
+        le = labor_expense_budget if labor_expense_budget is not None else Decimal("0")
+        nc = nonlabor_capital_budget if nonlabor_capital_budget is not None else Decimal("0")
+        ne = nonlabor_expense_budget if nonlabor_expense_budget is not None else Decimal("0")
+        total = total_budget if total_budget is not None else (lc + le + nc + ne)
+
         # Validate budget components
-        if capital + expense != total:
+        if lc + le + nc + ne != total:
             raise ValidationError(
                 code="INVALID_BUDGET",
-                message="Total budget must equal capital budget + expense budget",
-                details={"capital": capital, "expense": expense, "total": total}
+                message="Total budget must equal the four category budgets",
+                details={"labor_capital": lc, "labor_expense": le,
+                         "nonlabor_capital": nc, "nonlabor_expense": ne, "total": total}
             )
         
         # Get existing phases
@@ -116,14 +123,16 @@ class PhaseService:
             "start_date": start_date,
             "end_date": end_date,
             "description": description,
-            "capital_budget": capital,
-            "expense_budget": expense,
+            "labor_capital_budget": lc,
+            "labor_expense_budget": le,
+            "nonlabor_capital_budget": nc,
+            "nonlabor_expense_budget": ne,
             "total_budget": total
         }
-        
+
         phase = self.phase_repo.create(db, obj_in=phase_data)
         return phase
-    
+
     def update_phase(
         self,
         db: Session,
@@ -132,13 +141,15 @@ class PhaseService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         description: Optional[str] = None,
-        capital_budget: Optional[Decimal] = None,
-        expense_budget: Optional[Decimal] = None,
+        labor_capital_budget: Optional[Decimal] = None,
+        labor_expense_budget: Optional[Decimal] = None,
+        nonlabor_capital_budget: Optional[Decimal] = None,
+        nonlabor_expense_budget: Optional[Decimal] = None,
         total_budget: Optional[Decimal] = None
     ) -> ProjectPhase:
         """
         Update a phase with validation.
-        
+
         Args:
             db: Database session
             phase_id: Phase ID to update
@@ -146,13 +157,15 @@ class PhaseService:
             start_date: Optional new start date
             end_date: Optional new end date
             description: Optional new description
-            capital_budget: Optional new capital budget
-            expense_budget: Optional new expense budget
+            labor_capital_budget: Optional new labor capital budget
+            labor_expense_budget: Optional new labor expense budget
+            nonlabor_capital_budget: Optional new non-labor capital budget
+            nonlabor_expense_budget: Optional new non-labor expense budget
             total_budget: Optional new total budget
-            
+
         Returns:
             Updated phase
-            
+
         Raises:
             NotFoundError: If phase not found
             ValidationError: If phase validation fails
@@ -171,16 +184,19 @@ class PhaseService:
         new_name = name if name is not None else phase.name
         new_start = start_date if start_date is not None else phase.start_date
         new_end = end_date if end_date is not None else phase.end_date
-        new_capital = capital_budget if capital_budget is not None else phase.capital_budget
-        new_expense = expense_budget if expense_budget is not None else phase.expense_budget
-        new_total = total_budget if total_budget is not None else (new_capital + new_expense)
-        
+        new_lc = labor_capital_budget if labor_capital_budget is not None else phase.labor_capital_budget
+        new_le = labor_expense_budget if labor_expense_budget is not None else phase.labor_expense_budget
+        new_nc = nonlabor_capital_budget if nonlabor_capital_budget is not None else phase.nonlabor_capital_budget
+        new_ne = nonlabor_expense_budget if nonlabor_expense_budget is not None else phase.nonlabor_expense_budget
+        new_total = total_budget if total_budget is not None else (new_lc + new_le + new_nc + new_ne)
+
         # Validate budget components
-        if new_capital + new_expense != new_total:
+        if new_lc + new_le + new_nc + new_ne != new_total:
             raise ValidationError(
                 code="INVALID_BUDGET",
-                message="Total budget must equal capital budget + expense budget",
-                details={"capital": new_capital, "expense": new_expense, "total": new_total}
+                message="Total budget must equal the four category budgets",
+                details={"labor_capital": new_lc, "labor_expense": new_le,
+                         "nonlabor_capital": new_nc, "nonlabor_expense": new_ne, "total": new_total}
             )
         
         # Get all phases for the project
@@ -230,11 +246,17 @@ class PhaseService:
             update_data["end_date"] = end_date
         if description is not None:
             update_data["description"] = description
-        if capital_budget is not None:
-            update_data["capital_budget"] = capital_budget
-        if expense_budget is not None:
-            update_data["expense_budget"] = expense_budget
-        if total_budget is not None or capital_budget is not None or expense_budget is not None:
+        if labor_capital_budget is not None:
+            update_data["labor_capital_budget"] = labor_capital_budget
+        if labor_expense_budget is not None:
+            update_data["labor_expense_budget"] = labor_expense_budget
+        if nonlabor_capital_budget is not None:
+            update_data["nonlabor_capital_budget"] = nonlabor_capital_budget
+        if nonlabor_expense_budget is not None:
+            update_data["nonlabor_expense_budget"] = nonlabor_expense_budget
+        if (total_budget is not None or labor_capital_budget is not None
+                or labor_expense_budget is not None or nonlabor_capital_budget is not None
+                or nonlabor_expense_budget is not None):
             update_data["total_budget"] = new_total
         
         # Update phase
@@ -331,8 +353,10 @@ class PhaseService:
             "start_date": project_start,
             "end_date": project_end,
             "description": None,
-            "capital_budget": Decimal("0"),
-            "expense_budget": Decimal("0"),
+            "labor_capital_budget": Decimal("0"),
+            "labor_expense_budget": Decimal("0"),
+            "nonlabor_capital_budget": Decimal("0"),
+            "nonlabor_expense_budget": Decimal("0"),
             "total_budget": Decimal("0")
         }
         
@@ -417,9 +441,10 @@ class PhaseService:
             db: Database session
             project_id: Project ID
             phases: Complete list of phases with structure:
-                    [{"id": UUID or None, "name": str, "start_date": date, 
-                      "end_date": date, "description": str, "capital_budget": Decimal,
-                      "expense_budget": Decimal, "total_budget": Decimal}, ...]
+                    [{"id": UUID or None, "name": str, "start_date": date,
+                      "end_date": date, "description": str, "labor_capital_budget": Decimal,
+                      "labor_expense_budget": Decimal, "nonlabor_capital_budget": Decimal,
+                      "nonlabor_expense_budget": Decimal, "total_budget": Decimal}, ...]
                     
         Returns:
             List of all phases after update
@@ -471,19 +496,22 @@ class PhaseService:
         result_phases = []
         for phase_data in phases:
             phase_id = phase_data.get('id')
-            
+
             # Validate budget components
-            capital = phase_data.get('capital_budget', Decimal("0"))
-            expense = phase_data.get('expense_budget', Decimal("0"))
-            total = phase_data.get('total_budget', capital + expense)
-            
-            if capital + expense != total:
+            lc = phase_data.get('labor_capital_budget', Decimal("0"))
+            le = phase_data.get('labor_expense_budget', Decimal("0"))
+            nc = phase_data.get('nonlabor_capital_budget', Decimal("0"))
+            ne = phase_data.get('nonlabor_expense_budget', Decimal("0"))
+            total = phase_data.get('total_budget', lc + le + nc + ne)
+
+            if lc + le + nc + ne != total:
                 raise ValidationError(
                     code="INVALID_BUDGET",
-                    message=f"Total budget must equal capital + expense for phase '{phase_data.get('name')}'",
-                    details={"capital": capital, "expense": expense, "total": total}
+                    message=f"Total budget must equal the four category budgets for phase '{phase_data.get('name')}'",
+                    details={"labor_capital": lc, "labor_expense": le,
+                             "nonlabor_capital": nc, "nonlabor_expense": ne, "total": total}
                 )
-            
+
             if phase_id is None:
                 # Create new phase
                 create_data = {
@@ -492,8 +520,10 @@ class PhaseService:
                     "start_date": phase_data['start_date'],
                     "end_date": phase_data['end_date'],
                     "description": phase_data.get('description'),
-                    "capital_budget": capital,
-                    "expense_budget": expense,
+                    "labor_capital_budget": lc,
+                    "labor_expense_budget": le,
+                    "nonlabor_capital_budget": nc,
+                    "nonlabor_expense_budget": ne,
                     "total_budget": total
                 }
                 phase = self.phase_repo.create(db, obj_in=create_data)
@@ -503,14 +533,16 @@ class PhaseService:
                 phase = self.phase_repo.get(db, phase_id)
                 if not phase:
                     raise ResourceNotFoundError("Phase", resource_id=phase_id)
-                
+
                 update_data = {
                     "name": phase_data['name'],
                     "start_date": phase_data['start_date'],
                     "end_date": phase_data['end_date'],
                     "description": phase_data.get('description'),
-                    "capital_budget": capital,
-                    "expense_budget": expense,
+                    "labor_capital_budget": lc,
+                    "labor_expense_budget": le,
+                    "nonlabor_capital_budget": nc,
+                    "nonlabor_expense_budget": ne,
                     "total_budget": total
                 }
                 updated_phase = self.phase_repo.update(db, db_obj=phase, obj_in=update_data)

@@ -53,8 +53,10 @@ router = APIRouter()
           "name": "Planning",
           "start_date": "2024-01-01",
           "end_date": "2024-03-31",
-          "capital_budget": 50000.00,
-          "expense_budget": 25000.00,
+          "labor_capital_budget": 30000.00,
+          "labor_expense_budget": 15000.00,
+          "nonlabor_capital_budget": 20000.00,
+          "nonlabor_expense_budget": 10000.00,
           "total_budget": 75000.00
         },
         {
@@ -62,8 +64,10 @@ router = APIRouter()
           "name": "Execution",
           "start_date": "2024-04-01",
           "end_date": "2024-12-31",
-          "capital_budget": 150000.00,
-          "expense_budget": 75000.00,
+          "labor_capital_budget": 90000.00,
+          "labor_expense_budget": 45000.00,
+          "nonlabor_capital_budget": 60000.00,
+          "nonlabor_expense_budget": 30000.00,
           "total_budget": 225000.00
         }
       ]
@@ -83,9 +87,13 @@ router = APIRouter()
                             "start_date": "2024-01-01",
                             "end_date": "2024-03-31",
                             "description": None,
+                            "labor_capital_budget": 30000.00,
+                            "labor_expense_budget": 15000.00,
+                            "nonlabor_capital_budget": 20000.00,
+                            "nonlabor_expense_budget": 10000.00,
+                            "total_budget": 75000.00,
                             "capital_budget": 50000.00,
                             "expense_budget": 25000.00,
-                            "total_budget": 75000.00,
                             "assignment_count": 0,
                             "created_at": "2024-01-01T00:00:00",
                             "updated_at": "2024-01-01T00:00:00"
@@ -149,8 +157,10 @@ async def batch_update_phases(
                 "start_date": phase.start_date,
                 "end_date": phase.end_date,
                 "description": phase.description,
-                "capital_budget": phase.capital_budget,
-                "expense_budget": phase.expense_budget,
+                "labor_capital_budget": phase.labor_capital_budget,
+                "labor_expense_budget": phase.labor_expense_budget,
+                "nonlabor_capital_budget": phase.nonlabor_capital_budget,
+                "nonlabor_expense_budget": phase.nonlabor_expense_budget,
                 "total_budget": phase.total_budget
             }
             for phase in batch_data.phases
@@ -203,9 +213,13 @@ async def batch_update_phases(
         "start_date": "2024-01-01",
         "end_date": "2024-03-31",
         "description": "Initial planning phase",
+        "labor_capital_budget": 30000.00,
+        "labor_expense_budget": 15000.00,
+        "nonlabor_capital_budget": 20000.00,
+        "nonlabor_expense_budget": 10000.00,
+        "total_budget": 75000.00,
         "capital_budget": 50000.00,
         "expense_budget": 25000.00,
-        "total_budget": 75000.00,
         "assignment_count": 15,
         "created_at": "2024-01-01T00:00:00",
         "updated_at": "2024-01-01T00:00:00"
@@ -225,9 +239,13 @@ async def batch_update_phases(
                             "name": "Planning",
                             "start_date": "2024-01-01",
                             "end_date": "2024-03-31",
+                            "labor_capital_budget": 30000.00,
+                            "labor_expense_budget": 15000.00,
+                            "nonlabor_capital_budget": 20000.00,
+                            "nonlabor_expense_budget": 10000.00,
+                            "total_budget": 75000.00,
                             "capital_budget": 50000.00,
                             "expense_budget": 25000.00,
-                            "total_budget": 75000.00,
                             "assignment_count": 15
                         }
                     ]
@@ -287,9 +305,13 @@ async def list_phases(
       "start_date": "2024-01-01",
       "end_date": "2024-03-31",
       "description": "Initial planning phase",
+      "labor_capital_budget": 30000.00,
+      "labor_expense_budget": 15000.00,
+      "nonlabor_capital_budget": 20000.00,
+      "nonlabor_expense_budget": 10000.00,
+      "total_budget": 75000.00,
       "capital_budget": 50000.00,
       "expense_budget": 25000.00,
-      "total_budget": 75000.00,
       "assignment_count": 15,
       "created_at": "2024-01-01T00:00:00",
       "updated_at": "2024-01-01T00:00:00"
