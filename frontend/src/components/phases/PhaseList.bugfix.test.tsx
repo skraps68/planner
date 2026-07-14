@@ -12,8 +12,10 @@ describe('PhaseList Bug Fixes', () => {
       description: 'First phase',
       start_date: '2024-01-01',
       end_date: '2024-03-31',
-      capital_budget: 10000,
-      expense_budget: 5000,
+      labor_capital_budget: 10000,
+      labor_expense_budget: 5000,
+      nonlabor_capital_budget: 0,
+      nonlabor_expense_budget: 0,
       total_budget: 15000,
     },
     {
@@ -22,8 +24,10 @@ describe('PhaseList Bug Fixes', () => {
       description: 'Second phase',
       start_date: '2024-04-01',
       end_date: '2024-06-30',
-      capital_budget: 20000,
-      expense_budget: 10000,
+      labor_capital_budget: 20000,
+      labor_expense_budget: 10000,
+      nonlabor_capital_budget: 0,
+      nonlabor_expense_budget: 0,
       total_budget: 30000,
     },
   ]
@@ -94,7 +98,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Get the first row
       const rows = screen.getAllByRole('row')
-      const firstDataRow = rows[1] // Skip header row
+      const firstDataRow = rows[2] // Skip the two header rows
 
       // Verify total budget is displayed correctly before edit
       expect(within(firstDataRow).getByText('$15,000.00')).toBeInTheDocument()
@@ -117,7 +121,8 @@ describe('PhaseList Bug Fixes', () => {
           description: 'Third phase',
           start_date: '2024-07-01',
           end_date: '2024-09-30',
-          // capital_budget, expense_budget, and total_budget are undefined
+          // labor_capital_budget, labor_expense_budget, nonlabor_capital_budget,
+          // nonlabor_expense_budget, and total_budget are undefined
         },
       ]
 
@@ -134,13 +139,14 @@ describe('PhaseList Bug Fixes', () => {
       const editButton = screen.getByLabelText('edit')
       fireEvent.click(editButton)
 
-      // Verify budget fields show 0, not NaN (there are two inputs with value 0: capital and expense)
+      // Verify budget fields show 0, not NaN (there are four inputs with value 0:
+      // labor capital, labor expense, non-labor capital, non-labor expense)
       const budgetInputs = screen.getAllByDisplayValue('0') as HTMLInputElement[]
-      expect(budgetInputs.length).toBe(2) // capital and expense budget
+      expect(budgetInputs.length).toBe(4) // labor capital, labor expense, nonlabor capital, nonlabor expense
       
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')
-      const dataRow = rows[1]
+      const dataRow = rows[2]
       expect(within(dataRow).getByText('$0.00')).toBeInTheDocument()
       expect(within(dataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
@@ -165,7 +171,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Verify total budget updates correctly (15000 + 5000 = 20000)
       const rows = screen.getAllByRole('row')
-      const firstDataRow = rows[1]
+      const firstDataRow = rows[2]
       expect(within(firstDataRow).getByText('$20,000.00')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
@@ -190,7 +196,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Verify total budget updates correctly (10000 + 8000 = 18000)
       const rows = screen.getAllByRole('row')
-      const firstDataRow = rows[1]
+      const firstDataRow = rows[2]
       expect(within(firstDataRow).getByText('$18,000.00')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
@@ -203,8 +209,10 @@ describe('PhaseList Bug Fixes', () => {
           description: 'Fourth phase',
           start_date: '2024-10-01',
           end_date: '2024-12-31',
-          capital_budget: 0,
-          expense_budget: 0,
+          labor_capital_budget: 0,
+          labor_expense_budget: 0,
+          nonlabor_capital_budget: 0,
+          nonlabor_expense_budget: 0,
           total_budget: 0,
         },
       ]
@@ -224,7 +232,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')
-      const dataRow = rows[1]
+      const dataRow = rows[2]
       expect(within(dataRow).getByText('$0.00')).toBeInTheDocument()
       expect(within(dataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
@@ -238,8 +246,10 @@ describe('PhaseList Bug Fixes', () => {
           description: 'Fifth phase',
           start_date: '2025-01-01',
           end_date: '2025-03-31',
-          capital_budget: '150000.00' as any, // API returns string
-          expense_budget: '75000.00' as any,  // API returns string
+          labor_capital_budget: '150000.00' as any, // API returns string
+          labor_expense_budget: '75000.00' as any,  // API returns string
+          nonlabor_capital_budget: 0,
+          nonlabor_expense_budget: 0,
           total_budget: '225000.00' as any,   // API returns string
         },
       ]
@@ -259,7 +269,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Verify total budget is calculated correctly from string values
       const rows = screen.getAllByRole('row')
-      const dataRow = rows[1]
+      const dataRow = rows[2]
       expect(within(dataRow).getByText('$225,000.00')).toBeInTheDocument()
       expect(within(dataRow).queryByText(/NaN/)).not.toBeInTheDocument()
 
@@ -299,7 +309,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Verify total updates correctly
       const rows = screen.getAllByRole('row')
-      const firstDataRow = rows[1]
+      const firstDataRow = rows[2]
       expect(within(firstDataRow).getByText('$17,000.00')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })

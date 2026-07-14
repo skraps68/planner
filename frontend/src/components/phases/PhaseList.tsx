@@ -52,11 +52,18 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
     .filter(p => !deletedPhaseIds.has(p.id || ''))
     .reduce(
       (acc, phase) => ({
-        capital: acc.capital + toNumber(phase.capital_budget),
-        expense: acc.expense + toNumber(phase.expense_budget),
-        total: acc.total + toNumber(phase.total_budget),
+        laborCapital: acc.laborCapital + toNumber(phase.labor_capital_budget),
+        laborExpense: acc.laborExpense + toNumber(phase.labor_expense_budget),
+        nonlaborCapital: acc.nonlaborCapital + toNumber(phase.nonlabor_capital_budget),
+        nonlaborExpense: acc.nonlaborExpense + toNumber(phase.nonlabor_expense_budget),
+        total:
+          acc.total +
+          toNumber(phase.labor_capital_budget) +
+          toNumber(phase.labor_expense_budget) +
+          toNumber(phase.nonlabor_capital_budget) +
+          toNumber(phase.nonlabor_expense_budget),
       }),
-      { capital: 0, expense: 0, total: 0 }
+      { laborCapital: 0, laborExpense: 0, nonlaborCapital: 0, nonlaborExpense: 0, total: 0 }
     )
 
   const handleEdit = (phase: Partial<ProjectPhase>) => {
@@ -111,21 +118,36 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
       }
       
       // For budgets, compare numeric values but only include if changed
-      const originalCapital = toNumber(originalPhase.capital_budget)
-      const editCapital = toNumber(editValues.capital_budget)
-      const originalExpense = toNumber(originalPhase.expense_budget)
-      const editExpense = toNumber(editValues.expense_budget)
-      
-      if (editCapital !== originalCapital) {
-        updateData.capital_budget = editCapital
+      const originalLaborCapital = toNumber(originalPhase.labor_capital_budget)
+      const editLaborCapital = toNumber(editValues.labor_capital_budget)
+      const originalLaborExpense = toNumber(originalPhase.labor_expense_budget)
+      const editLaborExpense = toNumber(editValues.labor_expense_budget)
+      const originalNonlaborCapital = toNumber(originalPhase.nonlabor_capital_budget)
+      const editNonlaborCapital = toNumber(editValues.nonlabor_capital_budget)
+      const originalNonlaborExpense = toNumber(originalPhase.nonlabor_expense_budget)
+      const editNonlaborExpense = toNumber(editValues.nonlabor_expense_budget)
+
+      if (editLaborCapital !== originalLaborCapital) {
+        updateData.labor_capital_budget = editLaborCapital
       }
-      if (editExpense !== originalExpense) {
-        updateData.expense_budget = editExpense
+      if (editLaborExpense !== originalLaborExpense) {
+        updateData.labor_expense_budget = editLaborExpense
       }
-      
-      // Only include total_budget if either capital or expense changed
-      if (updateData.capital_budget !== undefined || updateData.expense_budget !== undefined) {
-        updateData.total_budget = editCapital + editExpense
+      if (editNonlaborCapital !== originalNonlaborCapital) {
+        updateData.nonlabor_capital_budget = editNonlaborCapital
+      }
+      if (editNonlaborExpense !== originalNonlaborExpense) {
+        updateData.nonlabor_expense_budget = editNonlaborExpense
+      }
+
+      // Only include total_budget if any of the four budget fields changed
+      if (
+        updateData.labor_capital_budget !== undefined ||
+        updateData.labor_expense_budget !== undefined ||
+        updateData.nonlabor_capital_budget !== undefined ||
+        updateData.nonlabor_expense_budget !== undefined
+      ) {
+        updateData.total_budget = editLaborCapital + editLaborExpense + editNonlaborCapital + editNonlaborExpense
       }
     }
     
@@ -156,11 +178,19 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
         [field]: value,
       }
       
-      // Auto-calculate total_budget when capital or expense changes
-      if (field === 'capital_budget' || field === 'expense_budget') {
-        const capital = field === 'capital_budget' ? toNumber(value) : toNumber(prev.capital_budget)
-        const expense = field === 'expense_budget' ? toNumber(value) : toNumber(prev.expense_budget)
-        updated.total_budget = capital + expense
+      // Auto-calculate total_budget when any of the four budget fields changes
+      const budgetFields: (keyof ProjectPhase)[] = [
+        'labor_capital_budget',
+        'labor_expense_budget',
+        'nonlabor_capital_budget',
+        'nonlabor_expense_budget',
+      ]
+      if (budgetFields.includes(field)) {
+        const laborCapital = field === 'labor_capital_budget' ? toNumber(value) : toNumber(prev.labor_capital_budget)
+        const laborExpense = field === 'labor_expense_budget' ? toNumber(value) : toNumber(prev.labor_expense_budget)
+        const nonlaborCapital = field === 'nonlabor_capital_budget' ? toNumber(value) : toNumber(prev.nonlabor_capital_budget)
+        const nonlaborExpense = field === 'nonlabor_expense_budget' ? toNumber(value) : toNumber(prev.nonlabor_expense_budget)
+        updated.total_budget = laborCapital + laborExpense + nonlaborCapital + nonlaborExpense
       }
       
       return updated
@@ -214,7 +244,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
     <Paper sx={{ p: 2 }}>
       {/* BUGFIX MARKER: v8.0 - Calculates and sends total_budget to satisfy backend validation */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">Project Phases</Typography>
+        <Typography variant="h6">Project Phases and Budget</Typography>
         {!readOnly && (
           <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>
             Add Phase
@@ -226,20 +256,26 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
         <Table size="small">
           <TableHead>
             <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>End Date</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital Budget</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense Budget</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
-              {!readOnly && <TableCell align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Name</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Description</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
+              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>End Date</TableCell>
+              <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Labor Budget</TableCell>
+              <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Non-Labor Budget</TableCell>
+              <TableCell rowSpan={2} align="right" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
+              {!readOnly && <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
+            </TableRow>
+            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sortedPhases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={readOnly ? 7 : 8} align="center">
+                <TableCell colSpan={readOnly ? 9 : 10} align="center">
                   <Typography variant="body2" color="text.secondary">
                     No phases defined
                   </Typography>
@@ -335,48 +371,89 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                         phase.end_date ? formatDate(phase.end_date) : '-'
                       )}
                     </TableCell>
-                    <TableCell align="right" sx={{ 
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'capital_budget')),
+                    <TableCell align="right" sx={{
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_capital_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
                       {isEditing ? (
                         <TextField
                           size="small"
                           type="number"
-                          value={toNumber(editValues.capital_budget)}
-                          onChange={(e) => handleChange('capital_budget', parseFloat(e.target.value) || 0)}
+                          value={toNumber(editValues.labor_capital_budget)}
+                          onChange={(e) => handleChange('labor_capital_budget', parseFloat(e.target.value) || 0)}
                           fullWidth
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
-                        formatCurrency(phase.capital_budget || 0)
+                        formatCurrency(phase.labor_capital_budget || 0)
                       )}
                     </TableCell>
-                    <TableCell align="right" sx={{ 
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'expense_budget')),
+                    <TableCell align="right" sx={{
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_expense_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
                       {isEditing ? (
                         <TextField
                           size="small"
                           type="number"
-                          value={toNumber(editValues.expense_budget)}
-                          onChange={(e) => handleChange('expense_budget', parseFloat(e.target.value) || 0)}
+                          value={toNumber(editValues.labor_expense_budget)}
+                          onChange={(e) => handleChange('labor_expense_budget', parseFloat(e.target.value) || 0)}
                           fullWidth
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
-                        formatCurrency(phase.expense_budget || 0)
+                        formatCurrency(phase.labor_expense_budget || 0)
                       )}
                     </TableCell>
-                    <TableCell align="right" sx={{ 
+                    <TableCell align="right" sx={{
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_capital_budget')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
+                      {isEditing ? (
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={toNumber(editValues.nonlabor_capital_budget)}
+                          onChange={(e) => handleChange('nonlabor_capital_budget', parseFloat(e.target.value) || 0)}
+                          fullWidth
+                          inputProps={{ min: 0, step: 0.01 }}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
+                        />
+                      ) : (
+                        formatCurrency(phase.nonlabor_capital_budget || 0)
+                      )}
+                    </TableCell>
+                    <TableCell align="right" sx={{
+                      ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_expense_budget')),
+                      textDecoration: isDeleted ? 'line-through' : 'none',
+                    }}>
+                      {isEditing ? (
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={toNumber(editValues.nonlabor_expense_budget)}
+                          onChange={(e) => handleChange('nonlabor_expense_budget', parseFloat(e.target.value) || 0)}
+                          fullWidth
+                          inputProps={{ min: 0, step: 0.01 }}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
+                        />
+                      ) : (
+                        formatCurrency(phase.nonlabor_expense_budget || 0)
+                      )}
+                    </TableCell>
+                    <TableCell align="right" sx={{
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'total_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
                       {isEditing ? (
-                        formatCurrency(toNumber(editValues.capital_budget) + toNumber(editValues.expense_budget))
+                        formatCurrency(
+                          toNumber(editValues.labor_capital_budget) +
+                          toNumber(editValues.labor_expense_budget) +
+                          toNumber(editValues.nonlabor_capital_budget) +
+                          toNumber(editValues.nonlabor_expense_budget)
+                        )
                       ) : (
                         formatCurrency(phase.total_budget || 0)
                       )}
@@ -420,8 +497,9 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 )
               })
             )}
-            {/* Totals Row */}
-            {sortedPhases.length > 0 && (
+            {/* Totals Row - only meaningful (and non-redundant with the single row's
+                Total cell) once there's more than one phase to sum */}
+            {sortedPhases.length > 1 && (
               <TableRow sx={{ 
                 backgroundColor: '#A5C1D8',
                 borderTop: '2px solid',
@@ -434,10 +512,16 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 <TableCell />
                 <TableCell />
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.capital)}
+                  {formatCurrency(totals.laborCapital)}
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.expense)}
+                  {formatCurrency(totals.laborExpense)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(totals.nonlaborCapital)}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
+                  {formatCurrency(totals.nonlaborExpense)}
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   {formatCurrency(totals.total)}
