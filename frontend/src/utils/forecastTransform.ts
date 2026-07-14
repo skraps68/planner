@@ -23,12 +23,16 @@ export interface LaborToggle {
  * Apply labor/non-labor toggle to a CategoryBreakdown
  * @param b - The category breakdown to filter
  * @param t - The toggle options
- * @returns A new CategoryBreakdown with capital/expense/total computed from the toggle
+ * @returns A new CategoryBreakdown with sub-keys and aggregates computed from the toggle
  */
 function applyToggle(b: CategoryBreakdown, t: LaborToggle): CategoryBreakdown {
-  const capital = (t.laborOn ? b.labor_capital : 0) + (t.nonlaborOn ? b.nonlabor_capital : 0)
-  const expense = (t.laborOn ? b.labor_expense : 0) + (t.nonlaborOn ? b.nonlabor_expense : 0)
-  return { ...b, capital, expense, total: capital + expense }
+  const labor_capital = t.laborOn ? b.labor_capital : 0
+  const labor_expense = t.laborOn ? b.labor_expense : 0
+  const nonlabor_capital = t.nonlaborOn ? b.nonlabor_capital : 0
+  const nonlabor_expense = t.nonlaborOn ? b.nonlabor_expense : 0
+  const capital = labor_capital + nonlabor_capital
+  const expense = labor_expense + nonlabor_expense
+  return { ...b, labor_capital, labor_expense, nonlabor_capital, nonlabor_expense, capital, expense, total: capital + expense }
 }
 
 /**
@@ -59,18 +63,24 @@ export function transformForecastData(
 
   // Calculate current forecast: actuals + forecast (Requirement 4.4)
   const currentForecast: CategoryBreakdown = {
-    ...actualToggled,
-    total: actualToggled.total + forecastToggled.total,
+    labor_capital: actualToggled.labor_capital + forecastToggled.labor_capital,
+    labor_expense: actualToggled.labor_expense + forecastToggled.labor_expense,
+    nonlabor_capital: actualToggled.nonlabor_capital + forecastToggled.nonlabor_capital,
+    nonlabor_expense: actualToggled.nonlabor_expense + forecastToggled.nonlabor_expense,
     capital: actualToggled.capital + forecastToggled.capital,
-    expense: actualToggled.expense + forecastToggled.expense
+    expense: actualToggled.expense + forecastToggled.expense,
+    total: actualToggled.total + forecastToggled.total
   }
 
   // Calculate variance: budget - currentForecast (Requirement 4.5)
   const variance: CategoryBreakdown = {
-    ...budgetToggled,
-    total: budgetToggled.total - currentForecast.total,
+    labor_capital: budgetToggled.labor_capital - currentForecast.labor_capital,
+    labor_expense: budgetToggled.labor_expense - currentForecast.labor_expense,
+    nonlabor_capital: budgetToggled.nonlabor_capital - currentForecast.nonlabor_capital,
+    nonlabor_expense: budgetToggled.nonlabor_expense - currentForecast.nonlabor_expense,
     capital: budgetToggled.capital - currentForecast.capital,
-    expense: budgetToggled.expense - currentForecast.expense
+    expense: budgetToggled.expense - currentForecast.expense,
+    total: budgetToggled.total - currentForecast.total
   }
 
   return {
