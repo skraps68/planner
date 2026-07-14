@@ -33,7 +33,7 @@ from app.models.resource_assignment import ResourceAssignment
 from app.models.rate import Rate
 from app.models.actual import Actual
 
-from app.services.forecasting import forecasting_service
+from app.services.forecasting import ForecastData, forecasting_service
 
 
 @pytest.fixture()
