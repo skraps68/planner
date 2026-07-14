@@ -576,8 +576,8 @@ class ReportingService:
         
         for actual in actuals:
             if group_by == "worker":
-                key = actual.external_worker_id
-                name = actual.worker_name
+                key = actual.external_worker_id or "non-labor"
+                name = actual.worker_name or "Non-Labor"
             elif group_by == "date":
                 key = actual.actual_date.isoformat()
                 name = actual.actual_date.isoformat()
@@ -605,7 +605,7 @@ class ReportingService:
             grouped_data[key]["total_cost"] += actual.actual_cost
             grouped_data[key]["capital_cost"] += actual.capital_amount
             grouped_data[key]["expense_cost"] += actual.expense_amount
-            grouped_data[key]["total_allocation"] += actual.allocation_percentage
+            grouped_data[key]["total_allocation"] += actual.allocation_percentage or Decimal('0.00')  # non-labor actuals have no allocation %
             grouped_data[key]["actuals_count"] += 1
         
         # Convert to list and format

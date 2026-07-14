@@ -301,3 +301,43 @@ def test_variance_analysis_sees_only_labor_actual_on_shared_date(
     # actual (no external_worker_id) must be filtered out before the
     # allocation-percentage summation, and must not double the count.
     assert result["summary"]["variance_by_type"].get("unplanned_work") == 1
+
+
+def test_drill_down_handles_nonlabor_actuals(db_session, project_with_labor_and_nonlabor_actual_same_date):
+    """Drill-down report with group_by='worker' must handle non-labor actuals
+    (null allocation_percentage, external_worker_id, worker_name) without raising
+    TypeError and must bucket them under a 'Non-Labor' named group."""
+    project = project_with_labor_and_nonlabor_actual_same_date
+
+    # Call drill_down_report with group_by="worker"—should not raise
+    result = reporting_service.get_drill_down_report(
+        db=db_session,
+        project_id=project.id,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        group_by="worker"
+    )
+
+    # Verify result structure
+    assert "breakdown" in result
+    assert result["group_by"] == "worker"
+
+    # Find the labor and non-labor buckets in the breakdown
+    labor_bucket = None
+    nonlabor_bucket = None
+
+    for bucket in result["breakdown"]:
+        if bucket["name"] == "Non-Labor":
+            nonlabor_bucket = bucket
+        elif bucket["name"] != "Non-Labor":
+            # Assuming there's a labor worker in the fixture
+            labor_bucket = bucket
+
+    # Non-labor bucket must exist and contain the non-labor actual's cost
+    assert nonlabor_bucket is not None, "Non-Labor bucket not found in breakdown"
+    assert nonlabor_bucket["total_cost"] == 500.00, f"Expected non-labor cost 500.00, got {nonlabor_bucket['total_cost']}"
+    assert nonlabor_bucket["total_allocation"] == 0.0, f"Expected non-labor allocation 0.0, got {nonlabor_bucket['total_allocation']}"
+
+    # Labor bucket must have its allocation percentage (100.00)
+    if labor_bucket is not None:
+        assert labor_bucket["total_allocation"] == 100.0, f"Expected labor allocation 100.0, got {labor_bucket['total_allocation']}"
