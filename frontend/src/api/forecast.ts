@@ -7,6 +7,10 @@ export interface CategoryBreakdown {
   total: number
   capital: number
   expense: number
+  labor_capital: number
+  labor_expense: number
+  nonlabor_capital: number
+  nonlabor_expense: number
 }
 
 /**
