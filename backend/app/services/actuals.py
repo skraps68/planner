@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.actual import Actual
+from app.models.resource import ResourceType
 from app.repositories.actual import actual_repository
 from app.repositories.resource import worker_repository, resource_repository
 from app.repositories.rate import rate_repository
@@ -195,10 +196,8 @@ class ActualsService:
         total_pct = planned.capital_percentage + planned.expense_percentage
         if total_pct == 0:
             cap_ratio = Decimal('0')
-            exp_ratio = Decimal('0')
         else:
             cap_ratio = planned.capital_percentage / total_pct
-            exp_ratio = planned.expense_percentage / total_pct
 
         capital_amount = (actual_cost * cap_ratio).quantize(Decimal('0.01'))
         # Ensure capital + expense = actual_cost (handle rounding)
@@ -245,6 +244,13 @@ class ActualsService:
         resource = resource_repository.get(db, resource_id)
         if not resource:
             raise ResourceNotFoundError("Resource", resource_id=resource_id)
+
+        if resource.resource_type != ResourceType.NON_LABOR:
+            raise BusinessRuleViolationError(
+                f"Resource '{resource_id}' is not a non-labor resource",
+                rule_code="RESOURCE_NOT_NON_LABOR",
+                details={"resource_id": str(resource_id), "resource_type": str(resource.resource_type)},
+            )
 
         actual_data = {
             "project_id": project_id,

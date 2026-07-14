@@ -180,6 +180,9 @@ def test_labor_actual_splits_by_planned_assignment(db_session, labor_setup):
         allocation_percentage=Decimal("100.00"), validate_allocation=False)
     assert actual.resource_id == ctx.resource.id
     assert actual.capital_amount + actual.expense_amount == actual.actual_cost
+    assert actual.capital_amount == Decimal("300.00")
+    assert actual.expense_amount == Decimal("200.00")
+    assert actual.actual_cost == Decimal("500.00")
 
 
 def test_labor_actual_without_assignment_rejects(db_session, labor_setup_no_assignment):
@@ -201,3 +204,11 @@ def test_nonlabor_actual_stores_dollars(db_session, nonlabor_setup):
     assert actual.external_worker_id is None
     assert actual.allocation_percentage is None
     assert actual.actual_cost == Decimal("500")
+
+
+def test_nonlabor_create_rejects_labor_resource(db_session, labor_setup):
+    ctx = labor_setup  # {project, worker, resource(LABOR), ...}
+    with pytest.raises(BusinessRuleViolationError):
+        actuals_service.create_nonlabor_actual(
+            db=db_session, project_id=ctx.project.id, resource_id=ctx.resource.id,
+            actual_date=date(2026, 3, 3), capital_amount=Decimal("400"), expense_amount=Decimal("100"))
