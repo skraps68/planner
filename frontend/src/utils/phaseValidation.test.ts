@@ -4,6 +4,7 @@ import {
   recalculatePhaseDates,
   validateReordering,
   calculatePhaseDuration,
+  validatePhases,
 } from './phaseValidation'
 import { ProjectPhase } from '../types'
 
@@ -396,5 +397,72 @@ describe('Phase Reordering - Unit Tests', () => {
         expect(phases).toEqual(originalPhases)
       })
     })
+  })
+})
+
+describe('validatePhases - Budget Validation', () => {
+  const createBudgetPhase = (
+    overrides: Partial<ProjectPhase> = {}
+  ): Partial<ProjectPhase> => ({
+    id: '1',
+    project_id: 'test-project',
+    name: 'Phase 1',
+    start_date: '2024-01-01',
+    end_date: '2024-01-30',
+    labor_capital_budget: 100,
+    labor_expense_budget: 50,
+    nonlabor_capital_budget: 30,
+    nonlabor_expense_budget: 20,
+    total_budget: 200,
+    ...overrides,
+  })
+
+  it('should reject a negative labor_capital_budget', () => {
+    const phase = createBudgetPhase({ labor_capital_budget: -10 })
+
+    const result = validatePhases([phase], '2024-01-01', '2024-01-30')
+
+    const hasError = result.errors.some(
+      (e) => e.field === 'labor_capital_budget' && e.message.includes('non-negative')
+    )
+    expect(hasError).toBe(true)
+  })
+
+  it('should reject a negative nonlabor_expense_budget', () => {
+    const phase = createBudgetPhase({ nonlabor_expense_budget: -5 })
+
+    const result = validatePhases([phase], '2024-01-01', '2024-01-30')
+
+    const hasError = result.errors.some(
+      (e) => e.field === 'nonlabor_expense_budget' && e.message.includes('non-negative')
+    )
+    expect(hasError).toBe(true)
+  })
+
+  it('should produce no budget errors for a consistent four-way phase', () => {
+    const phase = createBudgetPhase()
+
+    const result = validatePhases([phase], '2024-01-01', '2024-01-30')
+
+    const budgetFields = [
+      'labor_capital_budget',
+      'labor_expense_budget',
+      'nonlabor_capital_budget',
+      'nonlabor_expense_budget',
+      'total_budget',
+    ]
+    const budgetErrors = result.errors.filter((e) => budgetFields.includes(e.field))
+    expect(budgetErrors).toEqual([])
+  })
+
+  it('should reject when total_budget does not equal the sum of the four budget fields', () => {
+    const phase = createBudgetPhase({ total_budget: 999 })
+
+    const result = validatePhases([phase], '2024-01-01', '2024-01-30')
+
+    const hasError = result.errors.some(
+      (e) => e.field === 'total_budget' && e.message.includes('must equal')
+    )
+    expect(hasError).toBe(true)
   })
 })

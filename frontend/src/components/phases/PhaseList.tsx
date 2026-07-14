@@ -497,9 +497,8 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 )
               })
             )}
-            {/* Totals Row - only meaningful (and non-redundant with the single row's
-                Total cell) once there's more than one phase to sum */}
-            {sortedPhases.length > 1 && (
+            {/* Totals Row */}
+            {sortedPhases.length > 0 && (
               <TableRow sx={{ 
                 backgroundColor: '#A5C1D8',
                 borderTop: '2px solid',

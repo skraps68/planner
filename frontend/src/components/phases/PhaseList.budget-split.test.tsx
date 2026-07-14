@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import PhaseList from './PhaseList'
 
 const phase = {
@@ -16,5 +16,10 @@ test('renders labor and non-labor budget headers', () => {
 
 test('total column shows sum of four category budgets', () => {
   render(<PhaseList phases={[phase as any]} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} />)
-  expect(screen.getByText('$200.00')).toBeInTheDocument()
+  // With a single phase, both the per-row Total cell and the footer Total row
+  // show $200.00 (footer restored to render for sortedPhases.length > 0).
+  const rows = screen.getAllByRole('row')
+  const footerRow = rows[rows.length - 1]
+  expect(within(footerRow).getByText('$200.00')).toBeInTheDocument()
+  expect(screen.getAllByText('$200.00')).toHaveLength(2)
 })
