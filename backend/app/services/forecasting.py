@@ -100,15 +100,43 @@ class ForecastData:
         return (self.total_forecast / self.total_budget) * Decimal('100.00')
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert forecast data to dictionary."""
-        # Derived capital/expense per series are computed from the four-way
-        # values for internal consistency; "total" remains whatever was stored.
-        budget_capital = self.budget_labor_capital + self.budget_nonlabor_capital
-        budget_expense = self.budget_labor_expense + self.budget_nonlabor_expense
-        actual_capital = self.actual_labor_capital + self.actual_nonlabor_capital
-        actual_expense = self.actual_labor_expense + self.actual_nonlabor_expense
-        forecast_capital = self.forecast_labor_capital + self.forecast_nonlabor_capital
-        forecast_expense = self.forecast_labor_expense + self.forecast_nonlabor_expense
+        """Convert forecast data to dictionary.
+
+        Derived capital/expense per series are computed from the four-way
+        values for internal consistency; "total" remains whatever was stored.
+        Legacy-caller fallback: if all four-way keys are zero (indicating a
+        construction with only the original 9 params), emit the stored
+        capital/expense so old-style callers keep their values.
+        """
+        # Budget series: derive capital/expense, fall back to legacy params if four-way is entirely zero
+        derived_budget_capital = self.budget_labor_capital + self.budget_nonlabor_capital
+        derived_budget_expense = self.budget_labor_expense + self.budget_nonlabor_expense
+        if derived_budget_capital == Decimal('0.00') and derived_budget_expense == Decimal('0.00'):
+            budget_capital = self.capital_budget
+            budget_expense = self.expense_budget
+        else:
+            budget_capital = derived_budget_capital
+            budget_expense = derived_budget_expense
+
+        # Actual series: derive capital/expense, fall back to legacy params if four-way is entirely zero
+        derived_actual_capital = self.actual_labor_capital + self.actual_nonlabor_capital
+        derived_actual_expense = self.actual_labor_expense + self.actual_nonlabor_expense
+        if derived_actual_capital == Decimal('0.00') and derived_actual_expense == Decimal('0.00'):
+            actual_capital = self.capital_actual
+            actual_expense = self.expense_actual
+        else:
+            actual_capital = derived_actual_capital
+            actual_expense = derived_actual_expense
+
+        # Forecast series: derive capital/expense, fall back to legacy params if four-way is entirely zero
+        derived_forecast_capital = self.forecast_labor_capital + self.forecast_nonlabor_capital
+        derived_forecast_expense = self.forecast_labor_expense + self.forecast_nonlabor_expense
+        if derived_forecast_capital == Decimal('0.00') and derived_forecast_expense == Decimal('0.00'):
+            forecast_capital = self.capital_forecast
+            forecast_expense = self.expense_forecast
+        else:
+            forecast_capital = derived_forecast_capital
+            forecast_expense = derived_forecast_expense
         return {
             "entity_id": str(self.entity_id),
             "entity_name": self.entity_name,

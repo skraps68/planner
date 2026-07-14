@@ -316,3 +316,65 @@ def test_program_level_aggregates_four_way_across_projects(db_session):
     assert d["budget"]["labor_capital"] == 3000.00
     assert d["budget"]["nonlabor_expense"] == 600.00
     assert d["budget"]["capital"] == d["budget"]["labor_capital"] + d["budget"]["nonlabor_capital"]
+
+
+def test_to_dict_legacy_nine_param_construction_keeps_capital_expense():
+    """Test that legacy callers passing only the 9 original params get their
+    capital/expense preserved in to_dict() via fallback.
+    """
+    from uuid import uuid4
+
+    # Construct ForecastData with only the original 9 params (no four-way)
+    entity_id = uuid4()
+    fd = ForecastData(
+        entity_id=entity_id,
+        entity_name="Test Entity",
+        entity_type="project",
+        total_budget=Decimal("100"),
+        capital_budget=Decimal("70"),
+        expense_budget=Decimal("30"),
+        total_actual=Decimal("0"),
+        capital_actual=Decimal("0"),
+        expense_actual=Decimal("0"),
+        total_forecast=Decimal("0"),
+        capital_forecast=Decimal("0"),
+        expense_forecast=Decimal("0"),
+        # Four-way params all default to zero
+    )
+
+    # Verify the ForecastData object has the legacy values stored
+    assert fd.capital_budget == Decimal("70")
+    assert fd.expense_budget == Decimal("30")
+    assert fd.total_budget == Decimal("100")
+
+    # Verify the four-way keys are all zero (defaults)
+    assert fd.budget_labor_capital == Decimal("0.00")
+    assert fd.budget_labor_expense == Decimal("0.00")
+    assert fd.budget_nonlabor_capital == Decimal("0.00")
+    assert fd.budget_nonlabor_expense == Decimal("0.00")
+    assert fd.actual_labor_capital == Decimal("0.00")
+    assert fd.actual_labor_expense == Decimal("0.00")
+    assert fd.actual_nonlabor_capital == Decimal("0.00")
+    assert fd.actual_nonlabor_expense == Decimal("0.00")
+    assert fd.forecast_labor_capital == Decimal("0.00")
+    assert fd.forecast_labor_expense == Decimal("0.00")
+    assert fd.forecast_nonlabor_capital == Decimal("0.00")
+    assert fd.forecast_nonlabor_expense == Decimal("0.00")
+
+    # Call to_dict() and verify the fallback emits the legacy values
+    d = fd.to_dict()
+    assert d["budget"]["capital"] == 70.0, "Budget capital should be 70.0 from legacy param"
+    assert d["budget"]["expense"] == 30.0, "Budget expense should be 30.0 from legacy param"
+    assert d["budget"]["total"] == 100.0, "Budget total should be 100.0"
+
+    # Verify the four-way keys are still 0.0
+    assert d["budget"]["labor_capital"] == 0.0
+    assert d["budget"]["labor_expense"] == 0.0
+    assert d["budget"]["nonlabor_capital"] == 0.0
+    assert d["budget"]["nonlabor_expense"] == 0.0
+
+    # Verify the same for actual and forecast (which are all zero)
+    assert d["actual"]["capital"] == 0.0
+    assert d["actual"]["expense"] == 0.0
+    assert d["forecast"]["capital"] == 0.0
+    assert d["forecast"]["expense"] == 0.0
