@@ -14,13 +14,16 @@ import {
   Snackbar,
   TextField,
   Autocomplete,
+  Switch,
+  FormControlLabel,
 } from '@mui/material'
 import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
 import { programsApi } from '../../api/programs'
 import { phasesApi } from '../../api/phases'
 import { getProjectForecast } from '../../api/forecast'
-import { transformForecastData } from '../../utils/forecastTransform'
+import { transformForecastData, LaborToggle } from '../../utils/forecastTransform'
+import { nextToggleState } from './laborToggle'
 import { format } from 'date-fns'
 import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
@@ -84,6 +87,8 @@ const ProjectDetailPage: React.FC = () => {
   })
   // Financials drill-down state
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
+  // Labor / Non-Labor toggle state for the financial panel
+  const [toggle, setToggle] = useState<LaborToggle>({ laborOn: true, nonlaborOn: true })
 
   const { data: project, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['project', id],
@@ -104,15 +109,22 @@ const ProjectDetailPage: React.FC = () => {
     enabled: !!id,
   })
 
-  // Fetch forecast for the financials panel, scoped to the selected phase
-  const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
+  // Fetch forecast for the financials panel, scoped to the selected phase.
+  // The raw API response doesn't change with the labor/non-labor toggle, so the
+  // toggle is intentionally excluded from the queryKey and applied separately
+  // below (useMemo) to avoid refetching on every toggle flip.
+  const { data: rawForecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
     queryKey: ['forecast', 'project', id, selectedPhaseId],
     queryFn: async () => {
-      const data = await getProjectForecast(id!, new Date().toISOString().split('T')[0], selectedPhaseId || undefined)
-      return transformForecastData(data)
+      return await getProjectForecast(id!, new Date().toISOString().split('T')[0], selectedPhaseId || undefined)
     },
     enabled: !!id,
   })
+
+  const forecastData = useMemo(() => {
+    if (!rawForecastData) return null
+    return transformForecastData(rawForecastData, toggle)
+  }, [rawForecastData, toggle])
 
   // Calculate budget statistics from phases
   const totalBudget = (project?.phases || []).reduce((sum, phase) => {
@@ -463,7 +475,7 @@ const ProjectDetailPage: React.FC = () => {
           <Grid item xs={12} md={7}>
             <Paper sx={{ p: 1.5, height: '100%' }}>
               {/* Drill-down filter: scope financials to a phase */}
-              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Autocomplete
                   size="small"
                   sx={{ flex: 1, maxWidth: 320 }}
@@ -475,6 +487,28 @@ const ProjectDetailPage: React.FC = () => {
                     <TextField {...params} label="Phase" placeholder="All" />
                   )}
                 />
+                <Box sx={{ display: 'flex', ml: 'auto' }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={toggle.laborOn}
+                        onChange={() => setToggle(nextToggleState(toggle, 'labor'))}
+                      />
+                    }
+                    label="Labor"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={toggle.nonlaborOn}
+                        onChange={() => setToggle(nextToggleState(toggle, 'nonlabor'))}
+                      />
+                    }
+                    label="Non-Labor"
+                  />
+                </Box>
               </Box>
               <FinancialSummaryTable
                 compact

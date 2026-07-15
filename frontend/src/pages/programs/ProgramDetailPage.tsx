@@ -19,6 +19,8 @@ import {
   Alert,
   Snackbar,
   Autocomplete,
+  Switch,
+  FormControlLabel,
 } from '@mui/material'
 import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
@@ -26,7 +28,8 @@ import { portfoliosApi } from '../../api/portfolios'
 import { projectsApi } from '../../api/projects'
 import { phasesApi } from '../../api/phases'
 import { getProgramForecast, getProjectForecast } from '../../api/forecast'
-import { transformForecastData } from '../../utils/forecastTransform'
+import { transformForecastData, LaborToggle } from '../../utils/forecastTransform'
+import { nextToggleState } from '../projects/laborToggle'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import ChartSection from '../../components/portfolio/ChartSection'
 import { Project } from '../../types'
@@ -67,6 +70,8 @@ const ProgramDetailPage: React.FC = () => {
   // Financials drill-down state
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
+  // Labor / Non-Labor toggle state for the financial panel
+  const [toggle, setToggle] = useState<LaborToggle>({ laborOn: true, nonlaborOn: true })
 
   // Get today's date for forecast API
   const today = useMemo(() => {
@@ -128,8 +133,8 @@ const ProgramDetailPage: React.FC = () => {
   // Transform forecast data for display
   const financialTableData = useMemo(() => {
     if (!forecastData) return null
-    return transformForecastData(forecastData)
-  }, [forecastData])
+    return transformForecastData(forecastData, toggle)
+  }, [forecastData, toggle])
 
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false })
@@ -427,7 +432,7 @@ const ProgramDetailPage: React.FC = () => {
         <Grid item xs={12} md={7}>
           <Paper sx={{ p: 1.5, height: '100%' }}>
             {/* Drill-down filters: scope financials to a project / phase */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Autocomplete
                 size="small"
                 sx={{ flex: 1 }}
@@ -452,6 +457,28 @@ const ProgramDetailPage: React.FC = () => {
                   <TextField {...params} label="Phase" placeholder="All" />
                 )}
               />
+              <Box sx={{ display: 'flex', ml: 'auto' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={toggle.laborOn}
+                      onChange={() => setToggle(nextToggleState(toggle, 'labor'))}
+                    />
+                  }
+                  label="Labor"
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      size="small"
+                      checked={toggle.nonlaborOn}
+                      onChange={() => setToggle(nextToggleState(toggle, 'nonlabor'))}
+                    />
+                  }
+                  label="Non-Labor"
+                />
+              </Box>
             </Box>
             <FinancialSummaryTable
               compact
