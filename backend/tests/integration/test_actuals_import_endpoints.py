@@ -240,6 +240,35 @@ def test_nonlabor_import_happy_path(client, auth_headers, nonlabor_setup):
         db.close()
 
 
+def test_nonlabor_import_then_list_actuals_returns_200(client, auth_headers, nonlabor_setup):
+    """Regression test for ActualResponse 500s on non-labor actuals: after a
+    successful non-labor import, GET /actuals/?project_id=... must serialize
+    the resulting row (which has null external_worker_id/worker_name/
+    allocation_percentage) without raising."""
+    ctx = nonlabor_setup
+    csv_content = (
+        "project_id,resource_id,date,capital,expense\n"
+        f"{ctx.project.id},{ctx.resource.id},2026-03-03,400,100\n"
+    )
+    import_response = client.post(
+        "/api/v1/actuals/import/non-labor",
+        files={"file": ("a.csv", io.BytesIO(csv_content.encode()), "text/csv")},
+    )
+    assert import_response.status_code == 200, import_response.text
+    assert import_response.json()["successful_imports"] == 1
+
+    response = client.get(f"/api/v1/actuals/?project_id={ctx.project.id}")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    items = body["items"] if isinstance(body, dict) and "items" in body else body
+    assert len(items) == 1
+    assert items[0]["external_worker_id"] is None
+    assert items[0]["worker_name"] is None
+    assert items[0]["allocation_percentage"] is None
+    assert items[0]["capital_amount"] == "400.00"
+    assert items[0]["expense_amount"] == "100.00"
+
+
 def test_labor_import_validate_only_persists_nothing(client, auth_headers, labor_setup):
     ctx = labor_setup
     csv_content = (
