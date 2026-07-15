@@ -10,8 +10,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.models.resource import ResourceType
 from app.repositories.project import project_repository
-from app.repositories.resource import worker_repository
+from app.repositories.resource import resource_repository, worker_repository
 
 
 class ActualsImportError(Exception):
@@ -295,5 +296,596 @@ class ActualsImportService:
         }
 
 
-# Create service instance
+class LaborImportRecord:
+    """Represents a single labor actuals import record.
+
+    Either `percentage` (single-bucket) or the pair
+    `capital_percentage`/`expense_percentage` (split) is populated,
+    depending on which form the CSV header declared.
+    """
+
+    def __init__(
+        self,
+        row_number: int,
+        project_id: str,
+        external_worker_id: str,
+        worker_name: str,
+        actual_date: str,
+        percentage: Optional[str] = None,
+        capital_percentage: Optional[str] = None,
+        expense_percentage: Optional[str] = None,
+    ):
+        self.row_number = row_number
+        self.project_id_str = project_id
+        self.external_worker_id = external_worker_id
+        self.worker_name = worker_name
+        self.actual_date_str = actual_date
+        self.percentage_str = percentage
+        self.capital_percentage_str = capital_percentage
+        self.expense_percentage_str = expense_percentage
+
+        # Parsed values (set during validation)
+        self.project_id: Optional[UUID] = None
+        self.actual_date: Optional[date] = None
+        self.percentage: Optional[Decimal] = None
+        self.capital_percentage: Optional[Decimal] = None
+        self.expense_percentage: Optional[Decimal] = None
+        self.validation_errors: List[str] = []
+
+    def is_valid(self) -> bool:
+        """Check if the record passed validation."""
+        return len(self.validation_errors) == 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert record to dictionary for error reporting."""
+        return {
+            "row": self.row_number,
+            "project_id": self.project_id_str,
+            "external_worker_id": self.external_worker_id,
+            "worker_name": self.worker_name,
+            "date": self.actual_date_str,
+            "percentage": self.percentage_str,
+            "capital_percentage": self.capital_percentage_str,
+            "expense_percentage": self.expense_percentage_str,
+            "errors": self.validation_errors,
+        }
+
+
+class LaborActualsImportService:
+    """Service for importing labor actuals data from CSV files.
+
+    Accepts either a single `percentage` column, or a split pair of
+    `capital_percentage`/`expense_percentage` columns — but not both or
+    neither. Rows carrying a `resource_id` column belong to the
+    non-labor importer and are rejected at the header level.
+    """
+
+    BASE_REQUIRED_COLUMNS = [
+        "project_id",
+        "external_worker_id",
+        "worker_name",
+        "date",
+    ]
+
+    def __init__(self):
+        pass
+
+    def parse_csv(self, csv_content: str) -> List[LaborImportRecord]:
+        """
+        Parse CSV content into LaborImportRecord objects.
+
+        Args:
+            csv_content: CSV file content as string
+
+        Returns:
+            List of LaborImportRecord objects
+
+        Raises:
+            ActualsImportError: If CSV format is invalid
+        """
+        try:
+            csv_file = StringIO(csv_content)
+            reader = csv.DictReader(csv_file)
+
+            # Validate headers
+            if not reader.fieldnames:
+                raise ActualsImportError("CSV file is empty or has no headers")
+
+            fieldnames = set(reader.fieldnames)
+
+            missing_columns = set(self.BASE_REQUIRED_COLUMNS) - fieldnames
+            if missing_columns:
+                raise ActualsImportError(
+                    f"Missing required columns: {', '.join(missing_columns)}"
+                )
+
+            if "resource_id" in fieldnames:
+                raise ActualsImportError(
+                    "Column 'resource_id' is not valid for the labor actuals "
+                    "importer; use the non-labor actuals importer instead"
+                )
+
+            has_percentage = "percentage" in fieldnames
+            has_capital = "capital_percentage" in fieldnames
+            has_expense = "expense_percentage" in fieldnames
+
+            has_single = has_percentage and not has_capital and not has_expense
+            has_split = has_capital and has_expense and not has_percentage
+
+            if not has_single and not has_split:
+                present = []
+                if has_percentage:
+                    present.append("percentage")
+                if has_capital:
+                    present.append("capital_percentage")
+                if has_expense:
+                    present.append("expense_percentage")
+
+                if not present:
+                    raise ActualsImportError(
+                        "CSV must contain either a 'percentage' column or both "
+                        "'capital_percentage' and 'expense_percentage' columns"
+                    )
+                raise ActualsImportError(
+                    "CSV must contain exactly one of: a single 'percentage' "
+                    "column, or both 'capital_percentage' and "
+                    "'expense_percentage' columns together (found conflicting "
+                    f"or incomplete columns: {', '.join(present)})"
+                )
+
+            records = []
+            for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
+                try:
+                    record = LaborImportRecord(
+                        row_number=row_num,
+                        project_id=row.get("project_id", "").strip(),
+                        external_worker_id=row.get("external_worker_id", "").strip(),
+                        worker_name=row.get("worker_name", "").strip(),
+                        actual_date=row.get("date", "").strip(),
+                        percentage=row.get("percentage", "").strip() if has_single else None,
+                        capital_percentage=row.get("capital_percentage", "").strip() if has_split else None,
+                        expense_percentage=row.get("expense_percentage", "").strip() if has_split else None,
+                    )
+                    records.append(record)
+                except Exception as e:
+                    raise ActualsImportError(f"Error parsing row {row_num}: {str(e)}")
+
+            if not records:
+                raise ActualsImportError("CSV file contains no data rows")
+
+            return records
+
+        except csv.Error as e:
+            raise ActualsImportError(f"CSV parsing error: {str(e)}")
+
+    def validate_records(
+        self,
+        db: Session,
+        records: List[LaborImportRecord]
+    ) -> List[LaborImportRecord]:
+        """
+        Validate all records for data integrity.
+
+        Args:
+            db: Database session
+            records: List of LaborImportRecord objects
+
+        Returns:
+            List of validated records (with validation_errors populated)
+        """
+        for record in records:
+            self._validate_record(db, record)
+
+        return records
+
+    def _validate_record(self, db: Session, record: LaborImportRecord) -> None:
+        """Validate a single record."""
+
+        # Validate project_id (UUID format and existence)
+        if not record.project_id_str:
+            record.validation_errors.append("project_id is required")
+        else:
+            try:
+                record.project_id = UUID(record.project_id_str)
+                # Check if project exists
+                project = project_repository.get(db, record.project_id)
+                if not project:
+                    record.validation_errors.append(
+                        f"Project with ID {record.project_id} does not exist"
+                    )
+            except ValueError:
+                record.validation_errors.append(
+                    f"Invalid project_id format: {record.project_id_str}"
+                )
+
+        # Validate external_worker_id
+        if not record.external_worker_id:
+            record.validation_errors.append("external_worker_id is required")
+        else:
+            # Check if worker exists
+            worker = worker_repository.get_by_external_id(db, record.external_worker_id)
+            if not worker:
+                record.validation_errors.append(
+                    f"Worker with external_id '{record.external_worker_id}' does not exist"
+                )
+            elif record.worker_name and worker.name != record.worker_name:
+                record.validation_errors.append(
+                    f"Worker name mismatch: expected '{worker.name}', got '{record.worker_name}'"
+                )
+
+        # Validate worker_name
+        if not record.worker_name:
+            record.validation_errors.append("worker_name is required")
+
+        # Validate date
+        if not record.actual_date_str:
+            record.validation_errors.append("date is required")
+        else:
+            try:
+                record.actual_date = datetime.strptime(
+                    record.actual_date_str, "%Y-%m-%d"
+                ).date()
+            except ValueError:
+                record.validation_errors.append(
+                    f"Invalid date format: {record.actual_date_str} (expected YYYY-MM-DD)"
+                )
+
+        # Validate percentage(s), depending on which form this record carries
+        # (parse_csv guarantees exactly one of the two forms is populated).
+        if record.percentage_str is not None:
+            self._validate_single_percentage(record)
+        else:
+            self._validate_split_percentage(record)
+
+    def _validate_single_percentage(self, record: LaborImportRecord) -> None:
+        """Validate the single `percentage` column form."""
+        if not record.percentage_str:
+            record.validation_errors.append("percentage is required")
+            return
+        try:
+            record.percentage = Decimal(record.percentage_str)
+            if record.percentage < Decimal('0.00'):
+                record.validation_errors.append(
+                    f"Percentage must be >= 0.0, got {record.percentage}"
+                )
+            elif record.percentage > Decimal('100.00'):
+                record.validation_errors.append(
+                    f"Percentage must be <= 100.0, got {record.percentage}"
+                )
+        except (InvalidOperation, ValueError):
+            record.validation_errors.append(
+                f"Invalid percentage format: {record.percentage_str}"
+            )
+
+    def _validate_split_percentage(self, record: LaborImportRecord) -> None:
+        """Validate the split `capital_percentage`/`expense_percentage` form."""
+        if not record.capital_percentage_str:
+            record.validation_errors.append("capital_percentage is required")
+        if not record.expense_percentage_str:
+            record.validation_errors.append("expense_percentage is required")
+        if not record.capital_percentage_str or not record.expense_percentage_str:
+            return
+
+        try:
+            record.capital_percentage = Decimal(record.capital_percentage_str)
+        except (InvalidOperation, ValueError):
+            record.validation_errors.append(
+                f"Invalid capital_percentage format: {record.capital_percentage_str}"
+            )
+        try:
+            record.expense_percentage = Decimal(record.expense_percentage_str)
+        except (InvalidOperation, ValueError):
+            record.validation_errors.append(
+                f"Invalid expense_percentage format: {record.expense_percentage_str}"
+            )
+
+        if record.capital_percentage is None or record.expense_percentage is None:
+            return
+
+        if record.capital_percentage < Decimal('0.00'):
+            record.validation_errors.append(
+                f"capital_percentage must be >= 0.0, got {record.capital_percentage}"
+            )
+        if record.expense_percentage < Decimal('0.00'):
+            record.validation_errors.append(
+                f"expense_percentage must be >= 0.0, got {record.expense_percentage}"
+            )
+        if record.capital_percentage > Decimal('100.00'):
+            record.validation_errors.append(
+                f"capital_percentage must be <= 100.0, got {record.capital_percentage}"
+            )
+        if record.expense_percentage > Decimal('100.00'):
+            record.validation_errors.append(
+                f"expense_percentage must be <= 100.0, got {record.expense_percentage}"
+            )
+
+        total = record.capital_percentage + record.expense_percentage
+        if total > Decimal('100.00'):
+            record.validation_errors.append(
+                f"capital_percentage + expense_percentage must be <= 100.0, got {total}"
+            )
+
+    def get_validation_errors(
+        self,
+        records: List[LaborImportRecord]
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all validation errors from records.
+
+        Args:
+            records: List of validated LaborImportRecord objects
+
+        Returns:
+            List of error dictionaries
+        """
+        errors = []
+        for record in records:
+            if not record.is_valid():
+                errors.append(record.to_dict())
+        return errors
+
+
+class NonLaborImportRecord:
+    """Represents a single non-labor actuals import record (dollar-based)."""
+
+    def __init__(
+        self,
+        row_number: int,
+        project_id: str,
+        resource_id: str,
+        actual_date: str,
+        capital: str,
+        expense: str,
+    ):
+        self.row_number = row_number
+        self.project_id_str = project_id
+        self.resource_id_str = resource_id
+        self.actual_date_str = actual_date
+        self.capital_str = capital
+        self.expense_str = expense
+
+        # Parsed values (set during validation)
+        self.project_id: Optional[UUID] = None
+        self.resource_id: Optional[UUID] = None
+        self.actual_date: Optional[date] = None
+        self.capital: Optional[Decimal] = None
+        self.expense: Optional[Decimal] = None
+        self.validation_errors: List[str] = []
+
+    def is_valid(self) -> bool:
+        """Check if the record passed validation."""
+        return len(self.validation_errors) == 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert record to dictionary for error reporting."""
+        return {
+            "row": self.row_number,
+            "project_id": self.project_id_str,
+            "resource_id": self.resource_id_str,
+            "date": self.actual_date_str,
+            "capital": self.capital_str,
+            "expense": self.expense_str,
+            "errors": self.validation_errors,
+        }
+
+
+class NonLaborActualsImportService:
+    """Service for importing non-labor actuals data (dollar amounts) from
+    CSV files.
+
+    Rows carrying any labor-form column (`external_worker_id`,
+    `worker_name`, `percentage`, `capital_percentage`,
+    `expense_percentage`) belong to the labor importer and are rejected at
+    the header level.
+    """
+
+    REQUIRED_COLUMNS = [
+        "project_id",
+        "resource_id",
+        "date",
+        "capital",
+        "expense",
+    ]
+
+    LABOR_FORM_COLUMNS = [
+        "external_worker_id",
+        "worker_name",
+        "percentage",
+        "capital_percentage",
+        "expense_percentage",
+    ]
+
+    def __init__(self):
+        pass
+
+    def parse_csv(self, csv_content: str) -> List[NonLaborImportRecord]:
+        """
+        Parse CSV content into NonLaborImportRecord objects.
+
+        Args:
+            csv_content: CSV file content as string
+
+        Returns:
+            List of NonLaborImportRecord objects
+
+        Raises:
+            ActualsImportError: If CSV format is invalid
+        """
+        try:
+            csv_file = StringIO(csv_content)
+            reader = csv.DictReader(csv_file)
+
+            # Validate headers
+            if not reader.fieldnames:
+                raise ActualsImportError("CSV file is empty or has no headers")
+
+            fieldnames = set(reader.fieldnames)
+
+            missing_columns = set(self.REQUIRED_COLUMNS) - fieldnames
+            if missing_columns:
+                raise ActualsImportError(
+                    f"Missing required columns: {', '.join(missing_columns)}"
+                )
+
+            labor_columns_present = [
+                col for col in self.LABOR_FORM_COLUMNS if col in fieldnames
+            ]
+            if labor_columns_present:
+                raise ActualsImportError(
+                    "Column(s) "
+                    f"{', '.join(labor_columns_present)} are not valid for "
+                    "the non-labor actuals importer; use the labor actuals "
+                    "importer instead"
+                )
+
+            records = []
+            for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
+                try:
+                    record = NonLaborImportRecord(
+                        row_number=row_num,
+                        project_id=row.get("project_id", "").strip(),
+                        resource_id=row.get("resource_id", "").strip(),
+                        actual_date=row.get("date", "").strip(),
+                        capital=row.get("capital", "").strip(),
+                        expense=row.get("expense", "").strip(),
+                    )
+                    records.append(record)
+                except Exception as e:
+                    raise ActualsImportError(f"Error parsing row {row_num}: {str(e)}")
+
+            if not records:
+                raise ActualsImportError("CSV file contains no data rows")
+
+            return records
+
+        except csv.Error as e:
+            raise ActualsImportError(f"CSV parsing error: {str(e)}")
+
+    def validate_records(
+        self,
+        db: Session,
+        records: List[NonLaborImportRecord]
+    ) -> List[NonLaborImportRecord]:
+        """
+        Validate all records for data integrity.
+
+        Args:
+            db: Database session
+            records: List of NonLaborImportRecord objects
+
+        Returns:
+            List of validated records (with validation_errors populated)
+        """
+        for record in records:
+            self._validate_record(db, record)
+
+        return records
+
+    def _validate_record(self, db: Session, record: NonLaborImportRecord) -> None:
+        """Validate a single record."""
+
+        # Validate project_id (UUID format and existence)
+        if not record.project_id_str:
+            record.validation_errors.append("project_id is required")
+        else:
+            try:
+                record.project_id = UUID(record.project_id_str)
+                # Check if project exists
+                project = project_repository.get(db, record.project_id)
+                if not project:
+                    record.validation_errors.append(
+                        f"Project with ID {record.project_id} does not exist"
+                    )
+            except ValueError:
+                record.validation_errors.append(
+                    f"Invalid project_id format: {record.project_id_str}"
+                )
+
+        # Validate resource_id (UUID format, existence, and NON_LABOR type)
+        if not record.resource_id_str:
+            record.validation_errors.append("resource_id is required")
+        else:
+            try:
+                record.resource_id = UUID(record.resource_id_str)
+                resource = resource_repository.get(db, record.resource_id)
+                if not resource:
+                    record.validation_errors.append(
+                        f"Resource with ID {record.resource_id} does not exist"
+                    )
+                elif resource.resource_type != ResourceType.NON_LABOR:
+                    record.validation_errors.append(
+                        f"Resource with ID {record.resource_id} is not "
+                        "non-labor"
+                    )
+            except ValueError:
+                record.validation_errors.append(
+                    f"Invalid resource_id format: {record.resource_id_str}"
+                )
+
+        # Validate date
+        if not record.actual_date_str:
+            record.validation_errors.append("date is required")
+        else:
+            try:
+                record.actual_date = datetime.strptime(
+                    record.actual_date_str, "%Y-%m-%d"
+                ).date()
+            except ValueError:
+                record.validation_errors.append(
+                    f"Invalid date format: {record.actual_date_str} (expected YYYY-MM-DD)"
+                )
+
+        # Validate capital
+        if not record.capital_str:
+            record.validation_errors.append("capital is required")
+        else:
+            try:
+                record.capital = Decimal(record.capital_str)
+                if record.capital < Decimal('0.00'):
+                    record.validation_errors.append(
+                        f"capital must be >= 0, got {record.capital}"
+                    )
+            except (InvalidOperation, ValueError):
+                record.validation_errors.append(
+                    f"Invalid capital format: {record.capital_str}"
+                )
+
+        # Validate expense
+        if not record.expense_str:
+            record.validation_errors.append("expense is required")
+        else:
+            try:
+                record.expense = Decimal(record.expense_str)
+                if record.expense < Decimal('0.00'):
+                    record.validation_errors.append(
+                        f"expense must be >= 0, got {record.expense}"
+                    )
+            except (InvalidOperation, ValueError):
+                record.validation_errors.append(
+                    f"Invalid expense format: {record.expense_str}"
+                )
+
+    def get_validation_errors(
+        self,
+        records: List[NonLaborImportRecord]
+    ) -> List[Dict[str, Any]]:
+        """
+        Get all validation errors from records.
+
+        Args:
+            records: List of validated NonLaborImportRecord objects
+
+        Returns:
+            List of error dictionaries
+        """
+        errors = []
+        for record in records:
+            if not record.is_valid():
+                errors.append(record.to_dict())
+        return errors
+
+
+# Create service instances
 actuals_import_service = ActualsImportService()
+labor_actuals_import_service = LaborActualsImportService()
+nonlabor_actuals_import_service = NonLaborActualsImportService()

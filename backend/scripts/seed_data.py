@@ -206,8 +206,10 @@ def create_projects(db: Session, programs: dict) -> dict:
             name="Planning & Design",
             start_date=date(2024, 2, 1),
             end_date=date(2024, 5, 31),
-            capital_budget=Decimal("150000.00"),
-            expense_budget=Decimal("100000.00"),
+            labor_capital_budget=Decimal("150000.00"),
+            labor_expense_budget=Decimal("100000.00"),
+            nonlabor_capital_budget=Decimal("0.00"),
+            nonlabor_expense_budget=Decimal("0.00"),
             total_budget=Decimal("250000.00")
         ),
         ProjectPhase(
@@ -216,8 +218,10 @@ def create_projects(db: Session, programs: dict) -> dict:
             name="Development",
             start_date=date(2024, 6, 1),
             end_date=date(2024, 12, 31),
-            capital_budget=Decimal("400000.00"),
-            expense_budget=Decimal("200000.00"),
+            labor_capital_budget=Decimal("400000.00"),
+            labor_expense_budget=Decimal("200000.00"),
+            nonlabor_capital_budget=Decimal("0.00"),
+            nonlabor_expense_budget=Decimal("0.00"),
             total_budget=Decimal("600000.00")
         ),
         ProjectPhase(
@@ -226,8 +230,10 @@ def create_projects(db: Session, programs: dict) -> dict:
             name="Testing & Deployment",
             start_date=date(2025, 1, 1),
             end_date=date(2025, 6, 30),
-            capital_budget=Decimal("100000.00"),
-            expense_budget=Decimal("150000.00"),
+            labor_capital_budget=Decimal("100000.00"),
+            labor_expense_budget=Decimal("150000.00"),
+            nonlabor_capital_budget=Decimal("0.00"),
+            nonlabor_expense_budget=Decimal("0.00"),
             total_budget=Decimal("250000.00")
         ),
     ]
@@ -245,8 +251,10 @@ def create_projects(db: Session, programs: dict) -> dict:
                 name="Default Phase",
                 start_date=project.start_date,
                 end_date=project.end_date,
-                capital_budget=Decimal("350000.00"),
-                expense_budget=Decimal("250000.00"),
+                labor_capital_budget=Decimal("350000.00"),
+                labor_expense_budget=Decimal("250000.00"),
+                nonlabor_capital_budget=Decimal("0.00"),
+                nonlabor_expense_budget=Decimal("0.00"),
                 total_budget=Decimal("600000.00")
             )
             db.add(default_phase)

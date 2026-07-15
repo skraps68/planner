@@ -94,32 +94,54 @@ export const validatePhases = (
     }
 
     // Budget validation
-    if (phase.capital_budget !== undefined && phase.capital_budget < 0) {
+    if (phase.labor_capital_budget !== undefined && phase.labor_capital_budget < 0) {
       errors.push({
-        field: 'capital_budget',
-        message: `Phase "${phase.name}": capital budget must be non-negative`,
+        field: 'labor_capital_budget',
+        message: `Phase "${phase.name}": Labor capital budget must be non-negative`,
         phase_id: phase.id,
       })
     }
 
-    if (phase.expense_budget !== undefined && phase.expense_budget < 0) {
+    if (phase.labor_expense_budget !== undefined && phase.labor_expense_budget < 0) {
       errors.push({
-        field: 'expense_budget',
-        message: `Phase "${phase.name}": expense budget must be non-negative`,
+        field: 'labor_expense_budget',
+        message: `Phase "${phase.name}": Labor expense budget must be non-negative`,
+        phase_id: phase.id,
+      })
+    }
+
+    if (phase.nonlabor_capital_budget !== undefined && phase.nonlabor_capital_budget < 0) {
+      errors.push({
+        field: 'nonlabor_capital_budget',
+        message: `Phase "${phase.name}": Nonlabor capital budget must be non-negative`,
+        phase_id: phase.id,
+      })
+    }
+
+    if (phase.nonlabor_expense_budget !== undefined && phase.nonlabor_expense_budget < 0) {
+      errors.push({
+        field: 'nonlabor_expense_budget',
+        message: `Phase "${phase.name}": Nonlabor expense budget must be non-negative`,
         phase_id: phase.id,
       })
     }
 
     if (
-      phase.capital_budget !== undefined &&
-      phase.expense_budget !== undefined &&
+      phase.labor_capital_budget !== undefined &&
+      phase.labor_expense_budget !== undefined &&
+      phase.nonlabor_capital_budget !== undefined &&
+      phase.nonlabor_expense_budget !== undefined &&
       phase.total_budget !== undefined
     ) {
-      const expectedTotal = phase.capital_budget + phase.expense_budget
+      const expectedTotal =
+        phase.labor_capital_budget +
+        phase.labor_expense_budget +
+        phase.nonlabor_capital_budget +
+        phase.nonlabor_expense_budget
       if (Math.abs(phase.total_budget - expectedTotal) > 0.01) {
         errors.push({
           field: 'total_budget',
-          message: `Phase "${phase.name}": total budget must equal capital + expense`,
+          message: `Phase "${phase.name}": total budget must equal labor capital + labor expense + nonlabor capital + nonlabor expense`,
           phase_id: phase.id,
         })
       }

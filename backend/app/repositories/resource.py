@@ -34,6 +34,10 @@ class ResourceRepository(BaseRepository[Resource]):
             Resource.name.ilike(f"%{search_term}%")
         ).all()
 
+    def get_by_worker_id(self, db: Session, worker_id: UUID) -> Optional[Resource]:
+        """Get the LABOR resource linked to a worker."""
+        return db.query(Resource).filter(Resource.worker_id == worker_id).first()
+
 
 class WorkerTypeRepository(BaseRepository[WorkerType]):
     """Repository for WorkerType model operations."""

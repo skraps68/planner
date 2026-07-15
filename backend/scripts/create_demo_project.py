@@ -76,8 +76,10 @@ def create_demo_project():
                 name="Planning & Design",
                 start_date=start_date,
                 end_date=start_date + timedelta(days=phase_duration),
-                capital_budget=Decimal('150000.00'),
-                expense_budget=Decimal('100000.00'),
+                labor_capital_budget=Decimal('150000.00'),
+                labor_expense_budget=Decimal('100000.00'),
+                nonlabor_capital_budget=Decimal('0.00'),
+                nonlabor_expense_budget=Decimal('0.00'),
                 total_budget=Decimal('250000.00'),
                 description="Initial planning and architecture design"
             ),
@@ -87,8 +89,10 @@ def create_demo_project():
                 name="Implementation",
                 start_date=start_date + timedelta(days=phase_duration + 1),
                 end_date=start_date + timedelta(days=phase_duration * 2),
-                capital_budget=Decimal('300000.00'),
-                expense_budget=Decimal('150000.00'),
+                labor_capital_budget=Decimal('300000.00'),
+                labor_expense_budget=Decimal('150000.00'),
+                nonlabor_capital_budget=Decimal('0.00'),
+                nonlabor_expense_budget=Decimal('0.00'),
                 total_budget=Decimal('450000.00'),
                 description="Core implementation and migration"
             ),
@@ -98,8 +102,10 @@ def create_demo_project():
                 name="Testing & Deployment",
                 start_date=start_date + timedelta(days=phase_duration * 2 + 1),
                 end_date=end_date,
-                capital_budget=Decimal('100000.00'),
-                expense_budget=Decimal('100000.00'),
+                labor_capital_budget=Decimal('100000.00'),
+                labor_expense_budget=Decimal('100000.00'),
+                nonlabor_capital_budget=Decimal('0.00'),
+                nonlabor_expense_budget=Decimal('0.00'),
                 total_budget=Decimal('200000.00'),
                 description="Testing, optimization, and deployment"
             )

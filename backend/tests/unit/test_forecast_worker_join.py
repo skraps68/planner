@@ -44,12 +44,14 @@ class _Asg:
 def test_linked_labor_resource_uses_worker_rate(db):
     svc = ForecastingService()
     linked = db.query(Resource).filter(Resource.worker_id.isnot(None)).one()
-    cost = svc._calculate_assignment_cost(db, _Asg(linked.id))
+    cost, resource_type = svc._calculate_assignment_cost(db, _Asg(linked.id))
     assert cost == Decimal("1600.00")  # 1600 * (60+40)/100
+    assert resource_type == ResourceType.LABOR
 
 
 def test_non_labor_uses_default(db):
     svc = ForecastingService()
     decoy = db.query(Resource).filter(Resource.worker_id.is_(None)).one()
-    cost = svc._calculate_assignment_cost(db, _Asg(decoy.id))
+    cost, resource_type = svc._calculate_assignment_cost(db, _Asg(decoy.id))
     assert cost == Decimal("500.00")  # non-labor default retained
+    assert resource_type == ResourceType.NON_LABOR

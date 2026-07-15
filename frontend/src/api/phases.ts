@@ -7,8 +7,10 @@ export interface PhaseCreateRequest {
   start_date: string
   end_date: string
   description?: string
-  capital_budget: number
-  expense_budget: number
+  labor_capital_budget: number
+  labor_expense_budget: number
+  nonlabor_capital_budget: number
+  nonlabor_expense_budget: number
   total_budget: number
 }
 
@@ -17,8 +19,10 @@ export interface PhaseUpdateRequest {
   start_date?: string
   end_date?: string
   description?: string
-  capital_budget?: number
-  expense_budget?: number
+  labor_capital_budget?: number
+  labor_expense_budget?: number
+  nonlabor_capital_budget?: number
+  nonlabor_expense_budget?: number
   total_budget?: number
   version: number
 }
@@ -29,8 +33,10 @@ export interface PhaseBatchItem {
   start_date: string
   end_date: string
   description?: string
-  capital_budget: number
-  expense_budget: number
+  labor_capital_budget: number
+  labor_expense_budget: number
+  nonlabor_capital_budget: number
+  nonlabor_expense_budget: number
   total_budget?: number  // Optional - backend calculates if not provided
 }
 

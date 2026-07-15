@@ -13,17 +13,16 @@ from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
 
 class ActualBase(BaseSchema):
     """Base actual schema with common fields."""
-    
+
     project_id: UUID = Field(description="Project ID")
-    resource_assignment_id: Optional[UUID] = Field(default=None, description="Resource assignment ID")
-    external_worker_id: str = Field(min_length=1, max_length=100, description="External worker ID")
-    worker_name: str = Field(min_length=1, max_length=255, description="Worker name")
+    external_worker_id: Optional[str] = Field(default=None, min_length=1, max_length=100, description="External worker ID")
+    worker_name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Worker name")
     actual_date: date = Field(description="Actual work date")
-    allocation_percentage: Decimal = Field(ge=0, le=100, description="Allocation percentage (0-100)")
+    allocation_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, description="Allocation percentage (0-100)")
     actual_cost: Decimal = Field(ge=0, description="Actual cost")
     capital_amount: Decimal = Field(ge=0, description="Capital amount")
     expense_amount: Decimal = Field(ge=0, description="Expense amount")
-    
+
     @field_validator('expense_amount')
     @classmethod
     def validate_cost_split(cls, v, info):
@@ -47,9 +46,8 @@ class ActualCreate(BaseSchema):
 
 class ActualUpdate(VersionedSchema):
     """Schema for updating an existing actual."""
-    
+
     project_id: Optional[UUID] = Field(default=None, description="Project ID")
-    resource_assignment_id: Optional[UUID] = Field(default=None, description="Resource assignment ID")
     external_worker_id: Optional[str] = Field(default=None, min_length=1, max_length=100, description="External worker ID")
     worker_name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Worker name")
     actual_date: Optional[date] = Field(default=None, description="Actual work date")

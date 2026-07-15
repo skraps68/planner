@@ -38,11 +38,11 @@ describe('FinancialSummaryTable', () => {
 
   it('renders financial data correctly', () => {
     const mockData = {
-      budget: { total: 100000, capital: 60000, expense: 40000 },
-      actuals: { total: 50000, capital: 30000, expense: 20000 },
-      forecast: { total: 40000, capital: 25000, expense: 15000 },
-      currentForecast: { total: 90000, capital: 55000, expense: 35000 },
-      variance: { total: 10000, capital: 5000, expense: 5000 }
+      budget: { total: 100000, capital: 60000, expense: 40000, labor_capital: 60000, labor_expense: 40000, nonlabor_capital: 0, nonlabor_expense: 0 },
+      actuals: { total: 50000, capital: 30000, expense: 20000, labor_capital: 30000, labor_expense: 20000, nonlabor_capital: 0, nonlabor_expense: 0 },
+      forecast: { total: 40000, capital: 25000, expense: 15000, labor_capital: 25000, labor_expense: 15000, nonlabor_capital: 0, nonlabor_expense: 0 },
+      currentForecast: { total: 90000, capital: 55000, expense: 35000, labor_capital: 55000, labor_expense: 35000, nonlabor_capital: 0, nonlabor_expense: 0 },
+      variance: { total: 10000, capital: 5000, expense: 5000, labor_capital: 5000, labor_expense: 5000, nonlabor_capital: 0, nonlabor_expense: 0 }
     }
 
     render(<FinancialSummaryTable data={mockData} loading={false} error={null} />)
@@ -183,12 +183,21 @@ describe('FinancialSummaryTable', () => {
   // Validates: Requirements 3.7, 5.1, 5.2, 5.3
   describe('Financial Data Display (Task 6.2)', () => {
     it('property test: table renders Total, Capital, and Expense rows correctly for any FinancialTableData', () => {
-      // Generate arbitrary financial data
-      const categoryBreakdownArbitrary = fc.record({
-        total: fc.double({ min: 0, max: 1e9, noNaN: true }),
-        capital: fc.double({ min: 0, max: 1e9, noNaN: true }),
-        expense: fc.double({ min: 0, max: 1e9, noNaN: true })
-      })
+      // Generate arbitrary financial data with consistency constraints
+      const categoryBreakdownArbitrary = fc.tuple(
+        fc.double({ min: 0, max: 1e9, noNaN: true }),
+        fc.double({ min: 0, max: 1e9, noNaN: true }),
+        fc.double({ min: 0, max: 1e9, noNaN: true }),
+        fc.double({ min: 0, max: 1e9, noNaN: true })
+      ).map(([labor_capital, labor_expense, nonlabor_capital, nonlabor_expense]) => ({
+        total: labor_capital + labor_expense + nonlabor_capital + nonlabor_expense,
+        capital: labor_capital + nonlabor_capital,
+        expense: labor_expense + nonlabor_expense,
+        labor_capital,
+        labor_expense,
+        nonlabor_capital,
+        nonlabor_expense
+      }))
 
       const financialTableDataArbitrary = fc.record({
         budget: categoryBreakdownArbitrary,

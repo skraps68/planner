@@ -161,7 +161,8 @@ class VarianceAnalysisService:
             start_date=start_date,
             end_date=end_date
         )
-        
+        actuals = [a for a in actuals if a.external_worker_id]  # labor only; non-labor actuals have no allocation %
+
         # Get assignments (forecasts) for the period
         # Note: This is simplified - in reality, we'd need to get all assignments
         # for the project and filter by date range
@@ -380,7 +381,8 @@ class VarianceAnalysisService:
             actual_date=analysis_date
         )
         actuals = [a for a in actuals if a.project_id == project_id]
-        
+        actuals = [a for a in actuals if a.external_worker_id]  # labor only; non-labor actuals have no allocation %
+
         total_actual_allocation = sum(a.allocation_percentage for a in actuals)
         total_actual_cost = sum(a.actual_cost for a in actuals)
         

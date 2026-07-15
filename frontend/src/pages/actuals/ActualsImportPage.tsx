@@ -17,6 +17,8 @@ import {
   TableRow,
   Chip,
   Link,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material'
 import {
   CloudUpload as UploadIcon,
@@ -29,9 +31,12 @@ import { actualsApi, ActualImportResponse, AllocationConflictResponse } from '..
 
 const steps = ['Upload File', 'Validate Data', 'Review Results', 'Import Confirmation']
 
+type ImportType = 'labor' | 'nonlabor'
+
 const ActualsImportPage = () => {
   const navigate = useNavigate()
   const [activeStep, setActiveStep] = useState(0)
+  const [importType, setImportType] = useState<ImportType>('labor')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -83,12 +88,18 @@ const ActualsImportPage = () => {
 
     try {
       // First validate the file
-      const validation = await actualsApi.importActuals(selectedFile, true)
+      const validation = importType === 'labor'
+        ? await actualsApi.importLaborActuals(selectedFile, true)
+        : await actualsApi.importNonLaborActuals(selectedFile, true)
       setValidationResult(validation)
 
-      // Check for allocation conflicts
-      const conflicts = await actualsApi.checkAllocationConflicts(selectedFile)
-      setConflictResult(conflicts)
+      // Allocation conflicts only apply to percentage-based labor actuals
+      if (importType === 'labor') {
+        const conflicts = await actualsApi.checkAllocationConflicts(selectedFile)
+        setConflictResult(conflicts)
+      } else {
+        setConflictResult(null)
+      }
 
       setActiveStep(1)
     } catch (err: any) {
@@ -105,7 +116,9 @@ const ActualsImportPage = () => {
     setError(null)
 
     try {
-      const result = await actualsApi.importActuals(selectedFile, false)
+      const result = importType === 'labor'
+        ? await actualsApi.importLaborActuals(selectedFile, false)
+        : await actualsApi.importNonLaborActuals(selectedFile, false)
       setImportResult(result)
       setActiveStep(3)
     } catch (err: any) {
@@ -125,15 +138,19 @@ const ActualsImportPage = () => {
   }
 
   const downloadTemplate = () => {
-    const csvContent = 'project_id,external_worker_id,worker_name,date,percentage\n' +
-      '550e8400-e29b-41d4-a716-446655440000,EMP001,John Smith,2024-01-15,75.0\n' +
-      '550e8400-e29b-41d4-a716-446655440000,EMP002,Jane Doe,2024-01-15,50.0'
-    
+    const csvContent = importType === 'labor'
+      ? 'project_id,external_worker_id,worker_name,date,percentage\n' +
+        '550e8400-e29b-41d4-a716-446655440000,EMP001,John Smith,2024-01-15,75.0\n' +
+        '550e8400-e29b-41d4-a716-446655440000,EMP002,Jane Doe,2024-01-15,50.0'
+      : 'project_id,resource_id,date,capital,expense\n' +
+        '550e8400-e29b-41d4-a716-446655440000,6ba7b810-9dad-11d1-80b4-00c04fd430c8,2024-01-15,400,100\n' +
+        '550e8400-e29b-41d4-a716-446655440000,6ba7b810-9dad-11d1-80b4-00c04fd430c9,2024-01-15,0,250'
+
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'actuals_template.csv'
+    a.download = importType === 'labor' ? 'labor_actuals_template.csv' : 'nonlabor_actuals_template.csv'
     a.click()
     window.URL.revokeObjectURL(url)
   }
@@ -143,8 +160,30 @@ const ActualsImportPage = () => {
       <Typography variant="h6" gutterBottom>
         Upload Actuals CSV File
       </Typography>
+
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle2" gutterBottom>
+          Import Type
+        </Typography>
+        <ToggleButtonGroup
+          value={importType}
+          exclusive
+          onChange={(_e, value: ImportType | null) => {
+            if (value) setImportType(value)
+          }}
+          size="small"
+        >
+          <ToggleButton value="labor">Labor (percentages)</ToggleButton>
+          <ToggleButton value="nonlabor">Non-Labor (dollars)</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
       <Typography variant="body2" color="text.secondary" paragraph>
-        Upload a CSV file containing actual work records. The file should include project ID, worker ID, worker name, date, and allocation percentage.
+        {importType === 'labor' ? (
+          'Upload a CSV file containing actual work records. The file should include project ID, worker ID, worker name, date, and allocation percentage.'
+        ) : (
+          'Upload a CSV file containing non-labor actual records. The file should include project ID, resource ID, date, capital amount, and expense amount.'
+        )}
       </Typography>
 
       <Box sx={{ mb: 2 }}>

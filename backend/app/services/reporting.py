@@ -193,7 +193,20 @@ class ReportingService:
         total_forecast = Decimal('0.00')
         total_capital_forecast = Decimal('0.00')
         total_expense_forecast = Decimal('0.00')
-        
+
+        total_labor_capital_budget = Decimal('0.00')
+        total_labor_expense_budget = Decimal('0.00')
+        total_nonlabor_capital_budget = Decimal('0.00')
+        total_nonlabor_expense_budget = Decimal('0.00')
+        total_labor_capital_actual = Decimal('0.00')
+        total_labor_expense_actual = Decimal('0.00')
+        total_nonlabor_capital_actual = Decimal('0.00')
+        total_nonlabor_expense_actual = Decimal('0.00')
+        total_labor_capital_forecast = Decimal('0.00')
+        total_labor_expense_forecast = Decimal('0.00')
+        total_nonlabor_capital_forecast = Decimal('0.00')
+        total_nonlabor_expense_forecast = Decimal('0.00')
+
         for project_id in project_ids:
             try:
                 project_report = self.get_project_report(
@@ -215,7 +228,20 @@ class ReportingService:
                 total_forecast += Decimal(str(financial["forecast"]["total"]))
                 total_capital_forecast += Decimal(str(financial["forecast"]["capital"]))
                 total_expense_forecast += Decimal(str(financial["forecast"]["expense"]))
-                
+
+                total_labor_capital_budget += Decimal(str(financial["budget"]["labor_capital"]))
+                total_labor_expense_budget += Decimal(str(financial["budget"]["labor_expense"]))
+                total_nonlabor_capital_budget += Decimal(str(financial["budget"]["nonlabor_capital"]))
+                total_nonlabor_expense_budget += Decimal(str(financial["budget"]["nonlabor_expense"]))
+                total_labor_capital_actual += Decimal(str(financial["actual"]["labor_capital"]))
+                total_labor_expense_actual += Decimal(str(financial["actual"]["labor_expense"]))
+                total_nonlabor_capital_actual += Decimal(str(financial["actual"]["nonlabor_capital"]))
+                total_nonlabor_expense_actual += Decimal(str(financial["actual"]["nonlabor_expense"]))
+                total_labor_capital_forecast += Decimal(str(financial["forecast"]["labor_capital"]))
+                total_labor_expense_forecast += Decimal(str(financial["forecast"]["labor_expense"]))
+                total_nonlabor_capital_forecast += Decimal(str(financial["forecast"]["nonlabor_capital"]))
+                total_nonlabor_expense_forecast += Decimal(str(financial["forecast"]["nonlabor_expense"]))
+
             except ValueError:
                 # Skip projects that don't exist
                 continue
@@ -237,17 +263,29 @@ class ReportingService:
                 "budget": {
                     "total": float(total_budget),
                     "capital": float(total_capital_budget),
-                    "expense": float(total_expense_budget)
+                    "expense": float(total_expense_budget),
+                    "labor_capital": float(total_labor_capital_budget),
+                    "labor_expense": float(total_labor_expense_budget),
+                    "nonlabor_capital": float(total_nonlabor_capital_budget),
+                    "nonlabor_expense": float(total_nonlabor_expense_budget)
                 },
                 "actual": {
                     "total": float(total_actual),
                     "capital": float(total_capital_actual),
-                    "expense": float(total_expense_actual)
+                    "expense": float(total_expense_actual),
+                    "labor_capital": float(total_labor_capital_actual),
+                    "labor_expense": float(total_labor_expense_actual),
+                    "nonlabor_capital": float(total_nonlabor_capital_actual),
+                    "nonlabor_expense": float(total_nonlabor_expense_actual)
                 },
                 "forecast": {
                     "total": float(total_forecast),
                     "capital": float(total_capital_forecast),
-                    "expense": float(total_expense_forecast)
+                    "expense": float(total_expense_forecast),
+                    "labor_capital": float(total_labor_capital_forecast),
+                    "labor_expense": float(total_labor_expense_forecast),
+                    "nonlabor_capital": float(total_nonlabor_capital_forecast),
+                    "nonlabor_expense": float(total_nonlabor_expense_forecast)
                 },
                 "analysis": {
                     "budget_remaining": float(total_budget - total_actual),
@@ -538,8 +576,8 @@ class ReportingService:
         
         for actual in actuals:
             if group_by == "worker":
-                key = actual.external_worker_id
-                name = actual.worker_name
+                key = actual.external_worker_id or "non-labor"
+                name = actual.worker_name or "Non-Labor"
             elif group_by == "date":
                 key = actual.actual_date.isoformat()
                 name = actual.actual_date.isoformat()
@@ -567,7 +605,7 @@ class ReportingService:
             grouped_data[key]["total_cost"] += actual.actual_cost
             grouped_data[key]["capital_cost"] += actual.capital_amount
             grouped_data[key]["expense_cost"] += actual.expense_amount
-            grouped_data[key]["total_allocation"] += actual.allocation_percentage
+            grouped_data[key]["total_allocation"] += actual.allocation_percentage or Decimal('0.00')  # non-labor actuals have no allocation %
             grouped_data[key]["actuals_count"] += 1
         
         # Convert to list and format

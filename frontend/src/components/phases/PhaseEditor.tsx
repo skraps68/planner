@@ -135,8 +135,10 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
             start_date: newPhaseStartDate,
             end_date: newPhaseEndDate,
             description: '',
-            capital_budget: 0,
-            expense_budget: 0,
+            labor_capital_budget: 0,
+            labor_expense_budget: 0,
+            nonlabor_capital_budget: 0,
+            nonlabor_expense_budget: 0,
             total_budget: 0,
           },
         ])
@@ -151,8 +153,10 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
           start_date: projectStartDate,
           end_date: projectEndDate,
           description: '',
-          capital_budget: 0,
-          expense_budget: 0,
+          labor_capital_budget: 0,
+          labor_expense_budget: 0,
+          nonlabor_capital_budget: 0,
+          nonlabor_expense_budget: 0,
           total_budget: 0,
         },
       ])
@@ -378,16 +382,24 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
 
       // Use batch update endpoint - send only active (non-deleted) phases
       // Convert string budgets to numbers and calculate total_budget
-      const phasesData = activePhases.map((phase) => ({
-        id: phase.id?.startsWith('temp-') ? null : phase.id,
-        name: phase.name!,
-        start_date: phase.start_date!,
-        end_date: phase.end_date!,
-        description: phase.description || '',
-        capital_budget: toNumber(phase.capital_budget),
-        expense_budget: toNumber(phase.expense_budget),
-        total_budget: toNumber(phase.capital_budget) + toNumber(phase.expense_budget),
-      }))
+      const phasesData = activePhases.map((phase) => {
+        const laborCapital = toNumber(phase.labor_capital_budget)
+        const laborExpense = toNumber(phase.labor_expense_budget)
+        const nonlaborCapital = toNumber(phase.nonlabor_capital_budget)
+        const nonlaborExpense = toNumber(phase.nonlabor_expense_budget)
+        return {
+          id: phase.id?.startsWith('temp-') ? null : phase.id,
+          name: phase.name!,
+          start_date: phase.start_date!,
+          end_date: phase.end_date!,
+          description: phase.description || '',
+          labor_capital_budget: laborCapital,
+          labor_expense_budget: laborExpense,
+          nonlabor_capital_budget: nonlaborCapital,
+          nonlabor_expense_budget: nonlaborExpense,
+          total_budget: laborCapital + laborExpense + nonlaborCapital + nonlaborExpense,
+        }
+      })
 
       await phasesApi.batchUpdate(projectId, { phases: phasesData })
 

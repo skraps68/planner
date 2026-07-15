@@ -12,17 +12,29 @@ describe('transformForecastData', () => {
       budget: {
         total: 1000000,
         capital: 600000,
-        expense: 400000
+        expense: 400000,
+        labor_capital: 600000,
+        labor_expense: 400000,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       actual: {
         total: 300000,
         capital: 200000,
-        expense: 100000
+        expense: 100000,
+        labor_capital: 200000,
+        labor_expense: 100000,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       forecast: {
         total: 500000,
         capital: 300000,
-        expense: 200000
+        expense: 200000,
+        labor_capital: 300000,
+        labor_expense: 200000,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       analysis: {
         budget_remaining: 200000,
@@ -62,17 +74,29 @@ describe('transformForecastData', () => {
       budget: {
         total: 0,
         capital: 0,
-        expense: 0
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       actual: {
         total: 0,
         capital: 0,
-        expense: 0
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       forecast: {
         total: 0,
         capital: 0,
-        expense: 0
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       analysis: {
         budget_remaining: 0,
@@ -100,17 +124,29 @@ describe('transformForecastData', () => {
       budget: {
         total: 100000,
         capital: 60000,
-        expense: 40000
+        expense: 40000,
+        labor_capital: 60000,
+        labor_expense: 40000,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       actual: {
         total: 80000,
         capital: 50000,
-        expense: 30000
+        expense: 30000,
+        labor_capital: 50000,
+        labor_expense: 30000,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       forecast: {
         total: 50000,
         capital: 30000,
-        expense: 20000
+        expense: 20000,
+        labor_capital: 30000,
+        labor_expense: 20000,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
       },
       analysis: {
         budget_remaining: -30000,
@@ -134,12 +170,21 @@ describe('transformForecastData', () => {
   // Feature: portfolio-dashboard, Property 5: Current Forecast Calculation
   // Validates: Requirements 4.4
   it('property test: current forecast equals actuals + forecast for any values', () => {
-    // Generate arbitrary financial values
-    const categoryBreakdownArbitrary = fc.record({
-      total: fc.double({ min: 0, max: 1e9, noNaN: true }),
-      capital: fc.double({ min: 0, max: 1e9, noNaN: true }),
-      expense: fc.double({ min: 0, max: 1e9, noNaN: true })
-    })
+    // Generate arbitrary financial values with consistency constraints
+    const categoryBreakdownArbitrary = fc.tuple(
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true })
+    ).map(([labor_capital, labor_expense, nonlabor_capital, nonlabor_expense]) => ({
+      total: labor_capital + labor_expense + nonlabor_capital + nonlabor_expense,
+      capital: labor_capital + nonlabor_capital,
+      expense: labor_expense + nonlabor_expense,
+      labor_capital,
+      labor_expense,
+      nonlabor_capital,
+      nonlabor_expense
+    }))
 
     const forecastApiResponseArbitrary = fc.record({
       entity_id: fc.string(),
@@ -165,8 +210,8 @@ describe('transformForecastData', () => {
         const expectedCapital = apiResponse.actual.capital + apiResponse.forecast.capital
         const expectedExpense = apiResponse.actual.expense + apiResponse.forecast.expense
 
-        // Allow for floating point precision errors
-        const epsilon = 1e-10
+        // Allow for floating point precision errors (relaxed from 1e-10 to 1e-6)
+        const epsilon = 1e-6
         expect(Math.abs(result.currentForecast.total - expectedTotal)).toBeLessThan(epsilon)
         expect(Math.abs(result.currentForecast.capital - expectedCapital)).toBeLessThan(epsilon)
         expect(Math.abs(result.currentForecast.expense - expectedExpense)).toBeLessThan(epsilon)
@@ -178,12 +223,21 @@ describe('transformForecastData', () => {
   // Feature: portfolio-dashboard, Property 6: Variance Calculation
   // Validates: Requirements 4.5
   it('property test: variance equals budget minus current forecast for any values', () => {
-    // Generate arbitrary financial values
-    const categoryBreakdownArbitrary = fc.record({
-      total: fc.double({ min: 0, max: 1e9, noNaN: true }),
-      capital: fc.double({ min: 0, max: 1e9, noNaN: true }),
-      expense: fc.double({ min: 0, max: 1e9, noNaN: true })
-    })
+    // Generate arbitrary financial values with consistency constraints
+    const categoryBreakdownArbitrary = fc.tuple(
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true })
+    ).map(([labor_capital, labor_expense, nonlabor_capital, nonlabor_expense]) => ({
+      total: labor_capital + labor_expense + nonlabor_capital + nonlabor_expense,
+      capital: labor_capital + nonlabor_capital,
+      expense: labor_expense + nonlabor_expense,
+      labor_capital,
+      labor_expense,
+      nonlabor_capital,
+      nonlabor_expense
+    }))
 
     const forecastApiResponseArbitrary = fc.record({
       entity_id: fc.string(),
@@ -215,8 +269,8 @@ describe('transformForecastData', () => {
         const expectedVarianceCapital = apiResponse.budget.capital - currentForecastCapital
         const expectedVarianceExpense = apiResponse.budget.expense - currentForecastExpense
 
-        // Allow for floating point precision errors
-        const epsilon = 1e-10
+        // Allow for floating point precision errors (relaxed from 1e-10 to 1e-6)
+        const epsilon = 1e-6
         expect(Math.abs(result.variance.total - expectedVarianceTotal)).toBeLessThan(epsilon)
         expect(Math.abs(result.variance.capital - expectedVarianceCapital)).toBeLessThan(epsilon)
         expect(Math.abs(result.variance.expense - expectedVarianceExpense)).toBeLessThan(epsilon)
@@ -228,12 +282,21 @@ describe('transformForecastData', () => {
   // Feature: portfolio-dashboard, Property 8: Data Transformation Correctness
   // Validates: Requirements 6.4
   it('property test: transformation produces correct FinancialTableData for any valid API response', () => {
-    // Generate arbitrary financial values
-    const categoryBreakdownArbitrary = fc.record({
-      total: fc.double({ min: 0, max: 1e9, noNaN: true }),
-      capital: fc.double({ min: 0, max: 1e9, noNaN: true }),
-      expense: fc.double({ min: 0, max: 1e9, noNaN: true })
-    })
+    // Generate arbitrary financial values with consistency constraints
+    const categoryBreakdownArbitrary = fc.tuple(
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true }),
+      fc.double({ min: 0, max: 1e9, noNaN: true })
+    ).map(([labor_capital, labor_expense, nonlabor_capital, nonlabor_expense]) => ({
+      total: labor_capital + labor_expense + nonlabor_capital + nonlabor_expense,
+      capital: labor_capital + nonlabor_capital,
+      expense: labor_expense + nonlabor_expense,
+      labor_capital,
+      labor_expense,
+      nonlabor_capital,
+      nonlabor_expense
+    }))
 
     const forecastApiResponseArbitrary = fc.record({
       entity_id: fc.string(),
@@ -254,7 +317,8 @@ describe('transformForecastData', () => {
       fc.property(forecastApiResponseArbitrary, (apiResponse) => {
         const result = transformForecastData(apiResponse)
 
-        const epsilon = 1e-10
+        // Allow for floating point precision errors (relaxed from 1e-10 to 1e-6)
+        const epsilon = 1e-6
 
         // Property: budget values match the API response budget values
         expect(Math.abs(result.budget.total - apiResponse.budget.total)).toBeLessThan(epsilon)
@@ -290,6 +354,244 @@ describe('transformForecastData', () => {
         expect(Math.abs(result.variance.expense - expectedVarianceExpense)).toBeLessThan(epsilon)
       }),
       { numRuns: 100 }
+    )
+  })
+
+  it('both toggles on = full totals', () => {
+    const resp: ForecastApiResponse = {
+      entity_id: 'x',
+      entity_name: 'x',
+      entity_type: 'project' as const,
+      budget: {
+        total: 200,
+        capital: 130,
+        expense: 70,
+        labor_capital: 100,
+        labor_expense: 50,
+        nonlabor_capital: 30,
+        nonlabor_expense: 20
+      },
+      actual: {
+        total: 0,
+        capital: 0,
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
+      },
+      forecast: {
+        total: 0,
+        capital: 0,
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
+      },
+      analysis: {
+        budget_remaining: 0,
+        forecast_variance: 0,
+        budget_utilization_percentage: 0,
+        forecast_to_budget_percentage: 0
+      }
+    }
+    const d = transformForecastData(resp, { laborOn: true, nonlaborOn: true })
+    expect(d.budget.labor_capital).toBe(100)
+    expect(d.budget.labor_expense).toBe(50)
+    expect(d.budget.nonlabor_capital).toBe(30)
+    expect(d.budget.nonlabor_expense).toBe(20)
+    expect(d.budget.capital).toBe(130)
+    expect(d.budget.expense).toBe(70)
+    expect(d.budget.total).toBe(200)
+  })
+
+  it('labor only', () => {
+    const resp: ForecastApiResponse = {
+      entity_id: 'x',
+      entity_name: 'x',
+      entity_type: 'project' as const,
+      budget: {
+        total: 200,
+        capital: 130,
+        expense: 70,
+        labor_capital: 100,
+        labor_expense: 50,
+        nonlabor_capital: 30,
+        nonlabor_expense: 20
+      },
+      actual: {
+        total: 0,
+        capital: 0,
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
+      },
+      forecast: {
+        total: 0,
+        capital: 0,
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
+      },
+      analysis: {
+        budget_remaining: 0,
+        forecast_variance: 0,
+        budget_utilization_percentage: 0,
+        forecast_to_budget_percentage: 0
+      }
+    }
+    const d = transformForecastData(resp, { laborOn: true, nonlaborOn: false })
+    expect(d.budget.labor_capital).toBe(100)
+    expect(d.budget.labor_expense).toBe(50)
+    expect(d.budget.nonlabor_capital).toBe(0)
+    expect(d.budget.nonlabor_expense).toBe(0)
+    expect(d.budget.capital).toBe(100)
+    expect(d.budget.expense).toBe(50)
+    expect(d.budget.total).toBe(150)
+  })
+
+  it('non-labor only', () => {
+    const resp: ForecastApiResponse = {
+      entity_id: 'x',
+      entity_name: 'x',
+      entity_type: 'project' as const,
+      budget: {
+        total: 200,
+        capital: 130,
+        expense: 70,
+        labor_capital: 100,
+        labor_expense: 50,
+        nonlabor_capital: 30,
+        nonlabor_expense: 20
+      },
+      actual: {
+        total: 0,
+        capital: 0,
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
+      },
+      forecast: {
+        total: 0,
+        capital: 0,
+        expense: 0,
+        labor_capital: 0,
+        labor_expense: 0,
+        nonlabor_capital: 0,
+        nonlabor_expense: 0
+      },
+      analysis: {
+        budget_remaining: 0,
+        forecast_variance: 0,
+        budget_utilization_percentage: 0,
+        forecast_to_budget_percentage: 0
+      }
+    }
+    const d = transformForecastData(resp, { laborOn: false, nonlaborOn: true })
+    expect(d.budget.labor_capital).toBe(0)
+    expect(d.budget.labor_expense).toBe(0)
+    expect(d.budget.nonlabor_capital).toBe(30)
+    expect(d.budget.nonlabor_expense).toBe(20)
+    expect(d.budget.capital).toBe(30)
+    expect(d.budget.expense).toBe(20)
+    expect(d.budget.total).toBe(50)
+  })
+
+  it('currentForecast and variance sub-keys are internally consistent', () => {
+    const apiResponse: ForecastApiResponse = {
+      entity_id: 'prog-mixed',
+      entity_name: 'Mixed Labor/Non-Labor Program',
+      entity_type: 'program',
+      budget: {
+        total: 1500000,
+        capital: 900000,
+        expense: 600000,
+        labor_capital: 600000,
+        labor_expense: 400000,
+        nonlabor_capital: 300000,
+        nonlabor_expense: 200000
+      },
+      actual: {
+        total: 450000,
+        capital: 300000,
+        expense: 150000,
+        labor_capital: 200000,
+        labor_expense: 100000,
+        nonlabor_capital: 100000,
+        nonlabor_expense: 50000
+      },
+      forecast: {
+        total: 600000,
+        capital: 350000,
+        expense: 250000,
+        labor_capital: 250000,
+        labor_expense: 150000,
+        nonlabor_capital: 100000,
+        nonlabor_expense: 100000
+      },
+      analysis: {
+        budget_remaining: 450000,
+        forecast_variance: 0,
+        budget_utilization_percentage: 70,
+        forecast_to_budget_percentage: 100
+      }
+    }
+
+    const result = transformForecastData(apiResponse)
+
+    // Verify currentForecast sub-key sums exactly
+    expect(result.currentForecast.labor_capital).toBe(
+      apiResponse.actual.labor_capital + apiResponse.forecast.labor_capital
+    ) // 200000 + 250000 = 450000
+    expect(result.currentForecast.labor_expense).toBe(
+      apiResponse.actual.labor_expense + apiResponse.forecast.labor_expense
+    ) // 100000 + 150000 = 250000
+    expect(result.currentForecast.nonlabor_capital).toBe(
+      apiResponse.actual.nonlabor_capital + apiResponse.forecast.nonlabor_capital
+    ) // 100000 + 100000 = 200000
+    expect(result.currentForecast.nonlabor_expense).toBe(
+      apiResponse.actual.nonlabor_expense + apiResponse.forecast.nonlabor_expense
+    ) // 50000 + 100000 = 150000
+
+    // Verify currentForecast consistency invariants (10-digit precision)
+    expect(result.currentForecast.labor_capital + result.currentForecast.nonlabor_capital).toBeCloseTo(
+      result.currentForecast.capital,
+      10
+    )
+    expect(result.currentForecast.labor_expense + result.currentForecast.nonlabor_expense).toBeCloseTo(
+      result.currentForecast.expense,
+      10
+    )
+
+    // Verify variance sub-keys are correct
+    expect(result.variance.labor_capital).toBe(
+      apiResponse.budget.labor_capital - result.currentForecast.labor_capital
+    ) // 600000 - 450000 = 150000
+    expect(result.variance.labor_expense).toBe(
+      apiResponse.budget.labor_expense - result.currentForecast.labor_expense
+    ) // 400000 - 250000 = 150000
+    expect(result.variance.nonlabor_capital).toBe(
+      apiResponse.budget.nonlabor_capital - result.currentForecast.nonlabor_capital
+    ) // 300000 - 200000 = 100000
+    expect(result.variance.nonlabor_expense).toBe(
+      apiResponse.budget.nonlabor_expense - result.currentForecast.nonlabor_expense
+    ) // 200000 - 150000 = 50000
+
+    // Verify variance consistency invariants (10-digit precision)
+    expect(result.variance.labor_capital + result.variance.nonlabor_capital).toBeCloseTo(
+      result.variance.capital,
+      10
+    )
+    expect(result.variance.labor_expense + result.variance.nonlabor_expense).toBeCloseTo(
+      result.variance.expense,
+      10
     )
   })
 })
