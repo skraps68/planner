@@ -135,13 +135,30 @@ export const actualsApi = {
     await apiClient.delete(`/actuals/${id}`)
   },
 
-  // Import actuals from CSV
-  importActuals: async (file: File, validateOnly: boolean = false): Promise<ActualImportResponse> => {
+  // Import labor actuals (percentage-based) from CSV
+  importLaborActuals: async (file: File, validateOnly: boolean = false): Promise<ActualImportResponse> => {
     const formData = new FormData()
     formData.append('file', file)
-    
+
     const response = await apiClient.post(
-      `/actuals/import?validate_only=${validateOnly}`,
+      `/actuals/import/labor?validate_only=${validateOnly}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    )
+    return response.data
+  },
+
+  // Import non-labor actuals (dollar-based) from CSV
+  importNonLaborActuals: async (file: File, validateOnly: boolean = false): Promise<ActualImportResponse> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await apiClient.post(
+      `/actuals/import/non-labor?validate_only=${validateOnly}`,
       formData,
       {
         headers: {
