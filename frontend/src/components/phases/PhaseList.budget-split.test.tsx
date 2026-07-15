@@ -1,25 +1,39 @@
-import { test, expect } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import PhaseList from './PhaseList'
 
 const phase = {
-  id: 'p1', project_id: 'x', name: 'Ph', start_date: '2026-01-01', end_date: '2026-06-30',
+  id: 'p1', project_id: 'x', name: 'Design', start_date: '2026-01-01', end_date: '2026-06-30',
   description: '', labor_capital_budget: 100, labor_expense_budget: 50,
   nonlabor_capital_budget: 30, nonlabor_expense_budget: 20, total_budget: 200,
 }
 
-test('renders labor and non-labor budget headers', () => {
-  render(<PhaseList phases={[phase as any]} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} />)
-  expect(screen.getByText('Labor Budget')).toBeInTheDocument()
-  expect(screen.getByText('Non-Labor Budget')).toBeInTheDocument()
-})
+describe('PhaseList', () => {
+  it('read mode: labor/non-labor headers, currency text, no inputs', () => {
+    render(<PhaseList phases={[phase as any]} editMode={false} onUpdate={vi.fn()} onDelete={vi.fn()} />)
+    expect(screen.getByText('Labor Budget')).toBeInTheDocument()
+    expect(screen.getByText('Non-Labor Budget')).toBeInTheDocument()
+    expect(screen.getAllByText('$200.00').length).toBeGreaterThan(0)
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)  // no number inputs
+    expect(screen.queryAllByRole('textbox')).toHaveLength(0)     // no text inputs
+  })
 
-test('total column shows sum of four category budgets', () => {
-  render(<PhaseList phases={[phase as any]} onAdd={() => {}} onUpdate={() => {}} onDelete={() => {}} />)
-  // With a single phase, both the per-row Total cell and the footer Total row
-  // show $200.00 (footer restored to render for sortedPhases.length > 0).
-  const rows = screen.getAllByRole('row')
-  const footerRow = rows[rows.length - 1]
-  expect(within(footerRow).getByText('$200.00')).toBeInTheDocument()
-  expect(screen.getAllByText('$200.00')).toHaveLength(2)
+  it('edit mode: name + four budget inputs, dates stay read-only text', () => {
+    render(<PhaseList phases={[phase as any]} editMode onUpdate={vi.fn()} onDelete={vi.fn()} />)
+    // four numeric budget inputs
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(4)
+    // a name text input
+    expect(screen.getAllByRole('textbox').length).toBeGreaterThanOrEqual(1)
+    // dates are NOT inputs (no type=date fields)
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    expect(dateInputs.length).toBe(0)
+  })
+
+  it('edit mode: editing a budget calls onUpdate with that field', () => {
+    const onUpdate = vi.fn()
+    render(<PhaseList phases={[phase as any]} editMode onUpdate={onUpdate} onDelete={vi.fn()} />)
+    const inputs = screen.getAllByRole('spinbutton')  // first budget input is labor_capital
+    fireEvent.change(inputs[0], { target: { value: '150' } })
+    expect(onUpdate).toHaveBeenCalledWith('p1', expect.objectContaining({ labor_capital_budget: 150 }))
+  })
 })

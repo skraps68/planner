@@ -188,48 +188,6 @@ const ProjectDetailPage: React.FC = () => {
     })
   }, [])
 
-  const handleProjectDateChange = async (startDate: string, endDate: string) => {
-    try {
-      const response = await projectsApi.update(id!, {
-        start_date: startDate,
-        end_date: endDate,
-      })
-      
-      // Check if phase adjustments were made
-      if (response.phase_adjustments && response.phase_adjustments.length > 0) {
-        // Build notification message
-        const adjustmentMessages = response.phase_adjustments.map((adj: any) => {
-          if (adj.field === 'start_date and end_date') {
-            return `"${adj.phase_name}" dates updated to match project dates`
-          } else if (adj.field === 'start_date') {
-            return `"${adj.phase_name}" start date updated to ${new Date(adj.new_value).toLocaleDateString()}`
-          } else if (adj.field === 'end_date') {
-            return `"${adj.phase_name}" end date updated to ${new Date(adj.new_value).toLocaleDateString()}`
-          }
-          return ''
-        }).filter(Boolean).join('; ')
-        
-        setSnackbar({
-          open: true,
-          message: `Project dates updated. Phase adjustments: ${adjustmentMessages}`,
-          severity: 'success',
-        })
-      }
-      
-      // Refetch project to get updated dates
-      refetch()
-      // Dates show in the rich hierarchy list too
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-    } catch (error) {
-      console.error('Failed to update project dates:', error)
-      setSnackbar({
-        open: true,
-        message: 'Failed to update project dates',
-        severity: 'error',
-      })
-    }
-  }
-
   const handleEditInfo = () => {
     if (project) {
       setEditValues({
@@ -527,7 +485,6 @@ const ProjectDetailPage: React.FC = () => {
           projectEndDate={project.end_date}
           onSaveSuccess={handlePhaseSaveSuccess}
           onSaveError={handlePhaseSaveError}
-          onProjectDateChange={handleProjectDateChange}
         />
       </TabPanel>
 

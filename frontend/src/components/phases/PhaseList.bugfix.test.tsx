@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import '@testing-library/jest-dom'
 import PhaseList from './PhaseList'
@@ -32,7 +32,6 @@ describe('PhaseList Bug Fixes', () => {
     },
   ]
 
-  const mockOnAdd = vi.fn()
   const mockOnUpdate = vi.fn()
   const mockOnDelete = vi.fn()
 
@@ -45,19 +44,15 @@ describe('PhaseList Bug Fixes', () => {
       const { container } = render(
         <PhaseList
           phases={mockPhases}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
 
-      // Click edit button on first phase
-      const editButtons = screen.getAllByLabelText('edit')
-      fireEvent.click(editButtons[0])
-
       // Check that all TextFields have fontSize: inherit in their sx prop
       const textFields = container.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]')
-      
+
       // We can't directly check the sx prop, but we can verify the inputs are rendered
       // and that the component doesn't throw errors
       expect(textFields.length).toBeGreaterThan(0)
@@ -67,21 +62,20 @@ describe('PhaseList Bug Fixes', () => {
       render(
         <PhaseList
           phases={mockPhases}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
 
-      // Click edit button
-      const editButtons = screen.getAllByLabelText('edit')
-      fireEvent.click(editButtons[0])
-
-      // Verify all input fields are rendered
-      expect(screen.getByDisplayValue('Phase 1')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('First phase')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('10000')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
+      // Verify all input fields are rendered (scope to phase 1's row since
+      // phase 2's expense budget also happens to be 10000)
+      const rows = screen.getAllByRole('row')
+      const firstDataRow = rows[2] // skip the two header rows
+      expect(within(firstDataRow).getByDisplayValue('Phase 1')).toBeInTheDocument()
+      expect(within(firstDataRow).getByDisplayValue('First phase')).toBeInTheDocument()
+      expect(within(firstDataRow).getByDisplayValue('10000')).toBeInTheDocument()
+      expect(within(firstDataRow).getByDisplayValue('5000')).toBeInTheDocument()
     })
   })
 
@@ -90,7 +84,7 @@ describe('PhaseList Bug Fixes', () => {
       render(
         <PhaseList
           phases={mockPhases}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
@@ -99,13 +93,6 @@ describe('PhaseList Bug Fixes', () => {
       // Get the first row
       const rows = screen.getAllByRole('row')
       const firstDataRow = rows[2] // Skip the two header rows
-
-      // Verify total budget is displayed correctly before edit
-      expect(within(firstDataRow).getByText('$15,000.00')).toBeInTheDocument()
-
-      // Click edit button
-      const editButtons = screen.getAllByLabelText('edit')
-      fireEvent.click(editButtons[0])
 
       // Verify total budget is still displayed correctly (not NaN)
       // The total should be calculated from capital + expense
@@ -129,21 +116,17 @@ describe('PhaseList Bug Fixes', () => {
       render(
         <PhaseList
           phases={phaseWithUndefinedBudgets}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
 
-      // Click edit button
-      const editButton = screen.getByLabelText('edit')
-      fireEvent.click(editButton)
-
       // Verify budget fields show 0, not NaN (there are four inputs with value 0:
       // labor capital, labor expense, non-labor capital, non-labor expense)
       const budgetInputs = screen.getAllByDisplayValue('0') as HTMLInputElement[]
       expect(budgetInputs.length).toBe(4) // labor capital, labor expense, nonlabor capital, nonlabor expense
-      
+
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')
       const dataRow = rows[2]
@@ -152,22 +135,28 @@ describe('PhaseList Bug Fixes', () => {
     })
 
     it('should calculate total budget correctly when editing capital budget', () => {
-      render(
+      const { rerender } = render(
         <PhaseList
           phases={mockPhases}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
 
-      // Click edit button
-      const editButtons = screen.getAllByLabelText('edit')
-      fireEvent.click(editButtons[0])
-
-      // Find capital budget input and change it
-      const capitalInput = screen.getByDisplayValue('10000') as HTMLInputElement
-      fireEvent.change(capitalInput, { target: { value: '15000' } })
+      // Simulate onUpdate being applied by the parent (PhaseEditor) and the
+      // updated phase flowing back down as a new `phases` prop.
+      const updatedPhases = mockPhases.map((p) =>
+        p.id === '1' ? { ...p, labor_capital_budget: 15000 } : p
+      )
+      rerender(
+        <PhaseList
+          phases={updatedPhases}
+          editMode
+          onUpdate={mockOnUpdate}
+          onDelete={mockOnDelete}
+        />
+      )
 
       // Verify total budget updates correctly (15000 + 5000 = 20000)
       const rows = screen.getAllByRole('row')
@@ -177,22 +166,26 @@ describe('PhaseList Bug Fixes', () => {
     })
 
     it('should calculate total budget correctly when editing expense budget', () => {
-      render(
+      const { rerender } = render(
         <PhaseList
           phases={mockPhases}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
 
-      // Click edit button
-      const editButtons = screen.getAllByLabelText('edit')
-      fireEvent.click(editButtons[0])
-
-      // Find expense budget input and change it
-      const expenseInput = screen.getByDisplayValue('5000') as HTMLInputElement
-      fireEvent.change(expenseInput, { target: { value: '8000' } })
+      const updatedPhases = mockPhases.map((p) =>
+        p.id === '1' ? { ...p, labor_expense_budget: 8000 } : p
+      )
+      rerender(
+        <PhaseList
+          phases={updatedPhases}
+          editMode
+          onUpdate={mockOnUpdate}
+          onDelete={mockOnDelete}
+        />
+      )
 
       // Verify total budget updates correctly (10000 + 8000 = 18000)
       const rows = screen.getAllByRole('row')
@@ -220,15 +213,11 @@ describe('PhaseList Bug Fixes', () => {
       render(
         <PhaseList
           phases={phaseWithZeroBudgets}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
-
-      // Click edit button
-      const editButton = screen.getByLabelText('edit')
-      fireEvent.click(editButton)
 
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')
@@ -257,15 +246,11 @@ describe('PhaseList Bug Fixes', () => {
       render(
         <PhaseList
           phases={phaseWithStringBudgets}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
-
-      // Click edit button
-      const editButton = screen.getByLabelText('edit')
-      fireEvent.click(editButton)
 
       // Verify total budget is calculated correctly from string values
       const rows = screen.getAllByRole('row')
@@ -281,31 +266,39 @@ describe('PhaseList Bug Fixes', () => {
 
   describe('Integration: Both Fixes Together', () => {
     it('should work correctly with both fixes applied', () => {
-      render(
+      const { rerender } = render(
         <PhaseList
           phases={mockPhases}
-          onAdd={mockOnAdd}
+          editMode
           onUpdate={mockOnUpdate}
           onDelete={mockOnDelete}
         />
       )
 
-      // Click edit button
-      const editButtons = screen.getAllByLabelText('edit')
-      fireEvent.click(editButtons[0])
-
       // Verify no NaN appears
       expect(screen.queryByText(/NaN/)).not.toBeInTheDocument()
 
-      // Verify all fields are editable
-      expect(screen.getByDisplayValue('Phase 1')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('First phase')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('10000')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
+      // Verify all fields are editable (scope to phase 1's row since
+      // phase 2's expense budget also happens to be 10000)
+      const initialRows = screen.getAllByRole('row')
+      const initialFirstDataRow = initialRows[2]
+      expect(within(initialFirstDataRow).getByDisplayValue('Phase 1')).toBeInTheDocument()
+      expect(within(initialFirstDataRow).getByDisplayValue('First phase')).toBeInTheDocument()
+      expect(within(initialFirstDataRow).getByDisplayValue('10000')).toBeInTheDocument()
+      expect(within(initialFirstDataRow).getByDisplayValue('5000')).toBeInTheDocument()
 
-      // Change capital budget
-      const capitalInput = screen.getByDisplayValue('10000') as HTMLInputElement
-      fireEvent.change(capitalInput, { target: { value: '12000' } })
+      // Simulate capital budget change flowing back down through props
+      const updatedPhases = mockPhases.map((p) =>
+        p.id === '1' ? { ...p, labor_capital_budget: 12000 } : p
+      )
+      rerender(
+        <PhaseList
+          phases={updatedPhases}
+          editMode
+          onUpdate={mockOnUpdate}
+          onDelete={mockOnDelete}
+        />
+      )
 
       // Verify total updates correctly
       const rows = screen.getAllByRole('row')

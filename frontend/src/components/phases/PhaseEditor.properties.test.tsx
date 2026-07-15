@@ -58,7 +58,7 @@ describe('Phase Editor - Property-Based Tests', () => {
           const { container } = render(
             <PhaseList
               phases={phasesWithStringDates}
-              onAdd={() => {}}
+              editMode={false}
               onUpdate={() => {}}
               onDelete={() => {}}
             />
@@ -132,7 +132,7 @@ describe('Phase Editor - Property-Based Tests', () => {
           const { container } = render(
             <PhaseList
               phases={[phaseWithStringDates]}
-              onAdd={() => {}}
+              editMode={false}
               onUpdate={() => {}}
               onDelete={() => {}}
             />
