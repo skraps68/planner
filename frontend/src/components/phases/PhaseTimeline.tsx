@@ -14,6 +14,8 @@ interface PhaseTimelineProps {
   enableReorder?: boolean
   /** Action controls (e.g. Edit Timeline / Save) shown top-right, beside the title */
   actions?: React.ReactNode
+  /** Render without an outer Paper/title, as a compact ribbon inside a parent panel */
+  embedded?: boolean
 }
 
 interface DragDropState {
@@ -59,6 +61,7 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   onPhaseReorder,
   enableReorder = false,
   actions,
+  embedded = false,
 }) => {
   // Existing resize drag state
   const [isDragging, setIsDragging] = useState(false)
@@ -1226,8 +1229,8 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
     return previewElements
   }
 
-  return (
-    <Paper sx={{ p: 2, mb: 2 }}>
+  const body = (
+    <>
       {/* Screen reader announcements */}
       <Box
         role="status"
@@ -1260,14 +1263,16 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
       </style>
       {/* Header row: title left, actions top-right (kept out of the timeline area
           so they never overlap the last phase's boundary date) */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h6" gutterBottom>
-          Phase Timeline {enableResize && '(Interactive)'}
-        </Typography>
-        {actions && <Box sx={{ flexShrink: 0, ml: 2 }}>{actions}</Box>}
-      </Box>
+      {!embedded && (
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            Phase Timeline {enableResize && '(Interactive)'}
+          </Typography>
+          {actions && <Box sx={{ flexShrink: 0, ml: 2 }}>{actions}</Box>}
+        </Box>
+      )}
 
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: embedded ? 1 : 2 }}>
         <Box
           ref={timelineRef}
           onDragOver={handleDragOver}
@@ -1280,8 +1285,8 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
             border: '1px solid #e0e0e0',
             cursor: isDragging ? 'ew-resize' : 'default',
             userSelect: 'none',
-            mb: 2,
-            mt: 2,
+            mb: embedded ? 1.5 : 2,
+            mt: embedded ? 2.5 : 2,
           }}
         >
           {sortedPhases.map((phase, index) => renderPhase(phase, index))}
@@ -1292,7 +1297,13 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
           {renderBoundaryDates()}
         </Box>
       </Box>
-    </Paper>
+    </>
+  )
+
+  return embedded ? (
+    <Box>{body}</Box>
+  ) : (
+    <Paper sx={{ p: 2, mb: 2 }}>{body}</Paper>
   )
 }
 
