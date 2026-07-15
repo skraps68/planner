@@ -366,37 +366,11 @@ async def delete_project(
 
 # Phase Management Endpoints
 
-@router.get(
-    "/{project_id}/phases",
-    response_model=List[ProjectPhaseResponse],
-    summary="Get project phases",
-    description="Get all phases for a project"
-)
-async def get_project_phases(
-    project_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get all phases for a project.
-    
-    Returns all phases in chronological order.
-    """
-    from app.repositories.project import project_repository, project_phase_repository
-    
-    project = project_repository.get(db, project_id)
-    
-    if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project with ID {project_id} not found"
-        )
-    
-    phases = project_phase_repository.get_by_project(db, project_id)
-    phases_sorted = sorted(phases, key=lambda p: p.start_date)
-    
-    return [ProjectPhaseResponse.model_validate(phase) for phase in phases_sorted]
-
+# NOTE: GET /{project_id}/phases intentionally does NOT live here. The projects
+# router is registered before the phases router, so a route here would shadow
+# phases.py's list_phases (response_model=List[PhaseResponse]) and strip the
+# labor/non-labor budget fields via the deprecated ProjectPhaseResponse schema.
+# See tests/integration/test_phase_route_shadowing.py.
 
 @router.get(
     "/{project_id}/phases/execution",
