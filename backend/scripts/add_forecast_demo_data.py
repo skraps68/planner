@@ -133,9 +133,14 @@ def add_forecast_demo_data():
                 phases = db.query(ProjectPhase).filter(ProjectPhase.project_id == project.id).all()
                 for idx, phase in enumerate(phases):
                     # Put the full override on the first phase, zero the rest
-                    phase.capital_budget = cap if idx == 0 else Decimal("0.00")
-                    phase.expense_budget = exp if idx == 0 else Decimal("0.00")
-                    phase.total_budget = phase.capital_budget + phase.expense_budget
+                    phase.labor_capital_budget = cap if idx == 0 else Decimal("0.00")
+                    phase.labor_expense_budget = exp if idx == 0 else Decimal("0.00")
+                    phase.nonlabor_capital_budget = Decimal("0.00")
+                    phase.nonlabor_expense_budget = Decimal("0.00")
+                    phase.total_budget = (
+                        phase.labor_capital_budget + phase.labor_expense_budget
+                        + phase.nonlabor_capital_budget + phase.nonlabor_expense_budget
+                    )
                 print(f"  {project_name}: phase budgets overridden to {cap + exp} total")
 
         db.commit()

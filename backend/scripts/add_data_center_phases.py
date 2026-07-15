@@ -47,8 +47,10 @@ def add_data_center_phases(db: Session):
             name="Planning & Assessment",
             start_date=date(2024, 9, 1),
             end_date=date(2025, 2, 28),
-            capital_budget=Decimal("200000.00"),
-            expense_budget=Decimal("100000.00"),
+            labor_capital_budget=Decimal("200000.00"),
+            labor_expense_budget=Decimal("100000.00"),
+            nonlabor_capital_budget=Decimal("0.00"),
+            nonlabor_expense_budget=Decimal("0.00"),
             total_budget=Decimal("300000.00")
         ),
         ProjectPhase(
@@ -57,8 +59,10 @@ def add_data_center_phases(db: Session):
             name="Implementation & Migration",
             start_date=date(2025, 3, 1),
             end_date=date(2025, 12, 31),
-            capital_budget=Decimal("800000.00"),
-            expense_budget=Decimal("200000.00"),
+            labor_capital_budget=Decimal("800000.00"),
+            labor_expense_budget=Decimal("200000.00"),
+            nonlabor_capital_budget=Decimal("0.00"),
+            nonlabor_expense_budget=Decimal("0.00"),
             total_budget=Decimal("1000000.00")
         ),
         ProjectPhase(
@@ -67,8 +71,10 @@ def add_data_center_phases(db: Session):
             name="Testing & Cutover",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 3, 31),
-            capital_budget=Decimal("150000.00"),
-            expense_budget=Decimal("150000.00"),
+            labor_capital_budget=Decimal("150000.00"),
+            labor_expense_budget=Decimal("150000.00"),
+            nonlabor_capital_budget=Decimal("0.00"),
+            nonlabor_expense_budget=Decimal("0.00"),
             total_budget=Decimal("300000.00")
         ),
     ]
