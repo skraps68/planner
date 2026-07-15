@@ -7,4 +7,6 @@ test('turning off the last-on toggle flips the other on', () => {
   expect(nextToggleState({ laborOn: true, nonlaborOn: true }, 'labor')).toEqual({ laborOn: false, nonlaborOn: true })
   // only nonlabor on, turn nonlabor off -> labor forced on
   expect(nextToggleState({ laborOn: false, nonlaborOn: true }, 'nonlabor')).toEqual({ laborOn: true, nonlaborOn: false })
+  // only labor on, turn labor off -> nonlabor forced on
+  expect(nextToggleState({ laborOn: true, nonlaborOn: false }, 'labor')).toEqual({ laborOn: false, nonlaborOn: true })
 })
