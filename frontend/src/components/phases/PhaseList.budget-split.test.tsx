@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import PhaseList from './PhaseList'
 
 const phase = {
@@ -13,7 +13,9 @@ describe('PhaseList', () => {
     render(<PhaseList phases={[phase as any]} editMode={false} onUpdate={vi.fn()} onDelete={vi.fn()} />)
     expect(screen.getByText('Labor Budget')).toBeInTheDocument()
     expect(screen.getByText('Non-Labor Budget')).toBeInTheDocument()
-    expect(screen.getAllByText('$200.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$200.00')).toHaveLength(2)  // one per-row Total + one footer
+    const lastRow = screen.getAllByRole('row')[screen.getAllByRole('row').length - 1]
+    expect(within(lastRow).getByText('$200.00')).toBeInTheDocument()
     expect(screen.queryAllByRole('spinbutton')).toHaveLength(0)  // no number inputs
     expect(screen.queryAllByRole('textbox')).toHaveLength(0)     // no text inputs
   })
