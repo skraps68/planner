@@ -1,9 +1,7 @@
 import React, { useState } from 'react'
 import {
   Box,
-  Button,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -11,25 +9,41 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import {
+  Delete as DeleteIcon,
+  InfoOutlined as InfoOutlinedIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material'
 import { ProjectPhase } from '../../types'
 
 interface PhaseListProps {
   phases: Partial<ProjectPhase>[]
-  onAdd: () => void
+  editMode: boolean
   onUpdate: (phaseId: string, updates: Partial<ProjectPhase>) => void
   onDelete: (phaseId: string) => void
-  onBoundaryDateChange?: (phaseId: string, field: 'start_date' | 'end_date', newDate: string) => void
-  readOnly?: boolean
   changedFields?: Record<string, Set<string>>
   deletedPhaseIds?: Set<string>
 }
 
-const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete, onBoundaryDateChange, readOnly = false, changedFields = {}, deletedPhaseIds = new Set() }) => {
-  const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState<Partial<ProjectPhase>>({})
+const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDelete, changedFields = {}, deletedPhaseIds = new Set() }) => {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  const toggleExpanded = (phaseId: string | undefined) => {
+    if (!phaseId) return
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(phaseId)) {
+        next.delete(phaseId)
+      } else {
+        next.add(phaseId)
+      }
+      return next
+    })
+  }
 
   // Sort phases by start date
   const sortedPhases = [...phases].sort((a, b) => {
@@ -65,137 +79,6 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
       }),
       { laborCapital: 0, laborExpense: 0, nonlaborCapital: 0, nonlaborExpense: 0, total: 0 }
     )
-
-  const handleEdit = (phase: Partial<ProjectPhase>) => {
-    if (!phase.id) return
-    setEditingPhaseId(phase.id)
-    
-    // Store original values without type conversion to avoid false change detection
-    // Only convert strings to numbers for display/calculation purposes
-    setEditValues({
-      ...phase,
-    })
-  }
-
-  const handleSave = () => {
-    if (!editingPhaseId) return
-    
-    // Check if this is a boundary phase and if boundary dates changed
-    const sortedPhases = [...phases].sort((a, b) => {
-      if (!a.start_date || !b.start_date) return 0
-      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-    })
-    const isFirstPhase = sortedPhases[0]?.id === editingPhaseId
-    const isLastPhase = sortedPhases[sortedPhases.length - 1]?.id === editingPhaseId
-    const originalPhase = phases.find(p => p.id === editingPhaseId)
-    
-    // Call onBoundaryDateChange if boundary dates changed
-    if (onBoundaryDateChange && originalPhase) {
-      if (isFirstPhase && editValues.start_date && editValues.start_date !== originalPhase.start_date) {
-        onBoundaryDateChange(editingPhaseId, 'start_date', editValues.start_date)
-      }
-      if (isLastPhase && editValues.end_date && editValues.end_date !== originalPhase.end_date) {
-        onBoundaryDateChange(editingPhaseId, 'end_date', editValues.end_date)
-      }
-    }
-    
-    // Only send fields that actually changed to avoid false change detection
-    const updateData: Partial<ProjectPhase> = {}
-    
-    if (originalPhase) {
-      // Check each field for actual changes
-      if (editValues.name !== undefined && editValues.name !== originalPhase.name) {
-        updateData.name = editValues.name
-      }
-      if (editValues.description !== undefined && editValues.description !== originalPhase.description) {
-        updateData.description = editValues.description
-      }
-      if (editValues.start_date !== undefined && editValues.start_date !== originalPhase.start_date) {
-        updateData.start_date = editValues.start_date
-      }
-      if (editValues.end_date !== undefined && editValues.end_date !== originalPhase.end_date) {
-        updateData.end_date = editValues.end_date
-      }
-      
-      // For budgets, compare numeric values but only include if changed
-      const originalLaborCapital = toNumber(originalPhase.labor_capital_budget)
-      const editLaborCapital = toNumber(editValues.labor_capital_budget)
-      const originalLaborExpense = toNumber(originalPhase.labor_expense_budget)
-      const editLaborExpense = toNumber(editValues.labor_expense_budget)
-      const originalNonlaborCapital = toNumber(originalPhase.nonlabor_capital_budget)
-      const editNonlaborCapital = toNumber(editValues.nonlabor_capital_budget)
-      const originalNonlaborExpense = toNumber(originalPhase.nonlabor_expense_budget)
-      const editNonlaborExpense = toNumber(editValues.nonlabor_expense_budget)
-
-      if (editLaborCapital !== originalLaborCapital) {
-        updateData.labor_capital_budget = editLaborCapital
-      }
-      if (editLaborExpense !== originalLaborExpense) {
-        updateData.labor_expense_budget = editLaborExpense
-      }
-      if (editNonlaborCapital !== originalNonlaborCapital) {
-        updateData.nonlabor_capital_budget = editNonlaborCapital
-      }
-      if (editNonlaborExpense !== originalNonlaborExpense) {
-        updateData.nonlabor_expense_budget = editNonlaborExpense
-      }
-
-      // Only include total_budget if any of the four budget fields changed
-      if (
-        updateData.labor_capital_budget !== undefined ||
-        updateData.labor_expense_budget !== undefined ||
-        updateData.nonlabor_capital_budget !== undefined ||
-        updateData.nonlabor_expense_budget !== undefined
-      ) {
-        updateData.total_budget = editLaborCapital + editLaborExpense + editNonlaborCapital + editNonlaborExpense
-      }
-    }
-    
-    console.log('[PhaseList v9.0] Saving only changed fields:', {
-      editingPhaseId,
-      updateData,
-      hasChanges: Object.keys(updateData).length > 0
-    })
-    
-    // Only call onUpdate if there are actual changes
-    if (Object.keys(updateData).length > 0) {
-      onUpdate(editingPhaseId, updateData)
-    }
-    
-    setEditingPhaseId(null)
-    setEditValues({})
-  }
-
-  const handleCancel = () => {
-    setEditingPhaseId(null)
-    setEditValues({})
-  }
-
-  const handleChange = (field: keyof ProjectPhase, value: string | number) => {
-    setEditValues((prev) => {
-      const updated = {
-        ...prev,
-        [field]: value,
-      }
-      
-      // Auto-calculate total_budget when any of the four budget fields changes
-      const budgetFields: (keyof ProjectPhase)[] = [
-        'labor_capital_budget',
-        'labor_expense_budget',
-        'nonlabor_capital_budget',
-        'nonlabor_expense_budget',
-      ]
-      if (budgetFields.includes(field)) {
-        const laborCapital = field === 'labor_capital_budget' ? toNumber(value) : toNumber(prev.labor_capital_budget)
-        const laborExpense = field === 'labor_expense_budget' ? toNumber(value) : toNumber(prev.labor_expense_budget)
-        const nonlaborCapital = field === 'nonlabor_capital_budget' ? toNumber(value) : toNumber(prev.nonlabor_capital_budget)
-        const nonlaborExpense = field === 'nonlabor_expense_budget' ? toNumber(value) : toNumber(prev.nonlabor_expense_budget)
-        updated.total_budget = laborCapital + laborExpense + nonlaborCapital + nonlaborExpense
-      }
-      
-      return updated
-    })
-  }
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -240,30 +123,25 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
     transition: 'all 0.2s ease',
   })
 
-  return (
-    <Paper sx={{ p: 2 }}>
-      {/* BUGFIX MARKER: v8.0 - Calculates and sends total_budget to satisfy backend validation */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">Project Phases and Budget</Typography>
-        {!readOnly && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>
-            Add Phase
-          </Button>
-        )}
-      </Box>
+  // Read mode rows can sit tighter than edit mode (which needs room for inputs)
+  const densePy = editMode ? {} : { py: 0.5 }
 
+  // Column count for the merged table: Name, Start, End, 4 budgets, Total (+Delete in edit mode)
+  const columnCount = editMode ? 9 : 8
+
+  return (
+    <Box>
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
               <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Description</TableCell>
               <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
               <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>End Date</TableCell>
               <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Labor Budget</TableCell>
               <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Non-Labor Budget</TableCell>
               <TableCell rowSpan={2} align="right" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
-              {!readOnly && <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
+              {editMode && <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
             </TableRow>
             <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
               <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
@@ -275,23 +153,22 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
           <TableBody>
             {sortedPhases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={readOnly ? 9 : 10} align="center">
+                <TableCell colSpan={columnCount} align="center">
                   <Typography variant="body2" color="text.secondary">
                     No phases defined
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              sortedPhases.map((phase, index) => {
-                const isEditing = editingPhaseId === phase.id
+              sortedPhases.map((phase) => {
                 const rowHasChanges = hasAnyChanges(phase.id)
                 const isDeleted = isPhaseDeleted(phase.id)
-                const isFirstPhase = index === 0
-                const isLastPhase = index === sortedPhases.length - 1
+
+                const isExpanded = !!phase.id && expandedIds.has(phase.id)
 
                 return (
-                  <TableRow 
-                    key={phase.id || 'new'} 
+                  <React.Fragment key={phase.id || 'new'}>
+                  <TableRow
                     hover={!isDeleted}
                     sx={{
                       borderLeft: rowHasChanges ? '4px solid' : isDeleted ? '4px solid' : 'none',
@@ -300,206 +177,173 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                       backgroundColor: isDeleted ? 'error.lighter' : 'inherit',
                     }}
                   >
-                    <TableCell sx={{ 
+                    <TableCell sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'name')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {isEditing ? (
-                        <TextField
-                          size="small"
-                          value={editValues.name || ''}
-                          onChange={(e) => handleChange('name', e.target.value)}
-                          fullWidth
-                          required
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                        />
+                      {editMode ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleExpanded(phase.id)}
+                            aria-label={isExpanded ? 'collapse description' : 'expand description'}
+                          >
+                            {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                          </IconButton>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            value={phase.name || ''}
+                            onChange={(e) => onUpdate(phase.id!, { name: e.target.value })}
+                            sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                          />
+                        </Box>
                       ) : (
-                        phase.name || '-'
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <span>{phase.name || '-'}</span>
+                          {phase.description && (
+                            <Tooltip title={phase.description}>
+                              <Box
+                                component="span"
+                                tabIndex={0}
+                                aria-label={`description: ${phase.description}`}
+                                sx={{ display: 'inline-flex', alignItems: 'center', ml: 0.5, cursor: 'help' }}
+                              >
+                                <InfoOutlinedIcon fontSize="inherit" color="action" aria-hidden />
+                              </Box>
+                            </Tooltip>
+                          )}
+                        </Box>
                       )}
                     </TableCell>
-                    <TableCell sx={{ 
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'description')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {isEditing ? (
-                        <TextField
-                          size="small"
-                          value={editValues.description || ''}
-                          onChange={(e) => handleChange('description', e.target.value)}
-                          fullWidth
-                          multiline
-                          rows={1}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                        />
-                      ) : (
-                        phase.description || '-'
-                      )}
+                    <TableCell sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                      {phase.start_date ? formatDate(phase.start_date) : '-'}
                     </TableCell>
-                    <TableCell sx={{ 
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'start_date')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {isEditing && isFirstPhase ? (
-                        <TextField
-                          size="small"
-                          type="date"
-                          value={editValues.start_date || ''}
-                          onChange={(e) => handleChange('start_date', e.target.value)}
-                          fullWidth
-                          required
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                        />
-                      ) : (
-                        phase.start_date ? formatDate(phase.start_date) : '-'
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ 
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'end_date')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {isEditing && isLastPhase ? (
-                        <TextField
-                          size="small"
-                          type="date"
-                          value={editValues.end_date || ''}
-                          onChange={(e) => handleChange('end_date', e.target.value)}
-                          fullWidth
-                          required
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                        />
-                      ) : (
-                        phase.end_date ? formatDate(phase.end_date) : '-'
-                      )}
+                    <TableCell sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                      {phase.end_date ? formatDate(phase.end_date) : '-'}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_capital_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {isEditing ? (
+                      {editMode ? (
                         <TextField
                           size="small"
                           type="number"
-                          value={toNumber(editValues.labor_capital_budget)}
-                          onChange={(e) => handleChange('labor_capital_budget', parseFloat(e.target.value) || 0)}
-                          fullWidth
+                          value={toNumber(phase.labor_capital_budget)}
+                          onChange={(e) => onUpdate(phase.id!, { labor_capital_budget: parseFloat(e.target.value) || 0 })}
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
-                        formatCurrency(phase.labor_capital_budget || 0)
+                        formatCurrency(toNumber(phase.labor_capital_budget))
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_expense_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {isEditing ? (
+                      {editMode ? (
                         <TextField
                           size="small"
                           type="number"
-                          value={toNumber(editValues.labor_expense_budget)}
-                          onChange={(e) => handleChange('labor_expense_budget', parseFloat(e.target.value) || 0)}
-                          fullWidth
+                          value={toNumber(phase.labor_expense_budget)}
+                          onChange={(e) => onUpdate(phase.id!, { labor_expense_budget: parseFloat(e.target.value) || 0 })}
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
-                        formatCurrency(phase.labor_expense_budget || 0)
+                        formatCurrency(toNumber(phase.labor_expense_budget))
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_capital_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {isEditing ? (
+                      {editMode ? (
                         <TextField
                           size="small"
                           type="number"
-                          value={toNumber(editValues.nonlabor_capital_budget)}
-                          onChange={(e) => handleChange('nonlabor_capital_budget', parseFloat(e.target.value) || 0)}
-                          fullWidth
+                          value={toNumber(phase.nonlabor_capital_budget)}
+                          onChange={(e) => onUpdate(phase.id!, { nonlabor_capital_budget: parseFloat(e.target.value) || 0 })}
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
-                        formatCurrency(phase.nonlabor_capital_budget || 0)
+                        formatCurrency(toNumber(phase.nonlabor_capital_budget))
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_expense_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {isEditing ? (
+                      {editMode ? (
                         <TextField
                           size="small"
                           type="number"
-                          value={toNumber(editValues.nonlabor_expense_budget)}
-                          onChange={(e) => handleChange('nonlabor_expense_budget', parseFloat(e.target.value) || 0)}
-                          fullWidth
+                          value={toNumber(phase.nonlabor_expense_budget)}
+                          onChange={(e) => onUpdate(phase.id!, { nonlabor_expense_budget: parseFloat(e.target.value) || 0 })}
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
                         />
                       ) : (
-                        formatCurrency(phase.nonlabor_expense_budget || 0)
+                        formatCurrency(toNumber(phase.nonlabor_expense_budget))
                       )}
                     </TableCell>
-                    <TableCell align="right" sx={{
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'total_budget')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {isEditing ? (
-                        formatCurrency(
-                          toNumber(editValues.labor_capital_budget) +
-                          toNumber(editValues.labor_expense_budget) +
-                          toNumber(editValues.nonlabor_capital_budget) +
-                          toNumber(editValues.nonlabor_expense_budget)
-                        )
-                      ) : (
-                        formatCurrency(phase.total_budget || 0)
+                    <TableCell align="right" sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                      {formatCurrency(
+                        toNumber(phase.labor_capital_budget) +
+                        toNumber(phase.labor_expense_budget) +
+                        toNumber(phase.nonlabor_capital_budget) +
+                        toNumber(phase.nonlabor_expense_budget)
                       )}
                     </TableCell>
-                    {!readOnly && (
+                    {editMode && (
                       <TableCell align="center">
-                        {isEditing ? (
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                            <IconButton size="small" color="primary" onClick={handleSave} aria-label="save">
-                              <SaveIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={handleCancel} aria-label="cancel">
-                              <CancelIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        ) : (
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                            <IconButton 
-                              size="small" 
-                              color="primary" 
-                              onClick={() => handleEdit(phase)} 
-                              aria-label="edit"
-                              disabled={isDeleted}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => phase.id && onDelete(phase.id)}
-                              disabled={activePhaseCount === 1 || isDeleted}
-                              aria-label="delete"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        )}
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => phase.id && onDelete(phase.id)}
+                          disabled={activePhaseCount === 1 || isDeleted}
+                          aria-label="delete"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     )}
                   </TableRow>
+                  {editMode && isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={columnCount} sx={{
+                        backgroundColor: isFieldChanged(phase.id, 'description') ? 'warning.light' : 'grey.50',
+                        borderLeft: isFieldChanged(phase.id, 'description') ? '3px solid' : 'none',
+                        borderLeftColor: isFieldChanged(phase.id, 'description') ? 'warning.main' : 'transparent',
+                        transition: 'all 0.2s ease',
+                      }}>
+                        <TextField
+                          label="Description"
+                          size="small"
+                          fullWidth
+                          multiline
+                          value={phase.description || ''}
+                          onChange={(e) => onUpdate(phase.id!, { description: e.target.value })}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 )
               })
             )}
             {/* Totals Row */}
             {sortedPhases.length > 0 && (
-              <TableRow sx={{ 
+              <TableRow sx={{
                 backgroundColor: '#A5C1D8',
                 borderTop: '2px solid',
                 borderTopColor: 'grey.300',
@@ -507,7 +351,6 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 <TableCell sx={{ fontWeight: 'bold' }}>
                   Total
                 </TableCell>
-                <TableCell />
                 <TableCell />
                 <TableCell />
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
@@ -525,13 +368,13 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, onAdd, onUpdate, onDelete
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                   {formatCurrency(totals.total)}
                 </TableCell>
-                {!readOnly && <TableCell />}
+                {editMode && <TableCell />}
               </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
-    </Paper>
+    </Box>
   )
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Box, Button, CircularProgress } from '@mui/material'
-import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material'
+import { Add as AddIcon, Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { ProjectPhase, PhaseValidationError } from '../../types'
 import { phasesApi } from '../../api/phases'
 import { validatePhases, getNextDay, getPreviousDay } from '../../utils/phaseValidation'
@@ -18,7 +18,6 @@ interface PhaseEditorProps {
   onCancel?: () => void
   onSaveSuccess?: () => void
   onSaveError?: (error: string) => void
-  onProjectDateChange?: (startDate: string, endDate: string) => void
 }
 
 const PhaseEditor: React.FC<PhaseEditorProps> = ({
@@ -29,7 +28,6 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   onCancel,
   onSaveSuccess,
   onSaveError,
-  onProjectDateChange,
 }) => {
   const { user } = useAuth()
   const canEdit = useMemo(() => hasPermission(user, 'edit_projects').hasPermission, [user])
@@ -163,7 +161,29 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     }
   }
 
-  const handleUpdatePhase = (phaseId: string, updates: Partial<ProjectPhase>) => {
+  const handleUpdatePhase = (phaseId: string, rawUpdates: Partial<ProjectPhase>) => {
+    // The table now pushes a single changed field per keystroke (no more
+    // per-row save buffer), so total_budget must be kept in sync here
+    // whenever one of the four budget fields changes - otherwise the
+    // total_budget-matches-sum validation fires spuriously while typing.
+    const budgetFields: (keyof ProjectPhase)[] = [
+      'labor_capital_budget',
+      'labor_expense_budget',
+      'nonlabor_capital_budget',
+      'nonlabor_expense_budget',
+    ]
+    const touchesBudget = budgetFields.some((field) => field in rawUpdates)
+    const currentPhase = phases.find((p) => p.id === phaseId)
+    const updates: Partial<ProjectPhase> = touchesBudget && currentPhase
+      ? {
+          ...rawUpdates,
+          total_budget: budgetFields.reduce(
+            (sum, field) => sum + toNumber(field in rawUpdates ? rawUpdates[field] : currentPhase[field]),
+            0
+          ),
+        }
+      : rawUpdates
+
     setPhases((prev) =>
       prev.map((phase) => (phase.id === phaseId ? { ...phase, ...updates } : phase))
     )
@@ -261,31 +281,6 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
       
       return newChangedFields
     })
-  }
-
-  const handleBoundaryDateChange = (phaseId: string, field: 'start_date' | 'end_date', newDate: string) => {
-    // Update the phase date
-    handleUpdatePhase(phaseId, { [field]: newDate })
-    
-    // Notify parent component to update project dates
-    if (onProjectDateChange) {
-      // Sort phases to determine if this is first or last
-      const sortedPhases = [...phases].sort((a, b) => {
-        if (!a.start_date || !b.start_date) return 0
-        return new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-      })
-      
-      const isFirstPhase = sortedPhases[0]?.id === phaseId
-      const isLastPhase = sortedPhases[sortedPhases.length - 1]?.id === phaseId
-      
-      if (isFirstPhase && field === 'start_date') {
-        // Update project start date
-        onProjectDateChange(newDate, projectEndDate)
-      } else if (isLastPhase && field === 'end_date') {
-        // Update project end date
-        onProjectDateChange(projectStartDate, newDate)
-      }
-    }
   }
 
   const handleDeletePhase = (phaseId: string) => {
@@ -451,40 +446,39 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   // Filter out deleted phases for timeline display
   const activePhases = phases.filter(p => !deletedPhaseIds.has(p.id || ''))
 
-  const timelineActions = !isEditMode ? (
+  const headerActions = !isEditMode ? (
     canEdit ? (
-      <Button variant="contained" size="small" onClick={() => setIsEditMode(true)}>
-        <EditIcon sx={{ mr: 1 }} />
-        Edit Timeline
+      <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditMode(true)}>
+        Edit
       </Button>
-    ) : undefined
+    ) : null
   ) : (
-    <Box sx={{ display: 'flex', gap: 2 }}>
-      <Button variant="outlined" size="small" onClick={handleCancel} disabled={isSaving}>
-        <CancelIcon sx={{ mr: 1 }} />
+    <Box sx={{ display: 'flex', gap: 1 }}>
+      <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={handleAddPhase}>
+        Add Phase
+      </Button>
+      <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
         Cancel
       </Button>
-      <Button
-        variant="contained"
-        size="small"
-        onClick={handleSave}
-        disabled={isSaving || hasValidationErrors || !hasChanges}
-      >
-        {isSaving ? (
-          <CircularProgress size={16} sx={{ mr: 1 }} />
-        ) : (
-          <SaveIcon sx={{ mr: 1 }} />
-        )}
+      <Button variant="contained" size="small"
+        startIcon={isSaving ? <CircularProgress size={16} /> : <SaveIcon />}
+        onClick={handleSave} disabled={isSaving || hasValidationErrors || !hasChanges}>
         Save Changes
       </Button>
     </Box>
   )
 
   return (
-    <Box>
+    <Paper sx={{ p: 2 }}>
       <ValidationErrorDisplay errors={validationErrors} />
 
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h6">Phases &amp; Budget</Typography>
+        {headerActions}
+      </Box>
+
       <PhaseTimeline
+        embedded
         phases={activePhases}
         projectStartDate={projectStartDate}
         projectEndDate={projectEndDate}
@@ -493,19 +487,17 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         enableResize={isEditMode}
         onPhaseReorder={handlePhaseReorder}
         enableReorder={isEditMode}
-        actions={timelineActions}
       />
 
       <PhaseList
+        editMode={isEditMode}
         phases={phases}
-        onAdd={handleAddPhase}
         onUpdate={handleUpdatePhase}
         onDelete={handleDeletePhase}
-        onBoundaryDateChange={handleBoundaryDateChange}
         changedFields={changedFields}
         deletedPhaseIds={deletedPhaseIds}
       />
-    </Box>
+    </Paper>
   )
 }
 

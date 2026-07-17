@@ -13,8 +13,10 @@ describe('PhaseList Component', () => {
       start_date: '2024-01-01',
       end_date: '2024-06-30',
       description: 'First phase',
-      capital_budget: 10000,
-      expense_budget: 5000,
+      labor_capital_budget: 10000,
+      labor_expense_budget: 5000,
+      nonlabor_capital_budget: 0,
+      nonlabor_expense_budget: 0,
       total_budget: 15000,
     },
     {
@@ -23,8 +25,10 @@ describe('PhaseList Component', () => {
       start_date: '2024-07-01',
       end_date: '2024-12-31',
       description: 'Second phase',
-      capital_budget: 20000,
-      expense_budget: 10000,
+      labor_capital_budget: 20000,
+      labor_expense_budget: 10000,
+      nonlabor_capital_budget: 0,
+      nonlabor_expense_budget: 0,
       total_budget: 30000,
     },
   ]
@@ -33,7 +37,7 @@ describe('PhaseList Component', () => {
     render(
       <PhaseList
         phases={mockPhases}
-        onAdd={vi.fn()}
+        editMode={false}
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
       />
@@ -43,33 +47,33 @@ describe('PhaseList Component', () => {
     expect(screen.getByText('Phase 2')).toBeTruthy()
   })
 
-  it('displays add phase button', () => {
+  it('shows editable budget inputs when editMode is true (Add Phase now lives in PhaseEditor)', () => {
     render(
       <PhaseList
         phases={mockPhases}
-        onAdd={vi.fn()}
+        editMode
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
       />
     )
 
-    expect(screen.getByRole('button', { name: /add phase/i })).toBeTruthy()
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(8) // 4 budgets x 2 phases
   })
 
   it('disables delete button when only one phase exists', () => {
     render(
       <PhaseList
         phases={[mockPhases[0]]}
-        onAdd={vi.fn()}
+        editMode
         onUpdate={vi.fn()}
         onDelete={vi.fn()}
       />
     )
 
-    const deleteButtons = screen.getAllByRole('button').filter(btn => 
+    const deleteButtons = screen.getAllByRole('button').filter(btn =>
       btn.querySelector('[data-testid="DeleteIcon"]')
     )
-    
+
     expect(deleteButtons[0].hasAttribute('disabled')).toBe(true)
   })
 })
