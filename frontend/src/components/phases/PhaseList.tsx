@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   IconButton,
@@ -9,9 +9,15 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { Delete as DeleteIcon } from '@mui/icons-material'
+import {
+  Delete as DeleteIcon,
+  InfoOutlined as InfoOutlinedIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material'
 import { ProjectPhase } from '../../types'
 
 interface PhaseListProps {
@@ -24,6 +30,21 @@ interface PhaseListProps {
 }
 
 const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDelete, changedFields = {}, deletedPhaseIds = new Set() }) => {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  const toggleExpanded = (phaseId: string | undefined) => {
+    if (!phaseId) return
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(phaseId)) {
+        next.delete(phaseId)
+      } else {
+        next.add(phaseId)
+      }
+      return next
+    })
+  }
+
   // Sort phases by start date
   const sortedPhases = [...phases].sort((a, b) => {
     if (!a.start_date || !b.start_date) return 0
@@ -102,6 +123,12 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
     transition: 'all 0.2s ease',
   })
 
+  // Read mode rows can sit tighter than edit mode (which needs room for inputs)
+  const densePy = editMode ? {} : { py: 0.5 }
+
+  // Column count for the merged table: Name, Start, End, 4 budgets, Total (+Delete in edit mode)
+  const columnCount = editMode ? 9 : 8
+
   return (
     <Box>
       <TableContainer>
@@ -109,7 +136,6 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
           <TableHead>
             <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
               <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Description</TableCell>
               <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
               <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>End Date</TableCell>
               <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Labor Budget</TableCell>
@@ -127,7 +153,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
           <TableBody>
             {sortedPhases.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={editMode ? 10 : 9} align="center">
+                <TableCell colSpan={columnCount} align="center">
                   <Typography variant="body2" color="text.secondary">
                     No phases defined
                   </Typography>
@@ -138,9 +164,11 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                 const rowHasChanges = hasAnyChanges(phase.id)
                 const isDeleted = isPhaseDeleted(phase.id)
 
+                const isExpanded = !!phase.id && expandedIds.has(phase.id)
+
                 return (
+                  <React.Fragment key={phase.id || 'new'}>
                   <TableRow
-                    key={phase.id || 'new'}
                     hover={!isDeleted}
                     sx={{
                       borderLeft: rowHasChanges ? '4px solid' : isDeleted ? '4px solid' : 'none',
@@ -150,44 +178,50 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                     }}
                   >
                     <TableCell sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'name')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
                       {editMode ? (
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={phase.name || ''}
-                          onChange={(e) => onUpdate(phase.id!, { name: e.target.value })}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => toggleExpanded(phase.id)}
+                            aria-label={isExpanded ? 'collapse description' : 'expand description'}
+                          >
+                            {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                          </IconButton>
+                          <TextField
+                            size="small"
+                            fullWidth
+                            value={phase.name || ''}
+                            onChange={(e) => onUpdate(phase.id!, { name: e.target.value })}
+                            sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                          />
+                        </Box>
                       ) : (
-                        phase.name || '-'
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <span>{phase.name || '-'}</span>
+                          {phase.description && (
+                            <Tooltip title={phase.description}>
+                              <InfoOutlinedIcon
+                                fontSize="inherit"
+                                color="action"
+                                aria-label={`description: ${phase.description}`}
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
                       )}
                     </TableCell>
-                    <TableCell sx={{
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'description')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {editMode ? (
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={phase.description || ''}
-                          onChange={(e) => onUpdate(phase.id!, { description: e.target.value })}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                        />
-                      ) : (
-                        phase.description || '-'
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
                       {phase.start_date ? formatDate(phase.start_date) : '-'}
                     </TableCell>
-                    <TableCell sx={{ textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
                       {phase.end_date ? formatDate(phase.end_date) : '-'}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_capital_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
@@ -205,6 +239,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_expense_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
@@ -222,6 +257,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_capital_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
@@ -239,6 +275,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                       )}
                     </TableCell>
                     <TableCell align="right" sx={{
+                      ...densePy,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_expense_budget')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
@@ -255,7 +292,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                         formatCurrency(toNumber(phase.nonlabor_expense_budget))
                       )}
                     </TableCell>
-                    <TableCell align="right" sx={{ textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell align="right" sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
                       {formatCurrency(
                         toNumber(phase.labor_capital_budget) +
                         toNumber(phase.labor_expense_budget) +
@@ -277,6 +314,22 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                       </TableCell>
                     )}
                   </TableRow>
+                  {editMode && isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={columnCount} sx={{ backgroundColor: 'grey.50' }}>
+                        <TextField
+                          label="Description"
+                          size="small"
+                          fullWidth
+                          multiline
+                          value={phase.description || ''}
+                          onChange={(e) => onUpdate(phase.id!, { description: e.target.value })}
+                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </React.Fragment>
                 )
               })
             )}
@@ -290,7 +343,6 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                 <TableCell sx={{ fontWeight: 'bold' }}>
                   Total
                 </TableCell>
-                <TableCell />
                 <TableCell />
                 <TableCell />
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>

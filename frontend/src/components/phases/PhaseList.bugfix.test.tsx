@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import '@testing-library/jest-dom'
 import PhaseList from './PhaseList'
@@ -73,9 +73,14 @@ describe('PhaseList Bug Fixes', () => {
       const rows = screen.getAllByRole('row')
       const firstDataRow = rows[2] // skip the two header rows
       expect(within(firstDataRow).getByDisplayValue('Phase 1')).toBeInTheDocument()
-      expect(within(firstDataRow).getByDisplayValue('First phase')).toBeInTheDocument()
       expect(within(firstDataRow).getByDisplayValue('10000')).toBeInTheDocument()
       expect(within(firstDataRow).getByDisplayValue('5000')).toBeInTheDocument()
+
+      // Description now lives behind a per-row expand toggle rather than an
+      // always-present column; expand it to verify the value is editable.
+      // "First phase" is a globally-unique string (phase 2's is "Second phase").
+      fireEvent.click(within(firstDataRow).getByRole('button', { name: /expand description/i }))
+      expect(screen.getByDisplayValue('First phase')).toBeInTheDocument()
     })
   })
 
@@ -283,9 +288,13 @@ describe('PhaseList Bug Fixes', () => {
       const initialRows = screen.getAllByRole('row')
       const initialFirstDataRow = initialRows[2]
       expect(within(initialFirstDataRow).getByDisplayValue('Phase 1')).toBeInTheDocument()
-      expect(within(initialFirstDataRow).getByDisplayValue('First phase')).toBeInTheDocument()
       expect(within(initialFirstDataRow).getByDisplayValue('10000')).toBeInTheDocument()
       expect(within(initialFirstDataRow).getByDisplayValue('5000')).toBeInTheDocument()
+
+      // Description now lives behind a per-row expand toggle rather than an
+      // always-present column; expand it to verify the value is editable.
+      fireEvent.click(within(initialFirstDataRow).getByRole('button', { name: /expand description/i }))
+      expect(screen.getByDisplayValue('First phase')).toBeInTheDocument()
 
       // Simulate capital budget change flowing back down through props
       const updatedPhases = mockPhases.map((p) =>
