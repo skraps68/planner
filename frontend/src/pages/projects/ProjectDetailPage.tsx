@@ -42,7 +42,7 @@ interface TabPanelProps {
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
   return (
-    <div hidden={value !== index} style={{ paddingTop: 12, maxWidth: '100%', overflow: 'hidden' }}>
+    <div hidden={value !== index} style={{ maxWidth: '100%', overflow: 'hidden' }}>
       {value === index && children}
     </div>
   )
