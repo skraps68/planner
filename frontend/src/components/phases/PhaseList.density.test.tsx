@@ -15,6 +15,9 @@ describe('PhaseList density', () => {
   })
   it('read mode exposes the description via an info affordance', () => {
     render(<PhaseList phases={[phase as any]} editMode={false} onUpdate={vi.fn()} onDelete={vi.fn()} />)
-    expect(screen.getByLabelText(/description/i)).toBeTruthy()  // info icon button/tooltip trigger
+    const affordance = screen.getByLabelText(/description/i)
+    expect(affordance).toBeTruthy()  // info icon button/tooltip trigger
+    expect(affordance).toHaveAttribute('tabindex', '0')  // focusable for keyboard
+    expect(affordance).not.toHaveAttribute('aria-hidden')  // not hidden from screen readers
   })
 })

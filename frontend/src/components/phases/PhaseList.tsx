@@ -204,11 +204,14 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                           <span>{phase.name || '-'}</span>
                           {phase.description && (
                             <Tooltip title={phase.description}>
-                              <InfoOutlinedIcon
-                                fontSize="inherit"
-                                color="action"
+                              <Box
+                                component="span"
+                                tabIndex={0}
                                 aria-label={`description: ${phase.description}`}
-                              />
+                                sx={{ display: 'inline-flex', alignItems: 'center', ml: 0.5, cursor: 'help' }}
+                              >
+                                <InfoOutlinedIcon fontSize="inherit" color="action" aria-hidden />
+                              </Box>
                             </Tooltip>
                           )}
                         </Box>
@@ -316,7 +319,12 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                   </TableRow>
                   {editMode && isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={columnCount} sx={{ backgroundColor: 'grey.50' }}>
+                      <TableCell colSpan={columnCount} sx={{
+                        backgroundColor: isFieldChanged(phase.id, 'description') ? 'warning.light' : 'grey.50',
+                        borderLeft: isFieldChanged(phase.id, 'description') ? '3px solid' : 'none',
+                        borderLeftColor: isFieldChanged(phase.id, 'description') ? 'warning.main' : 'transparent',
+                        transition: 'all 0.2s ease',
+                      }}>
                         <TextField
                           label="Description"
                           size="small"
