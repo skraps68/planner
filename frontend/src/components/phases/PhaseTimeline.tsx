@@ -1285,7 +1285,10 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
             border: '1px solid #e0e0e0',
             cursor: isDragging ? 'ew-resize' : 'default',
             userSelect: 'none',
-            mb: embedded ? 1.5 : 2,
+            // Boundary-date labels are absolutely positioned ~20px below the bar;
+            // reserve enough clearance (embedded) so they don't collide with the
+            // table header that sits directly under the ribbon.
+            mb: embedded ? 3.5 : 2,
             mt: embedded ? 2.5 : 2,
           }}
         >

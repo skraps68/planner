@@ -101,7 +101,7 @@ describe('PhaseList Bug Fixes', () => {
 
       // Verify total budget is still displayed correctly (not NaN)
       // The total should be calculated from capital + expense
-      expect(within(firstDataRow).getByText('$15,000.00')).toBeInTheDocument()
+      expect(within(firstDataRow).getByText('$15,000')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
 
@@ -135,7 +135,7 @@ describe('PhaseList Bug Fixes', () => {
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')
       const dataRow = rows[2]
-      expect(within(dataRow).getByText('$0.00')).toBeInTheDocument()
+      expect(within(dataRow).getByText('$0')).toBeInTheDocument()
       expect(within(dataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
 
@@ -166,7 +166,7 @@ describe('PhaseList Bug Fixes', () => {
       // Verify total budget updates correctly (15000 + 5000 = 20000)
       const rows = screen.getAllByRole('row')
       const firstDataRow = rows[2]
-      expect(within(firstDataRow).getByText('$20,000.00')).toBeInTheDocument()
+      expect(within(firstDataRow).getByText('$20,000')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
 
@@ -195,7 +195,7 @@ describe('PhaseList Bug Fixes', () => {
       // Verify total budget updates correctly (10000 + 8000 = 18000)
       const rows = screen.getAllByRole('row')
       const firstDataRow = rows[2]
-      expect(within(firstDataRow).getByText('$18,000.00')).toBeInTheDocument()
+      expect(within(firstDataRow).getByText('$18,000')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
 
@@ -227,7 +227,7 @@ describe('PhaseList Bug Fixes', () => {
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')
       const dataRow = rows[2]
-      expect(within(dataRow).getByText('$0.00')).toBeInTheDocument()
+      expect(within(dataRow).getByText('$0')).toBeInTheDocument()
       expect(within(dataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
 
@@ -260,7 +260,7 @@ describe('PhaseList Bug Fixes', () => {
       // Verify total budget is calculated correctly from string values
       const rows = screen.getAllByRole('row')
       const dataRow = rows[2]
-      expect(within(dataRow).getByText('$225,000.00')).toBeInTheDocument()
+      expect(within(dataRow).getByText('$225,000')).toBeInTheDocument()
       expect(within(dataRow).queryByText(/NaN/)).not.toBeInTheDocument()
 
       // Verify input fields show numeric values
@@ -312,7 +312,7 @@ describe('PhaseList Bug Fixes', () => {
       // Verify total updates correctly
       const rows = screen.getAllByRole('row')
       const firstDataRow = rows[2]
-      expect(within(firstDataRow).getByText('$17,000.00')).toBeInTheDocument()
+      expect(within(firstDataRow).getByText('$17,000')).toBeInTheDocument()
       expect(within(firstDataRow).queryByText(/NaN/)).not.toBeInTheDocument()
     })
   })

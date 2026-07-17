@@ -29,6 +29,12 @@ interface PhaseListProps {
   deletedPhaseIds?: Set<string>
 }
 
+type BudgetField =
+  | 'labor_capital_budget'
+  | 'labor_expense_budget'
+  | 'nonlabor_capital_budget'
+  | 'nonlabor_expense_budget'
+
 const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDelete, changedFields = {}, deletedPhaseIds = new Set() }) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -84,7 +90,8 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(value)
   }
 
@@ -115,39 +122,105 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
     return changedFields[phaseId].size > 0
   }
 
-  // Style for changed cells
-  const getChangedCellStyle = (isChanged: boolean) => ({
-    backgroundColor: isChanged ? 'warning.light' : 'inherit',
-    borderLeft: isChanged ? '3px solid' : 'none',
-    borderLeftColor: isChanged ? 'warning.main' : 'transparent',
-    transition: 'all 0.2s ease',
-  })
+  // Style for changed cells. Unchanged cells set NO background so the row's
+  // hover highlight shows through as a single uniform layer across every column
+  // (a `backgroundColor: 'inherit'` here would double the hover opacity and read
+  // as a darker grey than the columns that leave the cell transparent).
+  const getChangedCellStyle = (isChanged: boolean) =>
+    isChanged
+      ? { backgroundColor: 'warning.light', borderLeft: '3px solid', borderLeftColor: 'warning.main' }
+      : {}
 
-  // Read mode rows can sit tighter than edit mode (which needs room for inputs)
-  const densePy = editMode ? {} : { py: 0.5 }
+  // Read and edit rows are kept geometrically identical so clicking Edit does not
+  // shift anything on screen: same cell padding in both modes, editable controls
+  // and their read-only text counterparts share a fixed content height, the Name
+  // cell reserves a fixed leading icon slot, and the Actions column is always
+  // present (empty in read mode).
+  const ROW_H = 30 // compact row height; edit inputs are trimmed to match (below)
+  const cellSx = { py: 0.25 }
+  const ACTIONS_W = 56
+  const LEADING_W = 34
+  const INPUT_PX = 1.75 // 14px — matches the small TextField's horizontal input padding
+  // A read-only value matches the edit input's height and horizontal inset so
+  // nothing moves (or re-aligns) when toggling between read and edit.
+  const readValueSx = { minHeight: ROW_H, display: 'flex', alignItems: 'center' }
+  // Trim the small TextField's vertical padding so edit rows match the compact
+  // ROW_H (and the read-only text) rather than the taller default height.
+  const editFieldSx = {
+    '& .MuiInputBase-input': { fontSize: '0.875rem' },
+    '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+  }
+  const editNumberFieldSx = {
+    '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' as const },
+    '& .MuiOutlinedInput-input': { paddingTop: '4px', paddingBottom: '4px' },
+    // Hide the native number spinner arrows (keep type=number for semantics)
+    '& input[type=number]': { MozAppearance: 'textfield' },
+    '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+    '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+  }
 
-  // Column count for the merged table: Name, Start, End, 4 budgets, Total (+Delete in edit mode)
-  const columnCount = editMode ? 9 : 8
+  // Name, Start, End, 4 budgets, Total, Actions — Actions is reserved in both modes.
+  const columnCount = 9
+
+  const renderBudgetCell = (phase: Partial<ProjectPhase>, field: BudgetField) => {
+    const isDeleted = isPhaseDeleted(phase.id)
+    return (
+      <TableCell align="right" sx={{
+        ...cellSx,
+        ...getChangedCellStyle(isFieldChanged(phase.id, field)),
+        textDecoration: isDeleted ? 'line-through' : 'none',
+      }}>
+        {editMode ? (
+          <TextField
+            size="small"
+            type="number"
+            value={Math.round(toNumber(phase[field]))}
+            onChange={(e) => onUpdate(phase.id!, { [field]: Math.round(parseFloat(e.target.value) || 0) } as Partial<ProjectPhase>)}
+            inputProps={{ min: 0, step: 1, style: { textAlign: 'right' } }}
+            sx={editNumberFieldSx}
+          />
+        ) : (
+          <Box sx={{ ...readValueSx, justifyContent: 'flex-end', pr: INPUT_PX }}>
+            {formatCurrency(toNumber(phase[field]))}
+          </Box>
+        )}
+      </TableCell>
+    )
+  }
 
   return (
     <Box>
       <TableContainer>
-        <Table size="small">
+        {/* Fixed table layout: column widths come from the colgroup below and are
+            independent of cell content, so read text vs edit inputs (and the
+            Actions icon vs empty cell) never resize or realign any column. */}
+        <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 1000, '& .MuiTableCell-root': { px: 1.25 } }}>
+          <colgroup>
+            <col />{/* Name — absorbs remaining width */}
+            <col style={{ width: 104 }} />{/* Start Date */}
+            <col style={{ width: 104 }} />{/* End Date */}
+            <col style={{ width: 120 }} />{/* Labor Capital */}
+            <col style={{ width: 120 }} />{/* Labor Expense */}
+            <col style={{ width: 120 }} />{/* Non-Labor Capital */}
+            <col style={{ width: 120 }} />{/* Non-Labor Expense */}
+            <col style={{ width: 128 }} />{/* Total Budget */}
+            <col style={{ width: ACTIONS_W }} />{/* Actions */}
+          </colgroup>
           <TableHead>
             <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
-              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
-              <TableCell rowSpan={2} sx={{ fontWeight: 'bold' }}>End Date</TableCell>
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Name</TableCell>
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>End Date</TableCell>
               <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Labor Budget</TableCell>
               <TableCell colSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Non-Labor Budget</TableCell>
-              <TableCell rowSpan={2} align="right" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
-              {editMode && <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Actions</TableCell>}
+              <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
+              <TableCell rowSpan={2} sx={{ width: ACTIONS_W }} />
             </TableRow>
             <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -174,137 +247,74 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                       borderLeft: rowHasChanges ? '4px solid' : isDeleted ? '4px solid' : 'none',
                       borderLeftColor: rowHasChanges ? 'warning.main' : isDeleted ? 'error.main' : 'transparent',
                       opacity: isDeleted ? 0.6 : 1,
-                      backgroundColor: isDeleted ? 'error.lighter' : 'inherit',
+                      ...(isDeleted ? { backgroundColor: 'error.lighter' } : {}),
                     }}
                   >
                     <TableCell sx={{
-                      ...densePy,
+                      ...cellSx,
                       ...getChangedCellStyle(isFieldChanged(phase.id, 'name')),
                       textDecoration: isDeleted ? 'line-through' : 'none',
                     }}>
-                      {editMode ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => toggleExpanded(phase.id)}
-                            aria-label={isExpanded ? 'collapse description' : 'expand description'}
-                          >
-                            {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                          </IconButton>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={phase.name || ''}
-                            onChange={(e) => onUpdate(phase.id!, { name: e.target.value })}
-                            sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-                          />
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <span>{phase.name || '-'}</span>
-                          {phase.description && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minHeight: ROW_H }}>
+                        {/* Fixed-width leading slot: chevron (edit) or description info (read) —
+                            reserved in both modes so the name never shifts. */}
+                        <Box sx={{ width: LEADING_W, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {editMode ? (
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleExpanded(phase.id)}
+                              aria-label={isExpanded ? 'collapse description' : 'expand description'}
+                            >
+                              {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                            </IconButton>
+                          ) : phase.description ? (
                             <Tooltip title={phase.description}>
                               <Box
                                 component="span"
                                 tabIndex={0}
                                 aria-label={`description: ${phase.description}`}
-                                sx={{ display: 'inline-flex', alignItems: 'center', ml: 0.5, cursor: 'help' }}
+                                sx={{ display: 'inline-flex', alignItems: 'center', cursor: 'help' }}
                               >
-                                <InfoOutlinedIcon fontSize="inherit" color="action" aria-hidden />
+                                <InfoOutlinedIcon fontSize="small" color="action" aria-hidden />
                               </Box>
                             </Tooltip>
-                          )}
+                          ) : null}
                         </Box>
-                      )}
+                        {editMode ? (
+                          <TextField
+                            size="small"
+                            fullWidth
+                            value={phase.name || ''}
+                            onChange={(e) => onUpdate(phase.id!, { name: e.target.value })}
+                            sx={editFieldSx}
+                          />
+                        ) : (
+                          <Box sx={{ flex: 1, minWidth: 0, pl: INPUT_PX, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{phase.name || '-'}</Box>
+                        )}
+                      </Box>
                     </TableCell>
-                    <TableCell sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell sx={{ ...cellSx, whiteSpace: 'nowrap', textDecoration: isDeleted ? 'line-through' : 'none' }}>
                       {phase.start_date ? formatDate(phase.start_date) : '-'}
                     </TableCell>
-                    <TableCell sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell sx={{ ...cellSx, whiteSpace: 'nowrap', textDecoration: isDeleted ? 'line-through' : 'none' }}>
                       {phase.end_date ? formatDate(phase.end_date) : '-'}
                     </TableCell>
-                    <TableCell align="right" sx={{
-                      ...densePy,
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_capital_budget')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {editMode ? (
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={toNumber(phase.labor_capital_budget)}
-                          onChange={(e) => onUpdate(phase.id!, { labor_capital_budget: parseFloat(e.target.value) || 0 })}
-                          inputProps={{ min: 0, step: 0.01 }}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
-                        />
-                      ) : (
-                        formatCurrency(toNumber(phase.labor_capital_budget))
-                      )}
+                    {renderBudgetCell(phase, 'labor_capital_budget')}
+                    {renderBudgetCell(phase, 'labor_expense_budget')}
+                    {renderBudgetCell(phase, 'nonlabor_capital_budget')}
+                    {renderBudgetCell(phase, 'nonlabor_expense_budget')}
+                    <TableCell sx={{ ...cellSx, textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                      <Box sx={{ ...readValueSx, justifyContent: 'flex-end', pr: INPUT_PX }}>
+                        {formatCurrency(
+                          toNumber(phase.labor_capital_budget) +
+                          toNumber(phase.labor_expense_budget) +
+                          toNumber(phase.nonlabor_capital_budget) +
+                          toNumber(phase.nonlabor_expense_budget)
+                        )}
+                      </Box>
                     </TableCell>
-                    <TableCell align="right" sx={{
-                      ...densePy,
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'labor_expense_budget')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {editMode ? (
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={toNumber(phase.labor_expense_budget)}
-                          onChange={(e) => onUpdate(phase.id!, { labor_expense_budget: parseFloat(e.target.value) || 0 })}
-                          inputProps={{ min: 0, step: 0.01 }}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
-                        />
-                      ) : (
-                        formatCurrency(toNumber(phase.labor_expense_budget))
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{
-                      ...densePy,
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_capital_budget')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {editMode ? (
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={toNumber(phase.nonlabor_capital_budget)}
-                          onChange={(e) => onUpdate(phase.id!, { nonlabor_capital_budget: parseFloat(e.target.value) || 0 })}
-                          inputProps={{ min: 0, step: 0.01 }}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
-                        />
-                      ) : (
-                        formatCurrency(toNumber(phase.nonlabor_capital_budget))
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{
-                      ...densePy,
-                      ...getChangedCellStyle(isFieldChanged(phase.id, 'nonlabor_expense_budget')),
-                      textDecoration: isDeleted ? 'line-through' : 'none',
-                    }}>
-                      {editMode ? (
-                        <TextField
-                          size="small"
-                          type="number"
-                          value={toNumber(phase.nonlabor_expense_budget)}
-                          onChange={(e) => onUpdate(phase.id!, { nonlabor_expense_budget: parseFloat(e.target.value) || 0 })}
-                          inputProps={{ min: 0, step: 0.01 }}
-                          sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem', textAlign: 'right' } }}
-                        />
-                      ) : (
-                        formatCurrency(toNumber(phase.nonlabor_expense_budget))
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{ ...densePy, textDecoration: isDeleted ? 'line-through' : 'none' }}>
-                      {formatCurrency(
-                        toNumber(phase.labor_capital_budget) +
-                        toNumber(phase.labor_expense_budget) +
-                        toNumber(phase.nonlabor_capital_budget) +
-                        toNumber(phase.nonlabor_expense_budget)
-                      )}
-                    </TableCell>
-                    {editMode && (
-                      <TableCell align="center">
+                    <TableCell align="center" sx={{ ...cellSx, width: ACTIONS_W }}>
+                      {editMode && (
                         <IconButton
                           size="small"
                           color="error"
@@ -314,8 +324,8 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                      </TableCell>
-                    )}
+                      )}
+                    </TableCell>
                   </TableRow>
                   {editMode && isExpanded && (
                     <TableRow>
@@ -353,22 +363,22 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                 </TableCell>
                 <TableCell />
                 <TableCell />
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.laborCapital)}
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', pr: INPUT_PX }}>{formatCurrency(totals.laborCapital)}</Box>
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.laborExpense)}
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', pr: INPUT_PX }}>{formatCurrency(totals.laborExpense)}</Box>
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.nonlaborCapital)}
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', pr: INPUT_PX }}>{formatCurrency(totals.nonlaborCapital)}</Box>
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.nonlaborExpense)}
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', pr: INPUT_PX }}>{formatCurrency(totals.nonlaborExpense)}</Box>
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                  {formatCurrency(totals.total)}
+                <TableCell sx={{ fontWeight: 'bold' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', pr: INPUT_PX }}>{formatCurrency(totals.total)}</Box>
                 </TableCell>
-                {editMode && <TableCell />}
+                <TableCell sx={{ width: ACTIONS_W }} />
               </TableRow>
             )}
           </TableBody>
