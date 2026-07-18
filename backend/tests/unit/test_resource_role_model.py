@@ -26,3 +26,13 @@ def test_labor_requires_role_check(db):
     db.add(Resource(name="NL", resource_type=ResourceType.NON_LABOR, resource_role_id=role.id))
     with pytest.raises(IntegrityError):
         db.flush()
+
+
+def test_labor_requires_role(db):
+    from app.models.resource import Worker, WorkerType
+    wt = WorkerType(type="Employee", description="d"); db.add(wt); db.flush()
+    w = Worker(worker_type_id=wt.id, external_id="E1", name="Ann"); db.add(w); db.flush()
+    # labor with worker but WITHOUT a role -> rejected by ck_resources_labor_role
+    db.add(Resource(name="L", resource_type=ResourceType.LABOR, worker_id=w.id, resource_role_id=None))
+    with pytest.raises(IntegrityError):
+        db.flush()
