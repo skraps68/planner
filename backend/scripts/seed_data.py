@@ -3,6 +3,7 @@ Seed data script for development and testing.
 Creates sample programs, projects, workers, users with role/scope assignments.
 """
 import asyncio
+import random
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -13,7 +14,7 @@ from app.db.session import SessionLocal
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
-from app.models.resource import Resource, Worker, WorkerType, ResourceType
+from app.models.resource import Resource, Worker, WorkerType, ResourceType, ResourceRole
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
 from app.models.actual import Actual
@@ -36,6 +37,7 @@ def clear_database(db: Session):
     db.query(Worker).delete()
     db.query(WorkerType).delete()
     db.query(Resource).delete()
+    db.query(ResourceRole).delete()
     db.query(ProjectPhase).delete()
     db.query(Project).delete()
     db.query(Program).delete()
@@ -266,145 +268,166 @@ def create_projects(db: Session, programs: dict) -> dict:
 
 
 def create_worker_types_and_rates(db: Session) -> dict:
-    """Create worker types with historical rates."""
+    """Create employment-class worker types, each with a single current rate."""
     print("Creating worker types and rates...")
-    
+
     worker_types = {
-        "senior_engineer": WorkerType(
+        "employee": WorkerType(
             id=uuid4(),
-            type="Senior Software Engineer",
-            description="Experienced software engineer with 5+ years"
+            type="Employee",
+            description="Employee"
         ),
-        "engineer": WorkerType(
+        "full_time_contractor": WorkerType(
             id=uuid4(),
-            type="Software Engineer",
-            description="Software engineer with 2-5 years experience"
+            type="Full-Time Contractor",
+            description="Full-Time Contractor"
         ),
-        "junior_engineer": WorkerType(
+        "fixed_price_contractor": WorkerType(
             id=uuid4(),
-            type="Junior Software Engineer",
-            description="Entry-level software engineer"
-        ),
-        "architect": WorkerType(
-            id=uuid4(),
-            type="Solutions Architect",
-            description="Technical architect and system designer"
-        ),
-        "project_manager": WorkerType(
-            id=uuid4(),
-            type="Project Manager",
-            description="Project management professional"
-        ),
-        "business_analyst": WorkerType(
-            id=uuid4(),
-            type="Business Analyst",
-            description="Business analysis and requirements specialist"
+            type="Fixed Price Contractor",
+            description="Fixed Price Contractor"
         ),
     }
-    
+
     for wt in worker_types.values():
         db.add(wt)
-    
+
     db.commit()
-    
-    # Create rates with historical data
+
+    # One current rate per employment class
     rates = []
     rate_data = {
-        "senior_engineer": [
-            (Decimal("1200.00"), date(2023, 1, 1), date(2023, 12, 31)),
-            (Decimal("1250.00"), date(2024, 1, 1), None),
-        ],
-        "engineer": [
-            (Decimal("900.00"), date(2023, 1, 1), date(2023, 12, 31)),
-            (Decimal("950.00"), date(2024, 1, 1), None),
-        ],
-        "junior_engineer": [
-            (Decimal("600.00"), date(2023, 1, 1), date(2023, 12, 31)),
-            (Decimal("650.00"), date(2024, 1, 1), None),
-        ],
-        "architect": [
-            (Decimal("1500.00"), date(2023, 1, 1), date(2023, 12, 31)),
-            (Decimal("1600.00"), date(2024, 1, 1), None),
-        ],
-        "project_manager": [
-            (Decimal("1100.00"), date(2023, 1, 1), date(2023, 12, 31)),
-            (Decimal("1150.00"), date(2024, 1, 1), None),
-        ],
-        "business_analyst": [
-            (Decimal("850.00"), date(2023, 1, 1), date(2023, 12, 31)),
-            (Decimal("900.00"), date(2024, 1, 1), None),
-        ],
+        "employee": Decimal("1000.00"),
+        "full_time_contractor": Decimal("1300.00"),
+        "fixed_price_contractor": Decimal("1500.00"),
     }
-    
-    for wt_key, rate_list in rate_data.items():
-        for rate_amount, start_date, end_date in rate_list:
-            rate = Rate(
-                id=uuid4(),
-                worker_type_id=worker_types[wt_key].id,
-                rate_amount=rate_amount,
-                start_date=start_date,
-                end_date=end_date
-            )
-            db.add(rate)
-            rates.append(rate)
-    
+
+    for wt_key, rate_amount in rate_data.items():
+        rate = Rate(
+            id=uuid4(),
+            worker_type_id=worker_types[wt_key].id,
+            rate_amount=rate_amount,
+            start_date=date(2024, 1, 1),
+            end_date=None
+        )
+        db.add(rate)
+        rates.append(rate)
+
     db.commit()
     print(f"Created {len(worker_types)} worker types with {len(rates)} rates.")
     return worker_types
 
 
+def create_resource_roles(db: Session) -> dict:
+    """Create job-role resource roles (the former worker-type job roles) plus Default."""
+    print("Creating resource roles...")
+
+    resource_roles = {
+        "senior_engineer": ResourceRole(
+            id=uuid4(),
+            name="Senior Software Engineer",
+            description="Experienced software engineer with 5+ years"
+        ),
+        "engineer": ResourceRole(
+            id=uuid4(),
+            name="Software Engineer",
+            description="Software engineer with 2-5 years experience"
+        ),
+        "junior_engineer": ResourceRole(
+            id=uuid4(),
+            name="Junior Software Engineer",
+            description="Entry-level software engineer"
+        ),
+        "architect": ResourceRole(
+            id=uuid4(),
+            name="Solutions Architect",
+            description="Technical architect and system designer"
+        ),
+        "project_manager": ResourceRole(
+            id=uuid4(),
+            name="Project Manager",
+            description="Project management professional"
+        ),
+        "business_analyst": ResourceRole(
+            id=uuid4(),
+            name="Business Analyst",
+            description="Business analysis and requirements specialist"
+        ),
+        "default": ResourceRole(
+            id=uuid4(),
+            name="Default",
+            description="Default resource role"
+        ),
+    }
+
+    for role in resource_roles.values():
+        db.add(role)
+
+    db.commit()
+    print(f"Created {len(resource_roles)} resource roles.")
+    return resource_roles
+
+
 def create_workers(db: Session, worker_types: dict) -> dict:
-    """Create sample workers."""
+    """Create sample workers, ~80% assigned the Employee employment class and
+    the remainder split across the contractor classes (seeded RNG, deterministic)."""
     print("Creating workers...")
-    
+
+    rng = random.Random(20260718)
+    contractor_types = ["full_time_contractor", "fixed_price_contractor"]
+
+    def pick_worker_type_id() -> str:
+        key = "employee" if rng.random() < 0.8 else rng.choice(contractor_types)
+        return worker_types[key].id
+
     workers = {
         "john_smith": Worker(
             id=uuid4(),
             external_id="EMP001",
             name="John Smith",
-            worker_type_id=worker_types["senior_engineer"].id
+            worker_type_id=pick_worker_type_id()
         ),
         "jane_doe": Worker(
             id=uuid4(),
             external_id="EMP002",
             name="Jane Doe",
-            worker_type_id=worker_types["architect"].id
+            worker_type_id=pick_worker_type_id()
         ),
         "bob_johnson": Worker(
             id=uuid4(),
             external_id="EMP003",
             name="Bob Johnson",
-            worker_type_id=worker_types["engineer"].id
+            worker_type_id=pick_worker_type_id()
         ),
         "alice_williams": Worker(
             id=uuid4(),
             external_id="EMP004",
             name="Alice Williams",
-            worker_type_id=worker_types["engineer"].id
+            worker_type_id=pick_worker_type_id()
         ),
         "charlie_brown": Worker(
             id=uuid4(),
             external_id="EMP005",
             name="Charlie Brown",
-            worker_type_id=worker_types["junior_engineer"].id
+            worker_type_id=pick_worker_type_id()
         ),
         "diana_prince": Worker(
             id=uuid4(),
             external_id="EMP006",
             name="Diana Prince",
-            worker_type_id=worker_types["project_manager"].id
+            worker_type_id=pick_worker_type_id()
         ),
         "evan_peters": Worker(
             id=uuid4(),
             external_id="EMP007",
             name="Evan Peters",
-            worker_type_id=worker_types["business_analyst"].id
+            worker_type_id=pick_worker_type_id()
         ),
     }
-    
+
     for worker in workers.values():
         db.add(worker)
-    
+
     db.commit()
     print(f"Created {len(workers)} workers.")
     return workers
@@ -443,10 +466,14 @@ def create_resources(db: Session) -> dict:
     return resources
 
 
-def create_labor_resources_for_workers(db: Session, workers: dict) -> dict:
-    """Create labor resources for each worker."""
+def create_labor_resources_for_workers(db: Session, workers: dict, resource_roles: dict) -> dict:
+    """Create labor resources for each worker, each assigned a resource role
+    (seeded RNG, deterministic)."""
     print("Creating labor resources for workers...")
-    
+
+    rng = random.Random(20260718)
+    role_ids = [role.id for role in resource_roles.values()]
+
     labor_resources = {}
     for worker_key, worker in workers.items():
         labor_resource = Resource(
@@ -454,11 +481,12 @@ def create_labor_resources_for_workers(db: Session, workers: dict) -> dict:
             name=worker.name,
             resource_type=ResourceType.LABOR,
             worker_id=worker.id,
+            resource_role_id=rng.choice(role_ids),
             description=f"Labor resource for {worker.name} ({worker.external_id})"
         )
         db.add(labor_resource)
         labor_resources[worker_key] = labor_resource
-    
+
     db.commit()
     print(f"Created {len(labor_resources)} labor resources.")
     return labor_resources
@@ -1043,9 +1071,10 @@ def main():
         programs = create_programs(db, portfolio)
         projects, phases = create_projects(db, programs)
         worker_types = create_worker_types_and_rates(db)
+        resource_roles = create_resource_roles(db)
         workers = create_workers(db, worker_types)
         resources = create_resources(db)
-        labor_resources = create_labor_resources_for_workers(db, workers)
+        labor_resources = create_labor_resources_for_workers(db, workers, resource_roles)
         create_resource_assignments(db, labor_resources, projects, phases)
         create_actuals(db, workers, projects)
         create_users_with_roles_and_scopes(db, programs, projects)
