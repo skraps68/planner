@@ -1,6 +1,6 @@
 import { User } from '../store/slices/authSlice'
 
-export type Permission = 
+export type Permission =
   | 'view_portfolios'
   | 'create_portfolios'
   | 'edit_portfolios'
@@ -22,6 +22,9 @@ export type Permission =
   | 'view_reports'
   | 'manage_users'
   | 'view_audit'
+  | 'manage_rates'
+  | 'manage_resource_roles'
+  | 'manage_worker_types'
 
 export interface PermissionCheck {
   hasPermission: boolean
@@ -52,6 +55,9 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_reports',
     'manage_users',
     'view_audit',
+    'manage_rates',
+    'manage_resource_roles',
+    'manage_worker_types',
   ],
   PROGRAM_MANAGER: [
     'view_portfolios',

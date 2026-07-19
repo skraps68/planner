@@ -76,6 +76,11 @@ export interface Resource {
   resource_type: 'LABOR' | 'NON_LABOR'
   description?: string
   worker_id?: string | null
+  resource_role_id?: string
+  resource_role_name?: string
+  worker_name?: string
+  worker_type_name?: string
+  current_rate?: number
   version: number
   created_at: string
   updated_at: string
@@ -86,6 +91,8 @@ export interface Worker {
   external_id: string
   name: string
   worker_type_id: string
+  worker_type_name?: string
+  current_rate?: number
   version: number
   created_at: string
   updated_at: string
@@ -108,6 +115,14 @@ export interface Rate {
   end_date?: string
   version: number
   created_at: string
+}
+
+export interface ResourceRole {
+  id: string
+  name: string
+  description?: string
+  resource_count?: number
+  version: number
 }
 
 export interface ResourceAssignment {
