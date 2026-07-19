@@ -28,7 +28,7 @@ from app.models.base import Base
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
-from app.models.resource import Resource, ResourceType, Worker, WorkerType
+from app.models.resource import Resource, ResourceRole, ResourceType, Worker, WorkerType
 from app.models.resource_assignment import ResourceAssignment
 from app.models.rate import Rate
 from app.models.actual import Actual
@@ -109,10 +109,15 @@ def _make_labor_resource(db, suffix, rate_amount=Decimal("1000.00")):
     db.add(worker)
     db.flush()
 
+    role = ResourceRole(name=f"Role-{suffix}")
+    db.add(role)
+    db.flush()
+
     resource = Resource(
         name=f"Labor Resource {suffix}",
         resource_type=ResourceType.LABOR,
         worker_id=worker.id,
+        resource_role_id=role.id,
     )
     db.add(resource)
     db.flush()
