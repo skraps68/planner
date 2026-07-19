@@ -32,6 +32,8 @@ import UserAuditPage from './pages/admin/UserAuditPage'
 import PortfoliosListPage from './pages/portfolios/PortfoliosListPage'
 import PortfolioDetailPage from './pages/portfolios/PortfolioDetailPage'
 import PortfolioFormPage from './pages/portfolios/PortfolioFormPage'
+import ResourceRolesPage from './pages/setup/ResourceRolesPage'
+import { AdminRoute } from './components/common/AdminRoute'
 
 function App() {
   return (
@@ -82,6 +84,14 @@ function App() {
                     <Route path="/admin/users/:id/roles" element={<UserRolesPage />} />
                     <Route path="/admin/users/:id/roles/:roleId/scopes" element={<RoleScopesPage />} />
                     <Route path="/admin/users/:id/audit" element={<UserAuditPage />} />
+                    <Route
+                      path="/setup/resource-roles"
+                      element={
+                        <AdminRoute permission="manage_resource_roles">
+                          <ResourceRolesPage />
+                        </AdminRoute>
+                      }
+                    />
                     {/* Additional routes will be added in subsequent tasks */}
                   </Routes>
                 </Layout>
