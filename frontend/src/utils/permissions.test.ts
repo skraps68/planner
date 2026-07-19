@@ -1,3 +1,4 @@
+import { describe, test, expect } from 'vitest'
 import { hasPermission } from './permissions'
 
 const admin = { roles: ['ADMIN'] } as any
