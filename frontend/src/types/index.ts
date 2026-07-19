@@ -80,7 +80,7 @@ export interface Resource {
   resource_role_name?: string
   worker_name?: string
   worker_type_name?: string
-  current_rate?: number
+  current_rate?: string
   version: number
   created_at: string
   updated_at: string
@@ -92,7 +92,7 @@ export interface Worker {
   name: string
   worker_type_id: string
   worker_type_name?: string
-  current_rate?: number
+  current_rate?: string
   version: number
   created_at: string
   updated_at: string
@@ -122,6 +122,8 @@ export interface ResourceRole {
   name: string
   description?: string
   resource_count?: number
+  created_at?: string
+  updated_at?: string
   version: number
 }
 

@@ -14,7 +14,7 @@ export interface ResourceRoleUpdateInput {
 
 export const resourceRolesApi = {
   list: async () => {
-    const response = await apiClient.get<ResourceRole[]>('/resource-roles')
+    const response = await apiClient.get<ResourceRole[]>('/resource-roles/')
     return response.data
   },
 
@@ -24,7 +24,7 @@ export const resourceRolesApi = {
   },
 
   create: async (data: ResourceRoleCreateInput) => {
-    const response = await apiClient.post<ResourceRole>('/resource-roles', data)
+    const response = await apiClient.post<ResourceRole>('/resource-roles/', data)
     return response.data
   },
 
