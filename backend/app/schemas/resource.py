@@ -25,6 +25,10 @@ class ResourceCreate(ResourceBase):
         default=None,
         description="Required for LABOR; forbidden for NON_LABOR"
     )
+    resource_role_id: Optional[UUID] = Field(
+        default=None,
+        description="LABOR only; defaults to 'Default'"
+    )
 
 
 class ResourceUpdate(VersionedSchema):
@@ -37,12 +41,18 @@ class ResourceUpdate(VersionedSchema):
         default=None,
         description="Required for LABOR; forbidden for NON_LABOR"
     )
+    resource_role_id: Optional[UUID] = Field(default=None, description="LABOR only")
 
 
 class ResourceResponse(ResourceBase, TimestampMixin, VersionedSchema):
     """Schema for resource response."""
 
     worker_id: Optional[UUID] = Field(default=None)
+    resource_role_id: Optional[UUID] = Field(default=None)
+    resource_role_name: Optional[str] = Field(default=None, description="Denormalized resource role name")
+    worker_name: Optional[str] = Field(default=None, description="Denormalized worker name (LABOR only)")
+    worker_type_name: Optional[str] = Field(default=None, description="Denormalized worker's employment class (LABOR only)")
+    current_rate: Optional[str] = Field(default=None, description="Denormalized current rate for the worker's employment class (LABOR only)")
     assignment_count: Optional[int] = Field(default=0, description="Number of assignments for this resource")
 
 

@@ -17,8 +17,10 @@ from app.repositories.resource import (
     worker_type_repository
 )
 from app.repositories.rate import rate_repository
+from app.repositories.resource_role import resource_role_repository
 from app.repositories.user import user_role_repository, scope_assignment_repository
 from app.repositories.project import project_repository
+from app.services.resource_role import DEFAULT_ROLE_NAME
 
 
 class ResourceService:
@@ -36,7 +38,8 @@ class ResourceService:
         name: str,
         resource_type: ResourceType,
         description: Optional[str] = None,
-        worker_id: Optional[UUID] = None
+        worker_id: Optional[UUID] = None,
+        resource_role_id: Optional[UUID] = None
     ) -> Resource:
         """
         Create a new resource.
@@ -47,6 +50,8 @@ class ResourceService:
             resource_type: Type of resource (LABOR or NON_LABOR)
             description: Optional resource description
             worker_id: Required for LABOR; forbidden for NON_LABOR
+            resource_role_id: LABOR only; defaults to the "Default" role when
+                omitted. Forbidden for NON_LABOR.
 
         Returns:
             Created resource
@@ -70,9 +75,12 @@ class ResourceService:
             if existing_link:
                 raise ValueError(f"Worker '{worker.name}' is already linked to a resource")
             name = worker.name  # labor resource names are system-derived
+            resource_role_id = self._resolve_labor_role(db, resource_role_id)
         else:
             if worker_id is not None:
                 raise ValueError("Non-labor resources cannot be linked to a worker")
+            if resource_role_id is not None:
+                raise ValueError("Non-labor resources cannot have a resource role")
 
         # Create resource
         resource_data = {
@@ -80,9 +88,31 @@ class ResourceService:
             "resource_type": resource_type,
             "description": description,
             "worker_id": worker_id,
+            "resource_role_id": resource_role_id,
         }
 
         return self.repository.create(db, obj_in=resource_data)
+
+    def _resolve_labor_role(self, db: Session, resource_role_id: Optional[UUID]) -> UUID:
+        """
+        Resolve the resource role id for a LABOR resource.
+
+        If none was supplied, resolve the "Default" role. Otherwise validate
+        the supplied role exists.
+
+        Raises:
+            ValueError: If the role (default or explicit) cannot be found.
+        """
+        if resource_role_id is None:
+            default_role = resource_role_repository.get_by_name(db, DEFAULT_ROLE_NAME)
+            if not default_role:
+                raise ValueError("Default resource role not found")
+            return default_role.id
+
+        role = resource_role_repository.get(db, resource_role_id)
+        if not role:
+            raise ValueError(f"Resource role with ID {resource_role_id} not found")
+        return resource_role_id
     
     def get_resource(self, db: Session, resource_id: UUID) -> Optional[Resource]:
         """Get resource by ID."""
@@ -158,7 +188,8 @@ class ResourceService:
         resource_id: UUID,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        worker_id: Optional[UUID] = None
+        worker_id: Optional[UUID] = None,
+        resource_role_id: Optional[UUID] = None
     ) -> Resource:
         """
         Update resource with validation.
@@ -169,6 +200,8 @@ class ResourceService:
             name: Optional new name (ignored for LABOR resources — system-derived)
             description: Optional new description
             worker_id: Optional new worker link (LABOR only; ignored if same as current)
+            resource_role_id: Optional new resource role (LABOR only). None
+                leaves the existing role unchanged; forbidden for NON_LABOR.
 
         Returns:
             Updated resource
@@ -199,8 +232,17 @@ class ResourceService:
                 update_data["worker_id"] = worker_id
                 update_data["name"] = worker.name
             # labor names are system-derived: a client-sent name is ignored
-        elif name is not None:
-            update_data["name"] = name
+            if resource_role_id is not None:
+                role = resource_role_repository.get(db, resource_role_id)
+                if not role:
+                    raise ValueError(f"Resource role with ID {resource_role_id} not found")
+                update_data["resource_role_id"] = resource_role_id
+            # None leaves the existing role unchanged
+        else:
+            if resource_role_id is not None:
+                raise ValueError("Non-labor resources cannot have a resource role")
+            if name is not None:
+                update_data["name"] = name
 
         if description is not None:
             update_data["description"] = description

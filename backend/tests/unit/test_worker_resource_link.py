@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
-from app.models.resource import Resource, ResourceType, Worker, WorkerType
+from app.models.resource import Resource, ResourceRole, ResourceType, Worker, WorkerType
 from app.services.resource import resource_service, worker_service
 
 
@@ -19,6 +19,10 @@ def db():
     session.add(wt)
     session.flush()
     session.add(Worker(id=uuid4(), worker_type_id=wt.id, external_id="EMP001", name="Jane Doe"))
+    # resource_service.create_resource() defaults LABOR resources to the
+    # "Default" resource role (ck_resources_labor_role requires labor rows to
+    # have one) — the service looks it up by name, so it must exist here.
+    session.add(ResourceRole(id=uuid4(), name="Default", description="Default resource role"))
     session.commit()
     yield session
     session.close()
