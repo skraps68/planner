@@ -22,7 +22,7 @@ describe('AdminRoute', () => {
     })
 
     render(
-      <AdminRoute permission="manage_resource_roles">
+      <AdminRoute permission="manage_reference_data">
         <div>secret</div>
       </AdminRoute>,
       { store }
@@ -49,7 +49,7 @@ describe('AdminRoute', () => {
     })
 
     render(
-      <AdminRoute permission="manage_resource_roles">
+      <AdminRoute permission="manage_reference_data">
         <div>secret</div>
       </AdminRoute>,
       { store }
