@@ -15,4 +15,24 @@ describe('queryKeyPrefixesFor', () => {
   it('returns [] for unknown types', () => {
     expect(queryKeyPrefixesFor('mystery')).toEqual([])
   })
+  it('maps worker changes to worker-types (worker_count freshness)', () => {
+    expect(queryKeyPrefixesFor('worker')).toEqual(
+      expect.arrayContaining([['worker-types']]),
+    )
+  })
+  it('maps resource changes to resource-roles (resource_count freshness)', () => {
+    expect(queryKeyPrefixesFor('resource')).toEqual(
+      expect.arrayContaining([['resource-roles']]),
+    )
+  })
+  it('maps rate changes to worker-types (current_rate freshness)', () => {
+    expect(queryKeyPrefixesFor('rate')).toEqual(
+      expect.arrayContaining([['worker-types']]),
+    )
+  })
+  it('maps resource_role changes to the resource-roles list', () => {
+    expect(queryKeyPrefixesFor('resource_role')).toEqual(
+      expect.arrayContaining([['resource-roles']]),
+    )
+  })
 })

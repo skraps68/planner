@@ -222,14 +222,24 @@ const WorkerDetailPage = () => {
                   </Typography>
                 )}
               </Grid>
-              {!effectiveEditing && (
-                <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" color="text.secondary">Rate</Typography>
-                  <Typography variant="body1">
-                    {worker?.current_rate ? `$${Number(worker.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Rate</Typography>
+                <Typography variant="body1">
+                  {(() => {
+                    const displayRate = effectiveEditing
+                      ? workerTypes.find((t) => t.id === formData.worker_type_id)?.current_rate
+                      : worker?.current_rate
+                    return displayRate
+                      ? `$${Number(displayRate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : '—'
+                  })()}
+                </Typography>
+                {effectiveEditing && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Rates are managed in Setup → Reference Data.
                   </Typography>
-                </Grid>
-              )}
+                )}
+              </Grid>
             </Grid>
           ) : (
             <Grid container spacing={2}>

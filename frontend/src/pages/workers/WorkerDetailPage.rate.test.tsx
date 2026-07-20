@@ -50,6 +50,7 @@ const workerType = {
   id: 'wt1',
   type: 'Employee',
   description: 'Employee type',
+  current_rate: '1000.00',
   version: 1,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
@@ -63,21 +64,20 @@ describe('WorkerDetailPage rate display', () => {
 
   it('shows the formatted rate in read mode', async () => {
     render(<WorkerDetailPage />)
-
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
-
     expect(screen.getByText('$1,000.00')).toBeInTheDocument()
   })
 
-  it('hides the rate value after entering edit mode', async () => {
+  it('keeps the rate visible (read-only) with a note after entering edit mode', async () => {
     const user = userEvent.setup()
     render(<WorkerDetailPage />)
-
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
-    expect(screen.getByText('$1,000.00')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /edit/i }))
 
-    expect(screen.queryByText('$1,000.00')).not.toBeInTheDocument()
+    // Rate still shown, as static text (not an input), with the guidance note.
+    expect(screen.getByText('$1,000.00')).toBeInTheDocument()
+    expect(screen.getByText(/Rates are managed in Setup → Reference Data/i)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /rate/i })).toBeNull()
   })
 })

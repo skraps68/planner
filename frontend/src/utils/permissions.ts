@@ -22,9 +22,7 @@ export type Permission =
   | 'view_reports'
   | 'manage_users'
   | 'view_audit'
-  | 'manage_rates'
-  | 'manage_resource_roles'
-  | 'manage_worker_types'
+  | 'manage_reference_data'
 
 export interface PermissionCheck {
   hasPermission: boolean
@@ -55,9 +53,7 @@ const rolePermissions: Record<string, Permission[]> = {
     'view_reports',
     'manage_users',
     'view_audit',
-    'manage_rates',
-    'manage_resource_roles',
-    'manage_worker_types',
+    'manage_reference_data',
   ],
   PROGRAM_MANAGER: [
     'view_portfolios',

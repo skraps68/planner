@@ -31,9 +31,7 @@ import UserAuditPage from './pages/admin/UserAuditPage'
 import PortfoliosListPage from './pages/portfolios/PortfoliosListPage'
 import PortfolioDetailPage from './pages/portfolios/PortfolioDetailPage'
 import PortfolioFormPage from './pages/portfolios/PortfolioFormPage'
-import ResourceRolesPage from './pages/setup/ResourceRolesPage'
-import WorkerTypesPage from './pages/setup/WorkerTypesPage'
-import RatesPage from './pages/setup/RatesPage'
+import ReferenceDataPage from './pages/setup/ReferenceDataPage'
 import { AdminRoute } from './components/common/AdminRoute'
 
 function App() {
@@ -85,26 +83,10 @@ function App() {
                     <Route path="/admin/users/:id/roles/:roleId/scopes" element={<RoleScopesPage />} />
                     <Route path="/admin/users/:id/audit" element={<UserAuditPage />} />
                     <Route
-                      path="/setup/resource-roles"
+                      path="/setup/reference-data"
                       element={
-                        <AdminRoute permission="manage_resource_roles">
-                          <ResourceRolesPage />
-                        </AdminRoute>
-                      }
-                    />
-                    <Route
-                      path="/setup/worker-types"
-                      element={
-                        <AdminRoute permission="manage_worker_types">
-                          <WorkerTypesPage />
-                        </AdminRoute>
-                      }
-                    />
-                    <Route
-                      path="/setup/rates"
-                      element={
-                        <AdminRoute permission="manage_rates">
-                          <RatesPage />
+                        <AdminRoute permission="manage_reference_data">
+                          <ReferenceDataPage />
                         </AdminRoute>
                       }
                     />
