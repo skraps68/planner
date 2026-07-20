@@ -20,11 +20,16 @@ import {
   TableHead,
   TableRow,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
+import { resourceRolesApi } from '../../api/resourceRoles'
 import { assignmentsApi, BulkAssignmentUpdate, BulkUpdateResult } from '../../api/assignments'
-import { Resource, ResourceAssignment } from '../../types'
+import { Resource, ResourceAssignment, ResourceRole } from '../../types'
 import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
 import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import ConflictDialog from '../../components/common/ConflictDialog'
@@ -575,11 +580,29 @@ const ResourceDetailPage: React.FC = () => {
     name: '',
     description: '',
     resource_type: 'LABOR' as 'LABOR' | 'NON_LABOR',
+    resource_role_id: '',
     version: 1,
   })
 
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null)
   const [workerError, setWorkerError] = useState<string | null>(null)
+
+  const [roles, setRoles] = useState<ResourceRole[]>([])
+
+  useEffect(() => {
+    resourceRolesApi
+      .list()
+      .then(setRoles)
+      .catch(() => { /* role select stays empty; not fatal to the page */ })
+  }, [])
+
+  // For a brand-new LABOR resource, default the role to "Default" once roles
+  // have loaded (only fires while resource_role_id is still unset).
+  useEffect(() => {
+    if (!isNew || formData.resource_type !== 'LABOR' || formData.resource_role_id || roles.length === 0) return
+    const defaultRole = roles.find((r) => r.name === 'Default') ?? roles[0]
+    setFormData((prev) => ({ ...prev, resource_role_id: defaultRole.id }))
+  }, [isNew, roles, formData.resource_type, formData.resource_role_id])
 
   const fetchResource = useCallback(async () => {
     if (!id || isNew) return
@@ -592,6 +615,7 @@ const ResourceDetailPage: React.FC = () => {
         name: data.name,
         description: data.description || '',
         resource_type: data.resource_type,
+        resource_role_id: data.resource_role_id ?? '',
         version: data.version,
       })
       setSelectedWorkerId(data.worker_id ?? null)
@@ -625,6 +649,7 @@ const ResourceDetailPage: React.FC = () => {
             resource_type: formData.resource_type,
             description: formData.description || undefined,
             worker_id: selectedWorkerId!,
+            resource_role_id: formData.resource_role_id || undefined,
           })
         } else {
           await resourcesApi.create({
@@ -641,6 +666,7 @@ const ResourceDetailPage: React.FC = () => {
         }
         if (formData.resource_type === 'LABOR') {
           updatePayload.worker_id = selectedWorkerId ?? undefined
+          updatePayload.resource_role_id = formData.resource_role_id || undefined
         } else {
           updatePayload.name = formData.name
         }
@@ -663,6 +689,7 @@ const ResourceDetailPage: React.FC = () => {
         name: resource.name,
         description: resource.description || '',
         resource_type: resource.resource_type,
+        resource_role_id: resource.resource_role_id ?? '',
         version: resource.version,
       })
       setSelectedWorkerId(resource.worker_id ?? null)
@@ -723,6 +750,23 @@ const ResourceDetailPage: React.FC = () => {
                   />
                 )}
               </Grid>
+              {formData.resource_type === 'LABOR' && (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel id="resource-role-label-new">Resource Role</InputLabel>
+                    <Select
+                      labelId="resource-role-label-new"
+                      label="Resource Role"
+                      value={formData.resource_role_id}
+                      onChange={(e) => setFormData({ ...formData, resource_role_id: e.target.value })}
+                    >
+                      {roles.map((role) => (
+                        <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <TextField
                   fullWidth label="Description" multiline rows={3}
@@ -804,6 +848,39 @@ const ResourceDetailPage: React.FC = () => {
                 {formData.resource_type === 'LABOR' ? 'Labor' : 'Non-Labor'}
               </Typography>
             </Grid>
+            {formData.resource_type === 'LABOR' && isEditing && (
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Resource Role</Typography>
+                <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                  <InputLabel id="resource-role-label-edit">Resource Role</InputLabel>
+                  <Select
+                    labelId="resource-role-label-edit"
+                    label="Resource Role"
+                    value={formData.resource_role_id}
+                    onChange={(e) => setFormData({ ...formData, resource_role_id: e.target.value })}
+                  >
+                    {roles.map((role) => (
+                      <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            {formData.resource_type === 'LABOR' && !isEditing && (
+              <Grid item xs={12}>
+                <Typography variant="body2" color="text.secondary">
+                  {`Role: ${resource?.resource_role_name || '—'}`}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {`Worker Type: ${resource?.worker_type_name || '—'}`}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {resource?.current_rate
+                    ? `Rate: $${Number(resource.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : 'Rate: —'}
+                </Typography>
+              </Grid>
+            )}
             <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
               {!isEditing ? (
                 <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
@@ -859,6 +936,7 @@ const ResourceDetailPage: React.FC = () => {
               name: conflictState.attemptedChanges.name || formData.name,
               description: conflictState.attemptedChanges.description || formData.description,
               resource_type: formData.resource_type,
+              resource_role_id: conflictState.attemptedChanges.resource_role_id ?? formData.resource_role_id,
               version: conflictState.currentState.version,
             })
             if ('worker_id' in conflictState.attemptedChanges) {
