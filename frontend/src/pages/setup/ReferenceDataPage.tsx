@@ -117,9 +117,11 @@ const WorkerTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <DialogTitle>{editing ? 'Edit Worker Type' : 'Add Worker Type'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-            <TextField label="Type" value={form.type} fullWidth
+            <TextField label="Type" value={form.type} fullWidth required
+              InputLabelProps={{ required: false }}
               onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} />
-            <TextField label="Description" value={form.description} fullWidth multiline rows={3}
+            <TextField label="Description" value={form.description} fullWidth multiline rows={3} required
+              InputLabelProps={{ required: false }}
               onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
           </Box>
         </DialogContent>
@@ -247,11 +249,12 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <DialogTitle>Set Rate{target ? ` — ${target.type}` : ''}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-            <TextField label="Amount" type="number" value={amount} fullWidth
+            <TextField label="Amount" type="number" value={amount} fullWidth required
               inputProps={{ min: 0, step: '0.01' }}
+              InputLabelProps={{ required: false }}
               onChange={(e) => setAmount(e.target.value)} />
-            <TextField label="Effective Date" type="date" value={effectiveDate} fullWidth
-              InputLabelProps={{ shrink: true }}
+            <TextField label="Effective Date" type="date" value={effectiveDate} fullWidth required
+              InputLabelProps={{ shrink: true, required: false }}
               onChange={(e) => setEffectiveDate(e.target.value)} />
           </Box>
         </DialogContent>
