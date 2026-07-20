@@ -5,6 +5,7 @@ import { render } from '../../test/test-utils'
 import ReferenceDataPage from './ReferenceDataPage'
 import { workerTypesApi } from '../../api/workers'
 import { ratesApi } from '../../api/rates'
+import { resourceRolesApi } from '../../api/resourceRoles'
 
 vi.mock('../../api/workers', () => ({
   workerTypesApi: {
@@ -21,7 +22,12 @@ vi.mock('../../api/rates', () => ({
   },
 }))
 vi.mock('../../api/resourceRoles', () => ({
-  resourceRolesApi: { list: vi.fn().mockResolvedValue([]) },
+  resourceRolesApi: {
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
 }))
 
 const employee = {
@@ -99,5 +105,32 @@ describe('ReferenceDataPage — Worker Types & Rates', () => {
     await waitFor(() => expect(ratesApi.updateRate).toHaveBeenCalledWith(
       'wt1', 1100, expect.any(String),
     ))
+  })
+})
+
+const defaultRole = { id: 'rr0', name: 'Default', description: 'Fallback', resource_count: 2, version: 1 }
+const architect = { id: 'rr1', name: 'Architect', description: 'Designs', resource_count: 3, version: 1 }
+const analyst = { id: 'rr2', name: 'Analyst', description: 'Analysis', resource_count: 0, version: 1 }
+
+describe('ReferenceDataPage — Resource Roles', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(workerTypesApi.list).mockResolvedValue([] as any)
+    vi.mocked(resourceRolesApi.list).mockResolvedValue([defaultRole, architect, analyst] as any)
+  })
+
+  it('renders the roles with resource counts', async () => {
+    render(<ReferenceDataPage />)
+    const roles = within(await screen.findByRole('region', { name: 'Resource Roles' }))
+    expect(await roles.findByText('Architect')).toBeInTheDocument()
+    expect(roles.getByText('Resources')).toBeInTheDocument()
+  })
+
+  it('disables delete for Default and for in-use roles, enables for unused', async () => {
+    render(<ReferenceDataPage />)
+    await screen.findByRole('region', { name: 'Resource Roles' })
+    expect(await screen.findByRole('button', { name: /Delete Default/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Delete Architect/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Delete Analyst/i })).toBeEnabled()
   })
 })

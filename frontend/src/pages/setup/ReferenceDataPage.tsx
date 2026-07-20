@@ -12,10 +12,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { workerTypesApi } from '../../api/workers'
 import { ratesApi } from '../../api/rates'
-import { WorkerType } from '../../types'
+import { resourceRolesApi } from '../../api/resourceRoles'
+import { WorkerType, ResourceRole } from '../../types'
 
 type Severity = 'success' | 'error'
 type Notify = (message: string, severity: Severity) => void
+
+const DEFAULT_ROLE_NAME = 'Default'
 
 const formatRate = (rate?: string | number | null) =>
   rate !== undefined && rate !== null && rate !== '' ? `$${rate}` : '—'
@@ -268,6 +271,122 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
   )
 }
 
+// ---------- Resource Roles panel ----------
+const ResourceRolesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
+  const qc = useQueryClient()
+  const { data: roles = [], isLoading } = useQuery({
+    queryKey: ['resource-roles'],
+    queryFn: () => resourceRolesApi.list(),
+  })
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<ResourceRole | null>(null)
+  const [form, setForm] = useState({ name: '', description: '' })
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      editing
+        ? resourceRolesApi.update(editing.id, { name: form.name, description: form.description || undefined, version: editing.version })
+        : resourceRolesApi.create({ name: form.name, description: form.description || undefined }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['resource-roles'] })
+      setDialogOpen(false)
+    },
+    onError: (e: any) => notify(errText(e, 'Failed to save resource role'), 'error'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: (role: ResourceRole) => resourceRolesApi.delete(role.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['resource-roles'] }),
+    onError: (e: any) => notify(errText(e, 'Failed to delete resource role'), 'error'),
+  })
+
+  const openCreate = () => { setEditing(null); setForm({ name: '', description: '' }); setDialogOpen(true) }
+  const openEdit = (role: ResourceRole) => { setEditing(role); setForm({ name: role.name, description: role.description || '' }); setDialogOpen(true) }
+  const handleDelete = (role: ResourceRole) => {
+    if (role.name === DEFAULT_ROLE_NAME || (role.resource_count ?? 0) > 0) return
+    if (!window.confirm(`Are you sure you want to delete the "${role.name}" role?`)) return
+    deleteMut.mutate(role)
+  }
+
+  return (
+    <Paper component="section" role="region" aria-label="Resource Roles" sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h6">Resource Roles</Typography>
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>Add Role</Button>
+      </Box>
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Resources</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {roles.length === 0 ? (
+                <TableRow><TableCell colSpan={4} align="center">No resource roles found</TableCell></TableRow>
+              ) : (
+                roles.map((role) => {
+                  const isDefault = role.name === DEFAULT_ROLE_NAME
+                  const inUse = (role.resource_count ?? 0) > 0
+                  const disabled = isDefault || inUse
+                  const title = isDefault
+                    ? 'Default role cannot be deleted'
+                    : inUse
+                      ? `Can't delete — ${role.resource_count} resource(s) still use this role. Reassign them first.`
+                      : ''
+                  return (
+                    <TableRow key={role.id} hover>
+                      <TableCell><Typography variant="body2" fontWeight="medium">{role.name}</Typography></TableCell>
+                      <TableCell>{role.description}</TableCell>
+                      <TableCell>{role.resource_count ?? 0}</TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" aria-label={`Edit ${role.name}`} onClick={() => openEdit(role)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <Tooltip title={title}>
+                          <span>
+                            <IconButton size="small" aria-label={`Delete ${role.name}`} disabled={disabled} onClick={() => handleDelete(role)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editing ? 'Edit Role' : 'Add Role'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
+            <TextField label="Name" value={form.name} required fullWidth
+              InputLabelProps={{ required: false }}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+            <TextField label="Description" value={form.description} fullWidth multiline rows={3}
+              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!form.name || saveMut.isPending} onClick={() => saveMut.mutate()}>Save</Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
+  )
+}
+
 // ---------- Page ----------
 const ReferenceDataPage: React.FC = () => {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: Severity }>({
@@ -281,6 +400,7 @@ const ReferenceDataPage: React.FC = () => {
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}><WorkerTypesPanel notify={notify} /></Grid>
         <Grid item xs={12} md={6}><RatesPanel notify={notify} /></Grid>
+        <Grid item xs={12}><ResourceRolesPanel notify={notify} /></Grid>
       </Grid>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000}
