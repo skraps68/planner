@@ -790,6 +790,33 @@ const ResourceDetailPage: React.FC = () => {
   }
 
   // ── Existing resource detail ──
+  const isLabor = formData.resource_type === 'LABOR'
+
+  const editControls = !isEditing ? (
+    <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+      Edit
+    </Button>
+  ) : (
+    <Box sx={{ display: 'flex', gap: 1 }}>
+      <Button variant="outlined" size="small" onClick={handleCancelEdit} disabled={saving}>Cancel</Button>
+      <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
+        {saving ? 'Saving…' : 'Save'}
+      </Button>
+    </Box>
+  )
+
+  const descriptionCell = (
+    <Grid item xs={12}>
+      <Typography variant="caption" color="text.secondary">Description</Typography>
+      {isEditing ? (
+        <TextField fullWidth size="small" multiline rows={2} value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })} sx={{ mt: 0.5 }} />
+      ) : (
+        <Typography variant="body1">{formData.description || '—'}</Typography>
+      )}
+    </Grid>
+  )
+
   return (
     <Box>
       {/* No breadcrumbs here: this page shows the resource across ALL projects,
@@ -797,7 +824,7 @@ const ResourceDetailPage: React.FC = () => {
           returning to wherever you came from. */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="h6">
-          Resource
+          Resource ({isLabor ? 'Labor' : 'Non-Labor'})
         </Typography>
         <PresenceBadge others={presentOthers} />
       </Box>
@@ -807,103 +834,90 @@ const ResourceDetailPage: React.FC = () => {
       {/* Details panel */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container rowSpacing={1} columnSpacing={1}>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="caption" color="text.secondary">
-                {formData.resource_type === 'LABOR' ? 'Worker' : 'Name'}
-              </Typography>
-              {isEditing && formData.resource_type === 'LABOR' ? (
-                <WorkerSearchAutocomplete
-                  size="small"
-                  sx={{ mt: 0.5 }}
-                  value={selectedWorkerId}
-                  onChange={(id) => { setSelectedWorkerId(id); setWorkerError(null) }}
-                  placeholder="Select worker"
-                  error={!!workerError}
-                  helperText={workerError || undefined}
-                />
-              ) : isEditing ? (
-                <TextField fullWidth size="small" value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
-              ) : formData.resource_type === 'LABOR' && selectedWorkerId ? (
-                <Box>
-                  <Typography
-                    variant="body1"
-                    component="a"
-                    onClick={() => navigate(`/workers/${selectedWorkerId}`, {
-                      state: { fromResource: { id: id!, name: resource?.name } },
-                    })}
-                    sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}
-                  >
-                    {formData.name}
+          <Grid container rowSpacing={1.5} columnSpacing={2}>
+            {isLabor ? (
+              <>
+                {/* Row 1: Worker | Resource Role | Edit — same cells in read & edit */}
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="caption" color="text.secondary">Worker</Typography>
+                  {isEditing ? (
+                    <WorkerSearchAutocomplete
+                      size="small"
+                      sx={{ mt: 0.5 }}
+                      value={selectedWorkerId}
+                      onChange={(wid) => { setSelectedWorkerId(wid); setWorkerError(null) }}
+                      placeholder="Select worker"
+                      error={!!workerError}
+                      helperText={workerError || undefined}
+                    />
+                  ) : selectedWorkerId ? (
+                    <Typography
+                      variant="body1"
+                      component="a"
+                      onClick={() => navigate(`/workers/${selectedWorkerId}`, {
+                        state: { fromResource: { id: id!, name: resource?.name } },
+                      })}
+                      sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer', display: 'block' }}
+                    >
+                      {formData.name}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body1">{formData.name}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="caption" color="text.secondary">Resource Role</Typography>
+                  {isEditing ? (
+                    <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
+                      <Select
+                        SelectDisplayProps={{ 'aria-label': 'Resource Role' }}
+                        value={formData.resource_role_id}
+                        onChange={(e) => setFormData({ ...formData, resource_role_id: e.target.value })}
+                      >
+                        {roles.map((role) => (
+                          <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  ) : (
+                    <Typography variant="body1">{resource?.resource_role_name || '—'}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                  {editControls}
+                </Grid>
+
+                {/* Row 2: Worker Type + Rate — read-only reference, one comma-separated line */}
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary">
+                    {`Worker Type: ${resource?.worker_type_name || '—'}, Rate: ${
+                      resource?.current_rate
+                        ? `$${Number(resource.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : '—'
+                    }`}
                   </Typography>
-                </Box>
-              ) : (
-                <Typography variant="body1">{formData.name}</Typography>
-              )}
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="caption" color="text.secondary">Type</Typography>
-              <Typography variant="body1">
-                {formData.resource_type === 'LABOR' ? 'Labor' : 'Non-Labor'}
-              </Typography>
-            </Grid>
-            {formData.resource_type === 'LABOR' && isEditing && (
-              <Grid item xs={12} sm={4}>
-                <Typography variant="caption" color="text.secondary">Resource Role</Typography>
-                <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
-                  <InputLabel id="resource-role-label-edit">Resource Role</InputLabel>
-                  <Select
-                    labelId="resource-role-label-edit"
-                    label="Resource Role"
-                    value={formData.resource_role_id}
-                    onChange={(e) => setFormData({ ...formData, resource_role_id: e.target.value })}
-                  >
-                    {roles.map((role) => (
-                      <MenuItem key={role.id} value={role.id}>{role.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+                </Grid>
+
+                {/* Row 3: Description */}
+                {descriptionCell}
+              </>
+            ) : (
+              <>
+                <Grid item xs={12} sm={8}>
+                  <Typography variant="caption" color="text.secondary">Name</Typography>
+                  {isEditing ? (
+                    <TextField fullWidth size="small" value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })} sx={{ mt: 0.5 }} />
+                  ) : (
+                    <Typography variant="body1">{formData.name}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                  {editControls}
+                </Grid>
+                {descriptionCell}
+              </>
             )}
-            {formData.resource_type === 'LABOR' && !isEditing && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary">
-                  {`Role: ${resource?.resource_role_name || '—'}`}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {`Worker Type: ${resource?.worker_type_name || '—'}`}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {resource?.current_rate
-                    ? `Rate: $${Number(resource.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : 'Rate: —'}
-                </Typography>
-              </Grid>
-            )}
-            <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
-              {!isEditing ? (
-                <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
-                  Edit
-                </Button>
-              ) : (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="outlined" size="small" onClick={handleCancelEdit} disabled={saving}>Cancel</Button>
-                  <Button variant="contained" size="small" onClick={handleSave} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save'}
-                  </Button>
-                </Box>
-              )}
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="caption" color="text.secondary">Description</Typography>
-              {isEditing ? (
-                <TextField fullWidth size="small" multiline rows={2} value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })} sx={{ mt: 0.5 }} />
-              ) : (
-                <Typography variant="body1">{formData.description || '—'}</Typography>
-              )}
-            </Grid>
           </Grid>
         </CardContent>
       </Card>

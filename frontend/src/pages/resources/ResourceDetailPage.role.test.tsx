@@ -91,30 +91,39 @@ describe('ResourceDetailPage resource role', () => {
     await waitFor(() => expect(select).toHaveTextContent('Default'))
   })
 
-  it('read mode: shows Role, Worker Type, and Rate for a labor resource', async () => {
+  it('read mode: shows Role, and Worker Type + Rate on one line for a labor resource', async () => {
     mockParams = { id: 'resource-1' }
     vi.mocked(resourcesApi.get).mockResolvedValue(laborResource as any)
     render(<ResourceDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
 
-    expect(screen.getByText('Role: Engineer')).toBeInTheDocument()
-    expect(screen.getByText('Worker Type: Employee')).toBeInTheDocument()
-    expect(screen.getByText('Rate: $1,500.00')).toBeInTheDocument()
+    expect(screen.getByText('Engineer')).toBeInTheDocument()
+    expect(screen.getByText('Worker Type: Employee, Rate: $1,500.00')).toBeInTheDocument()
   })
 
-  it('edit mode: hides Worker Type/Rate text (role select may appear)', async () => {
+  it('edit mode: keeps Worker Type/Rate in place (read-only) and turns Resource Role into a select', async () => {
     mockParams = { id: 'resource-1' }
     vi.mocked(resourcesApi.get).mockResolvedValue(laborResource as any)
     const user = userEvent.setup()
     render(<ResourceDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
-    expect(screen.getByText('Worker Type: Employee')).toBeInTheDocument()
+    expect(screen.getByText('Worker Type: Employee, Rate: $1,500.00')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /edit/i }))
 
-    expect(screen.queryByText('Worker Type: Employee')).not.toBeInTheDocument()
-    expect(screen.queryByText('Rate: $1,500.00')).not.toBeInTheDocument()
+    // Worker Type/Rate stays exactly where it was (read-only) so the layout doesn't reflow.
+    expect(screen.getByText('Worker Type: Employee, Rate: $1,500.00')).toBeInTheDocument()
+    // Resource Role becomes an editable select, labelled once (no double label).
+    expect(screen.getByRole('combobox', { name: /resource role/i })).toBeInTheDocument()
+  })
+
+  it('page title reflects the resource type', async () => {
+    mockParams = { id: 'resource-1' }
+    vi.mocked(resourcesApi.get).mockResolvedValue(laborResource as any)
+    render(<ResourceDetailPage />)
+
+    await waitFor(() => expect(screen.getByText('Resource (Labor)')).toBeInTheDocument())
   })
 })
