@@ -193,7 +193,8 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
   })
 
   const openSetRate = (wt: WorkerType) => {
-    setTarget(wt); setAmount(''); setEffectiveDate(today()); setDialogOpen(true)
+    const current = wt.current_rate != null && wt.current_rate !== '' ? String(Math.round(Number(wt.current_rate))) : ''
+    setTarget(wt); setAmount(current); setEffectiveDate(today()); setDialogOpen(true)
   }
 
   return (
@@ -228,7 +229,9 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
                       <TableCell><Typography variant="body2" fontWeight="medium">{wt.type}</Typography></TableCell>
                       <TableCell>{formatRate(wt.current_rate)}</TableCell>
                       <TableCell align="right">
-                        <Button size="small" variant="outlined" onClick={() => openSetRate(wt)}>Set Rate</Button>
+                        <IconButton size="small" aria-label={`Edit rate for ${wt.type}`} onClick={() => openSetRate(wt)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -253,8 +256,13 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
             <TextField label="Amount" type="number" value={amount} fullWidth required
-              inputProps={{ min: 0, step: '0.01' }}
+              inputProps={{ min: 0, step: 1 }}
               InputLabelProps={{ required: false }}
+              sx={{
+                '& input[type=number]': { MozAppearance: 'textfield' },
+                '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+              }}
               onChange={(e) => setAmount(e.target.value)} />
             <TextField label="Effective Date" type="date" value={effectiveDate} fullWidth required
               InputLabelProps={{ shrink: true, required: false }}

@@ -97,8 +97,11 @@ describe('ReferenceDataPage — Worker Types & Rates', () => {
     await waitFor(() => expect(screen.getAllByText('Employee').length).toBeGreaterThan(0))
 
     const rates = within(screen.getByRole('region', { name: 'Rates' }))
-    await user.click(rates.getAllByRole('button', { name: /Set Rate/i })[0])
-    const amount = await screen.findByLabelText('Amount')
+    await user.click(rates.getAllByRole('button', { name: /Edit rate for/i })[0])
+    const amount = await screen.findByLabelText('Amount') as HTMLInputElement
+    // Defaults to the current rate as a whole number (no decimals).
+    expect(amount.value).toBe('1000')
+    await user.clear(amount)
     await user.type(amount, '1100')
     await user.click(screen.getByRole('button', { name: /^Save$/i }))
 
