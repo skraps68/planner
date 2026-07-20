@@ -95,31 +95,4 @@ describe('WorkersListPage', () => {
     await user.click(del)
     expect(mockNavigate).not.toHaveBeenCalled()
   })
-
-  it('row click on worker-types tab navigates to the worker type detail', async () => {
-    const user = userEvent.setup()
-    render(<WorkersListPage />, {
-      store: adminStore(),
-      queryClient: createTestQueryClient(),
-    })
-    // Switch to Worker Types tab
-    await user.click(screen.getByRole('tab', { name: /worker types/i }))
-    await waitFor(() => expect(screen.getByText('Engineer')).toBeInTheDocument())
-    await user.click(screen.getByText('Engineer'))
-    expect(mockNavigate).toHaveBeenCalledWith('/workers/types/wt1')
-  })
-
-  it('delete icon on worker-types tab does not navigate', async () => {
-    window.confirm = () => false
-    const user = userEvent.setup()
-    render(<WorkersListPage />, {
-      store: adminStore(),
-      queryClient: createTestQueryClient(),
-    })
-    await user.click(screen.getByRole('tab', { name: /worker types/i }))
-    await waitFor(() => expect(screen.getByText('Engineer')).toBeInTheDocument())
-    const del = screen.getAllByRole('button').find((b) => b.querySelector('[data-testid="DeleteIcon"]'))!
-    await user.click(del)
-    expect(mockNavigate).not.toHaveBeenCalled()
-  })
 })

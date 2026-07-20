@@ -5,7 +5,7 @@ from app.models.base import Base, BaseModel, GUID
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
-from app.models.resource import Resource, Worker, WorkerType, ResourceType
+from app.models.resource import Resource, Worker, WorkerType, ResourceType, ResourceRole
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
 from app.models.actual import Actual
@@ -22,6 +22,7 @@ __all__ = [
     "Project",
     "ProjectPhase",
     "Resource",
+    "ResourceRole",
     "Worker",
     "WorkerType",
     "ResourceType",

@@ -63,6 +63,14 @@ const ResourceTab: React.FC<{
     { field: 'name', headerName: 'Name', flex: 1, minWidth: 200 },
     { field: 'description', headerName: 'Description', flex: 2, minWidth: 200,
       valueGetter: (params) => params.value || '—' },
+    { field: 'resource_role_name', headerName: 'Role', width: 140,
+      valueGetter: (params) => params.row.resource_role_name ?? '—' },
+    { field: 'worker_type_name', headerName: 'Type', width: 140,
+      valueGetter: (params) => params.row.worker_type_name ?? '—' },
+    { field: 'current_rate', headerName: 'Rate', width: 120,
+      valueGetter: (params) => params.row.current_rate
+        ? `$${Number(params.row.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : '—' },
     { field: 'created_at', headerName: 'Created', width: 150,
       valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
   ]

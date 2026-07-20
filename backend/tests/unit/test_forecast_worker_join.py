@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.models.base import Base
 from app.models.rate import Rate
-from app.models.resource import Resource, ResourceType, Worker, WorkerType
+from app.models.resource import Resource, ResourceRole, ResourceType, Worker, WorkerType
 from app.services.forecasting import ForecastingService
 
 
@@ -24,8 +24,10 @@ def db():
     session.add(w); session.flush()
     session.add(Rate(id=uuid4(), worker_type_id=wt.id, rate_amount=Decimal("1600.00"),
                      start_date=date(2020, 1, 1), end_date=None))
+    role = ResourceRole(id=uuid4(), name="Test Role")
+    session.add(role); session.flush()
     session.add(Resource(id=uuid4(), name="Jane Doe", resource_type=ResourceType.LABOR,
-                         worker_id=w.id))
+                         worker_id=w.id, resource_role_id=role.id))
     # A decoy resource with the same NAME as the worker but no link — must NOT price at 1600
     session.add(Resource(id=uuid4(), name="Jane Doe", resource_type=ResourceType.NON_LABOR))
     session.commit()

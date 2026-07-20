@@ -22,6 +22,9 @@ const GROUPS: DestinationGroup[] = [
     title: 'Setup',
     items: [
       { label: 'Workers', path: '/workers', permission: 'view_workers' },
+      { label: 'Resource Roles', path: '/setup/resource-roles', permission: 'manage_resource_roles' },
+      { label: 'Worker Types', path: '/setup/worker-types', permission: 'manage_worker_types' },
+      { label: 'Rates', path: '/setup/rates', permission: 'manage_rates' },
       { label: 'User Management', path: '/admin/users', permission: 'manage_users' },
     ],
   },

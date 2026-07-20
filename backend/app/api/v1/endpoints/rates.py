@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, check_admin_permission
 from app.models.user import User
 from app.schemas.rate import (
     RateCreate,
@@ -39,7 +39,7 @@ async def create_rate(
     rate_in: RateCreate,
     close_previous: bool = Query(True, description="Close the previous rate before creating new one"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_permission)
 ):
     """
     Create a new rate.
@@ -338,7 +338,7 @@ async def update_rate(
     new_rate_amount: Decimal = Query(..., gt=0, description="New rate amount"),
     effective_date: date = Query(..., description="Date when new rate becomes effective"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_permission)
 ):
     """
     Update rate by closing the current rate and creating a new one.
@@ -394,7 +394,7 @@ async def close_rate(
     worker_type_id: UUID,
     end_date: date = Query(..., description="Date to close the rate"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_permission)
 ):
     """
     Close the current rate by setting its end_date.

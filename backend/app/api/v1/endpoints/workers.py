@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, check_admin_permission
 from app.models.user import User
 from app.schemas.resource import (
     WorkerCreate,
@@ -38,7 +38,7 @@ router = APIRouter()
 async def create_worker_type(
     worker_type_in: WorkerTypeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_permission)
 ):
     """
     Create a new worker type.
@@ -211,7 +211,7 @@ async def update_worker_type(
     worker_type_id: UUID,
     worker_type_in: WorkerTypeUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_permission)
 ):
     """
     Update an existing worker type.
@@ -269,7 +269,7 @@ async def update_worker_type(
 async def delete_worker_type(
     worker_type_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_admin_permission)
 ):
     """
     Delete a worker type.

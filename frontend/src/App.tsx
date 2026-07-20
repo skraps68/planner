@@ -14,7 +14,6 @@ import ResourcesListPage from './pages/resources/ResourcesListPage'
 import ResourceDetailPage from './pages/resources/ResourceDetailPage'
 import WorkersListPage from './pages/workers/WorkersListPage'
 import WorkerDetailPage from './pages/workers/WorkerDetailPage'
-import WorkerTypeDetailPage from './pages/workers/WorkerTypeDetailPage'
 import ActualsListPage from './pages/actuals/ActualsListPage'
 import ActualsImportPage from './pages/actuals/ActualsImportPage'
 import VarianceAnalysisPage from './pages/actuals/VarianceAnalysisPage'
@@ -32,6 +31,10 @@ import UserAuditPage from './pages/admin/UserAuditPage'
 import PortfoliosListPage from './pages/portfolios/PortfoliosListPage'
 import PortfolioDetailPage from './pages/portfolios/PortfolioDetailPage'
 import PortfolioFormPage from './pages/portfolios/PortfolioFormPage'
+import ResourceRolesPage from './pages/setup/ResourceRolesPage'
+import WorkerTypesPage from './pages/setup/WorkerTypesPage'
+import RatesPage from './pages/setup/RatesPage'
+import { AdminRoute } from './components/common/AdminRoute'
 
 function App() {
   return (
@@ -66,7 +69,6 @@ function App() {
                     <Route path="/resources/:id" element={<ResourceDetailPage />} />
                     <Route path="/workers" element={<WorkersListPage />} />
                     <Route path="/workers/:id" element={<WorkerDetailPage />} />
-                    <Route path="/workers/types/:id" element={<WorkerTypeDetailPage />} />
                     <Route path="/actuals" element={<ActualsListPage />} />
                     <Route path="/actuals/import" element={<ActualsImportPage />} />
                     <Route path="/actuals/variance" element={<VarianceAnalysisPage />} />
@@ -82,6 +84,30 @@ function App() {
                     <Route path="/admin/users/:id/roles" element={<UserRolesPage />} />
                     <Route path="/admin/users/:id/roles/:roleId/scopes" element={<RoleScopesPage />} />
                     <Route path="/admin/users/:id/audit" element={<UserAuditPage />} />
+                    <Route
+                      path="/setup/resource-roles"
+                      element={
+                        <AdminRoute permission="manage_resource_roles">
+                          <ResourceRolesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="/setup/worker-types"
+                      element={
+                        <AdminRoute permission="manage_worker_types">
+                          <WorkerTypesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="/setup/rates"
+                      element={
+                        <AdminRoute permission="manage_rates">
+                          <RatesPage />
+                        </AdminRoute>
+                      }
+                    />
                     {/* Additional routes will be added in subsequent tasks */}
                   </Routes>
                 </Layout>

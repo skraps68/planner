@@ -32,6 +32,11 @@ class Resource(BaseModel):
             "(resource_type = 'NON_LABOR' AND worker_id IS NULL)",
             name="ck_resources_labor_worker",
         ),
+        CheckConstraint(
+            "(resource_type = 'LABOR' AND resource_role_id IS NOT NULL) OR "
+            "(resource_type = 'NON_LABOR' AND resource_role_id IS NULL)",
+            name="ck_resources_labor_role",
+        ),
     )
 
     # Required fields
@@ -44,17 +49,34 @@ class Resource(BaseModel):
     # constraint makes NULL impossible for labor rows at the database level.
     worker_id = Column(GUID(), ForeignKey("workers.id"), nullable=True, unique=True, index=True)
 
+    # Resource role: LABOR resources must have a role; NON_LABOR must not.
+    resource_role_id = Column(GUID(), ForeignKey("resource_roles.id"), nullable=True, index=True)
+
     # Relationships
     resource_assignments = relationship("ResourceAssignment", back_populates="resource", cascade="all, delete-orphan")
     worker = relationship("Worker")
+    resource_role = relationship("ResourceRole", back_populates="resources")
     
     def __repr__(self) -> str:
         return f"<Resource(id={self.id}, name='{self.name}', type={self.resource_type})>"
 
 
+class ResourceRole(BaseModel):
+    """Job-role classification for a (labor) resource. Admin-managed reference data."""
+    __tablename__ = "resource_roles"
+
+    name = Column(String(100), nullable=False, unique=True, index=True)
+    description = Column(String(1000), nullable=True)
+
+    resources = relationship("Resource", back_populates="resource_role")
+
+    def __repr__(self) -> str:
+        return f"<ResourceRole(id={self.id}, name='{self.name}')>"
+
+
 class WorkerType(BaseModel):
     """Worker type model for categorizing workers."""
-    
+
     __tablename__ = "worker_types"
     
     # Required fields

@@ -19,10 +19,29 @@ from app.schemas.resource import (
     ResourceSummary
 )
 from app.schemas.base import SuccessResponse, PaginationParams
-from app.services.resource import resource_service
+from app.services.resource import resource_service, rate_service
 from app.core.exceptions import ConflictError
 
 router = APIRouter()
+
+
+def _enrich(db: Session, resource) -> ResourceResponse:
+    """
+    Build a ResourceResponse for `resource`, filling in the denormalized
+    fields: assignment_count, resource_role_name, and (for LABOR resources)
+    worker_name, worker_type_name, and current_rate.
+    """
+    response = ResourceResponse.model_validate(resource)
+    response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
+    response.resource_role_name = resource.resource_role.name if resource.resource_role else None
+    if resource.resource_type == ResourceType.LABOR and resource.worker_id:
+        worker = resource.worker
+        if worker:
+            response.worker_name = worker.name
+            response.worker_type_name = worker.worker_type.type if worker.worker_type else None
+            current = rate_service.get_current_rate(db, worker.worker_type_id)
+            response.current_rate = str(current.rate_amount) if current else None
+    return response
 
 
 @router.post(
@@ -53,14 +72,11 @@ async def create_resource(
             name=resource_in.name,
             resource_type=resource_in.resource_type,
             description=resource_in.description,
-            worker_id=resource_in.worker_id
+            worker_id=resource_in.worker_id,
+            resource_role_id=resource_in.resource_role_id
         )
-        
-        # Convert to response model
-        response = ResourceResponse.model_validate(resource)
-        response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
-        
-        return response
+
+        return _enrich(db, resource)
         
     except ValueError as e:
         raise HTTPException(
@@ -120,12 +136,8 @@ async def list_resources(
         paginated_resources = resources[start_idx:end_idx]
         
         # Convert to response models
-        resource_responses = []
-        for resource in paginated_resources:
-            response = ResourceResponse.model_validate(resource)
-            response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
-            resource_responses.append(response)
-        
+        resource_responses = [_enrich(db, resource) for resource in paginated_resources]
+
         return ResourceListResponse(
             items=resource_responses,
             total=total,
@@ -135,7 +147,7 @@ async def list_resources(
             has_next=pagination.page < pages,
             has_prev=pagination.page > 1
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -170,10 +182,7 @@ async def get_resource(
             detail=f"Resource with ID {resource_id} not found"
         )
     
-    response = ResourceResponse.model_validate(resource)
-    response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
-    
-    return response
+    return _enrich(db, resource)
 
 
 @router.put(
@@ -200,13 +209,11 @@ async def update_resource(
             resource_id=resource_id,
             name=resource_in.name,
             description=resource_in.description,
-            worker_id=resource_in.worker_id
+            worker_id=resource_in.worker_id,
+            resource_role_id=resource_in.resource_role_id
         )
-        
-        response = ResourceResponse.model_validate(resource)
-        response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
-        
-        return response
+
+        return _enrich(db, resource)
     
     except StaleDataError:
         # Version conflict detected - fetch current state and raise ConflictError
@@ -298,12 +305,8 @@ async def list_labor_resources(
         pages = (total + pagination.size - 1) // pagination.size
         
         # Convert to response models
-        resource_responses = []
-        for resource in resources:
-            response = ResourceResponse.model_validate(resource)
-            response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
-            resource_responses.append(response)
-        
+        resource_responses = [_enrich(db, resource) for resource in resources]
+
         return ResourceListResponse(
             items=resource_responses,
             total=total,
@@ -351,12 +354,8 @@ async def list_non_labor_resources(
         pages = (total + pagination.size - 1) // pagination.size
         
         # Convert to response models
-        resource_responses = []
-        for resource in resources:
-            response = ResourceResponse.model_validate(resource)
-            response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
-            resource_responses.append(response)
-        
+        resource_responses = [_enrich(db, resource) for resource in resources]
+
         return ResourceListResponse(
             items=resource_responses,
             total=total,

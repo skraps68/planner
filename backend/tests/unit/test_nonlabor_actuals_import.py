@@ -12,7 +12,7 @@ from app.models.base import Base
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project
-from app.models.resource import Resource, ResourceType, Worker, WorkerType
+from app.models.resource import Resource, ResourceRole, ResourceType, Worker, WorkerType
 from app.services.actuals_import import (
     nonlabor_actuals_import_service as svc,
     ActualsImportError,
@@ -136,10 +136,15 @@ def _make_labor_resource(db, external_id="EMP1", name="Ann"):
     db.add(worker)
     db.flush()
 
+    role = ResourceRole(name="Role-%s" % external_id)
+    db.add(role)
+    db.flush()
+
     resource = Resource(
         name=name,
         resource_type=ResourceType.LABOR,
         worker_id=worker.id,
+        resource_role_id=role.id,
     )
     db.add(resource)
     db.flush()

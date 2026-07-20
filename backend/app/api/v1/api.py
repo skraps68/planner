@@ -4,7 +4,7 @@ Main API router for v1 endpoints.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
-    programs, projects, resources, workers, rates,
+    programs, projects, resources, resource_roles, workers, rates,
     assignments, actuals, reports, auth, users, audit, phases, portfolios, realtime
 )
 
@@ -19,6 +19,7 @@ api_router.include_router(programs.router, prefix="/programs", tags=["programs"]
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(phases.router, prefix="", tags=["phases"])  # No prefix, uses paths from router
 api_router.include_router(resources.router, prefix="/resources", tags=["resources"])
+api_router.include_router(resource_roles.router, prefix="/resource-roles", tags=["resource-roles"])
 api_router.include_router(workers.router, prefix="/workers", tags=["workers"])
 api_router.include_router(rates.router, prefix="/rates", tags=["rates"])
 api_router.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
@@ -46,6 +47,7 @@ async def api_info():
             "projects": "/api/v1/projects",
             "phases": "/api/v1/phases",
             "resources": "/api/v1/resources",
+            "resource-roles": "/api/v1/resource-roles",
             "workers": "/api/v1/workers",
             "rates": "/api/v1/rates",
             "assignments": "/api/v1/assignments",

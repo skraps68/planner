@@ -13,7 +13,7 @@ from app.models.base import Base
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
-from app.models.resource import Resource, Worker, WorkerType, ResourceType
+from app.models.resource import Resource, ResourceRole, Worker, WorkerType, ResourceType
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
 from app.models.actual import Actual
@@ -309,12 +309,18 @@ class TestResourceModels:
         db.add(worker)
         db.commit()
 
+        # Create resource role
+        role = ResourceRole(name="Test Role")
+        db.add(role)
+        db.commit()
+
         # Create LABOR resource with worker_id
         labor_resource = Resource(
             name="Test LABOR Resource",
             resource_type=ResourceType.LABOR,
             description="A test labor resource",
-            worker_id=worker.id
+            worker_id=worker.id,
+            resource_role_id=role.id
         )
         db.add(labor_resource)
         db.commit()

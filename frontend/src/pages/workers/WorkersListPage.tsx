@@ -20,31 +20,13 @@ import {
   InputLabel,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-const TabPanel = (props: TabPanelProps) => {
-  const { children, value, index, ...other } = props
-  return (
-    <div hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ pt: 1.5 }}>{children}</Box>}
-    </div>
-  )
-}
-
 const WorkersListPage = () => {
   const navigate = useNavigate()
-  const [tabValue, setTabValue] = useState(0)
   const [workers, setWorkers] = useState<Worker[]>([])
   const [workerTypes, setWorkerTypes] = useState<WorkerType[]>([])
   const [loading, setLoading] = useState(true)
@@ -90,10 +72,8 @@ const WorkersListPage = () => {
   }, [])
 
   useEffect(() => {
-    if (tabValue === 0) {
-      fetchWorkers()
-    }
-  }, [page, rowsPerPage, search, selectedWorkerType, tabValue])
+    fetchWorkers()
+  }, [page, rowsPerPage, search, selectedWorkerType])
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage)
@@ -117,175 +97,98 @@ const WorkersListPage = () => {
     }
   }
 
-  const handleDeleteWorkerType = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this worker type?')) {
-      return
-    }
-
-    try {
-      await workerTypesApi.delete(id)
-      fetchWorkerTypes()
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to delete worker type')
-    }
-  }
-
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="h5">Workers & Types</Typography>
+        <Typography variant="h5">Workers</Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() =>
-            navigate(tabValue === 0 ? '/workers/new' : '/workers/types/new')
-          }
+          onClick={() => navigate('/workers/new')}
         >
-          {tabValue === 0 ? 'Create Worker' : 'Create Worker Type'}
+          Create Worker
         </Button>
       </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-          <Tab label="Workers" />
-          <Tab label="Worker Types" />
-        </Tabs>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
+        <TextField
+          placeholder="Search workers..."
+          size="small"
+          value={search}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+          sx={{ flexGrow: 1 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel>Worker Type</InputLabel>
+          <Select
+            value={selectedWorkerType}
+            label="Worker Type"
+            onChange={(e: any) => setSelectedWorkerType(e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            {workerTypes.map((type: WorkerType) => (
+              <MenuItem key={type.id} value={type.id}>
+                {type.type}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
-      <TabPanel value={tabValue} index={0}>
-        <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
-          <TextField
-            placeholder="Search workers..."
-            size="small"
-            value={search}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-            sx={{ flexGrow: 1 }}
-          />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Worker Type</InputLabel>
-            <Select
-              value={selectedWorkerType}
-              label="Worker Type"
-              onChange={(e: any) => setSelectedWorkerType(e.target.value)}
-            >
-              <MenuItem value="">All</MenuItem>
-              {workerTypes.map((type: WorkerType) => (
-                <MenuItem key={type.id} value={type.id}>
-                  {type.type}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+      {error && (
+        <Alert severity="error" sx={{ mb: 1.5 }}>
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
         </Box>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 1.5 }}>
-            {error}
-          </Alert>
-        )}
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Paper>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Worker Type</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {workers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        No workers found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    workers.map((worker: Worker) => (
-                      <TableRow
-                        key={worker.id}
-                        hover
-                        onClick={() => navigate(`/workers/${worker.id}`)}
-                        sx={{ cursor: 'pointer', transition: 'all 0.2s ease', '&:hover': { backgroundColor: 'action.hover' } }}
-                      >
-                        <TableCell>
-                          <Typography variant="body1" fontWeight="medium">
-                            {worker.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{worker.external_id}</TableCell>
-                        <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
-                        <TableCell>
-                          {new Date(worker.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker.id) }}>
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={total}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-            />
-          </Paper>
-        )}
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
+      ) : (
         <Paper>
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Worker Type</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Rate</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {workerTypes.length === 0 ? (
+                {workers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      No worker types found
+                    <TableCell colSpan={6} align="center">
+                      No workers found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  workerTypes.map((type: WorkerType) => (
+                  workers.map((worker: Worker) => (
                     <TableRow
-                      key={type.id}
+                      key={worker.id}
                       hover
-                      onClick={() => navigate(`/workers/types/${type.id}`)}
+                      onClick={() => navigate(`/workers/${worker.id}`)}
                       sx={{ cursor: 'pointer', transition: 'all 0.2s ease', '&:hover': { backgroundColor: 'action.hover' } }}
                     >
                       <TableCell>
                         <Typography variant="body1" fontWeight="medium">
-                          {type.type}
+                          {worker.name}
                         </Typography>
                       </TableCell>
-                      <TableCell>{type.description}</TableCell>
-                      <TableCell>{new Date(type.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{worker.external_id}</TableCell>
+                      <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
+                      <TableCell>
+                        {worker.current_rate ? `$${Number(worker.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(worker.created_at).toLocaleDateString()}
+                      </TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteWorkerType(type.id) }}>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker.id) }}>
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>
@@ -295,8 +198,17 @@ const WorkersListPage = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={total}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </Paper>
-      </TabPanel>
+      )}
     </Box>
   )
 }

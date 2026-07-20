@@ -19,7 +19,7 @@ from app.models.user import User
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project
-from app.models.resource import Resource, ResourceType, Worker, WorkerType
+from app.models.resource import Resource, ResourceRole, ResourceType, Worker, WorkerType
 from app.models.resource_assignment import ResourceAssignment
 from app.models.rate import Rate
 from app.models.actual import Actual
@@ -126,10 +126,15 @@ def labor_setup(db_session):
     db.add(worker)
     db.flush()
 
+    role = ResourceRole(name=f"Role-{uuid4()}")
+    db.add(role)
+    db.flush()
+
     resource = Resource(
         name="Alice Example (Resource)",
         resource_type=ResourceType.LABOR,
         worker_id=worker.id,
+        resource_role_id=role.id,
     )
     db.add(resource)
     db.flush()
