@@ -58,7 +58,7 @@ test('setting a rate calls ratesApi.updateRate with the worker type id, amount, 
   saveButton.click()
 
   await waitFor(() => expect(updateRateMock).toHaveBeenCalled())
-  expect(updateRateMock.mock.calls[0][0]).toBe('t1')
+  expect(updateRateMock).toHaveBeenCalledWith('t1', 60, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/))
   expect(listMock).toHaveBeenCalledTimes(2)
 })
 

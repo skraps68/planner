@@ -22,6 +22,7 @@ import {
   Collapse,
 } from '@mui/material'
 import { KeyboardArrowDown as ExpandIcon, KeyboardArrowUp as CollapseIcon } from '@mui/icons-material'
+import { format } from 'date-fns'
 import { workerTypesApi } from '../../api/workers'
 import { ratesApi, RateHistory } from '../../api/rates'
 import { WorkerType } from '../../types'
@@ -29,7 +30,7 @@ import { WorkerType } from '../../types'
 const formatRate = (rate?: string | number | null) =>
   rate !== undefined && rate !== null && rate !== '' ? `$${rate}` : '—'
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => format(new Date(), 'yyyy-MM-dd')
 
 const RatesPage: React.FC = () => {
   const [workerTypes, setWorkerTypes] = useState<WorkerType[]>([])
@@ -198,7 +199,7 @@ const RatesPage: React.FC = () => {
                                     ) : (
                                       (historyByType[workerType.id] || []).map((rate) => (
                                         <TableRow key={rate.id}>
-                                          <TableCell>{formatRate(rate.rate_amount)}</TableCell>
+                                          <TableCell>{formatRate(Number(rate.rate_amount).toFixed(2))}</TableCell>
                                           <TableCell>{rate.start_date}</TableCell>
                                           <TableCell>{rate.end_date || '—'}</TableCell>
                                         </TableRow>
