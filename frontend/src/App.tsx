@@ -33,6 +33,7 @@ import PortfoliosListPage from './pages/portfolios/PortfoliosListPage'
 import PortfolioDetailPage from './pages/portfolios/PortfolioDetailPage'
 import PortfolioFormPage from './pages/portfolios/PortfolioFormPage'
 import ResourceRolesPage from './pages/setup/ResourceRolesPage'
+import WorkerTypesPage from './pages/setup/WorkerTypesPage'
 import { AdminRoute } from './components/common/AdminRoute'
 
 function App() {
@@ -89,6 +90,14 @@ function App() {
                       element={
                         <AdminRoute permission="manage_resource_roles">
                           <ResourceRolesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="/setup/worker-types"
+                      element={
+                        <AdminRoute permission="manage_worker_types">
+                          <WorkerTypesPage />
                         </AdminRoute>
                       }
                     />

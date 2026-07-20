@@ -102,6 +102,8 @@ export interface WorkerType {
   id: string
   type: string
   description: string
+  worker_count?: number
+  current_rate?: string
   version: number
   created_at: string
   updated_at: string
