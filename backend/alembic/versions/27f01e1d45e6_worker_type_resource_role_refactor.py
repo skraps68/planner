@@ -93,7 +93,7 @@ def upgrade() -> None:
         conn.execute(sa.text(
             "INSERT INTO rates (id, worker_type_id, rate_amount, start_date, end_date, created_at, updated_at, version) "
             "VALUES (:id, :wt, :amt, :sd, NULL, now(), now(), 1)"),
-            {"id": str(uuid.uuid4()), "wt": emp_ids[name], "amt": rate, "sd": date.today().isoformat()})
+            {"id": str(uuid.uuid4()), "wt": emp_ids[name], "amt": rate, "sd": date(2024, 1, 1).isoformat()})
 
     # 7. resources.resource_role_id + backfill + CHECK
     op.add_column("resources", sa.Column("resource_role_id", GUID(), nullable=True))

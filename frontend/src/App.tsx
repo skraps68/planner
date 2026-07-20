@@ -14,7 +14,6 @@ import ResourcesListPage from './pages/resources/ResourcesListPage'
 import ResourceDetailPage from './pages/resources/ResourceDetailPage'
 import WorkersListPage from './pages/workers/WorkersListPage'
 import WorkerDetailPage from './pages/workers/WorkerDetailPage'
-import WorkerTypeDetailPage from './pages/workers/WorkerTypeDetailPage'
 import ActualsListPage from './pages/actuals/ActualsListPage'
 import ActualsImportPage from './pages/actuals/ActualsImportPage'
 import VarianceAnalysisPage from './pages/actuals/VarianceAnalysisPage'
@@ -70,7 +69,6 @@ function App() {
                     <Route path="/resources/:id" element={<ResourceDetailPage />} />
                     <Route path="/workers" element={<WorkersListPage />} />
                     <Route path="/workers/:id" element={<WorkerDetailPage />} />
-                    <Route path="/workers/types/:id" element={<WorkerTypeDetailPage />} />
                     <Route path="/actuals" element={<ActualsListPage />} />
                     <Route path="/actuals/import" element={<ActualsImportPage />} />
                     <Route path="/actuals/variance" element={<VarianceAnalysisPage />} />
