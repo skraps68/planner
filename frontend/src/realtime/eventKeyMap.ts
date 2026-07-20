@@ -1,16 +1,17 @@
 // Maps a backend ChangeEvent `type` to the React Query key prefixes that
 // should be invalidated. Prefix arrays match any query key that starts with them.
 const MAP: Record<string, Array<Array<string>>> = {
-  resource: [['resources'], ['resource'], ['assignments']],
+  resource: [['resources'], ['resource'], ['assignments'], ['resource-roles']],
   resource_assignment: [['assignments'], ['forecast'], ['actuals']],
-  worker: [['workers'], ['worker'], ['resources']],
+  worker: [['workers'], ['worker'], ['resources'], ['worker-types']],
   worker_type: [['workers'], ['worker-types']],
   project: [['projects'], ['project'], ['forecast']],
   project_phase: [['phases'], ['project'], ['forecast']],
   program: [['programs'], ['program']],
   portfolio: [['portfolios'], ['portfolio']],
-  rate: [['rates'], ['forecast']],
+  rate: [['rates'], ['forecast'], ['worker-types']],
   actual: [['actuals'], ['forecast']],
+  resource_role: [['resource-roles']],
   presence: [['presence']],
   lock: [['lock']],
 }
