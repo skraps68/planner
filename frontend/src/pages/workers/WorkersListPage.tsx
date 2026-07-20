@@ -197,6 +197,7 @@ const WorkersListPage = () => {
                     <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Worker Type</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Rate</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                   </TableRow>
@@ -204,7 +205,7 @@ const WorkersListPage = () => {
                 <TableBody>
                   {workers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center">
+                      <TableCell colSpan={6} align="center">
                         No workers found
                       </TableCell>
                     </TableRow>
@@ -223,6 +224,9 @@ const WorkersListPage = () => {
                         </TableCell>
                         <TableCell>{worker.external_id}</TableCell>
                         <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
+                        <TableCell>
+                          {worker.current_rate ? `$${Number(worker.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                        </TableCell>
                         <TableCell>
                           {new Date(worker.created_at).toLocaleDateString()}
                         </TableCell>

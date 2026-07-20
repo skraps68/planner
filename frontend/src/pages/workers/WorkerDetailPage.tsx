@@ -222,6 +222,14 @@ const WorkerDetailPage = () => {
                   </Typography>
                 )}
               </Grid>
+              {!effectiveEditing && (
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="caption" color="text.secondary">Rate</Typography>
+                  <Typography variant="body1">
+                    {worker?.current_rate ? `$${Number(worker.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           ) : (
             <Grid container spacing={2}>
