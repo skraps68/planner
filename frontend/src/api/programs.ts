@@ -6,6 +6,7 @@ export interface ProgramCreateRequest {
   business_sponsor: string
   program_manager: string
   technical_lead: string
+  description?: string
   start_date: string
   end_date: string
   portfolio_id: string

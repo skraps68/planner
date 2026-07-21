@@ -7,6 +7,7 @@ export interface Program {
   business_sponsor: string
   program_manager: string
   technical_lead: string
+  description?: string
   start_date: string
   end_date: string
   portfolio_id: string
@@ -27,6 +28,7 @@ export interface Project {
   business_sponsor: string
   project_manager: string
   technical_lead: string
+  description?: string
   start_date: string
   end_date: string
   cost_center_code: string

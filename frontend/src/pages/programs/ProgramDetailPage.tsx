@@ -36,6 +36,7 @@ import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
+import DetailField from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -52,6 +53,7 @@ const ProgramDetailPage: React.FC = () => {
     business_sponsor: '',
     program_manager: '',
     technical_lead: '',
+    description: '',
     start_date: '',
     end_date: '',
     portfolio_id: '',
@@ -147,6 +149,7 @@ const ProgramDetailPage: React.FC = () => {
         business_sponsor: program.business_sponsor,
         program_manager: program.program_manager,
         technical_lead: program.technical_lead,
+        description: program.description || '',
         start_date: program.start_date,
         end_date: program.end_date,
         portfolio_id: program.portfolio?.id || '',
@@ -293,139 +296,50 @@ const ProgramDetailPage: React.FC = () => {
               )}
             </Box>
             <Grid container rowSpacing={1} columnSpacing={1}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Program Name
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.name}
-                      onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{program.name}</Typography>
+              <DetailField label="Program Name" editing={isEditingInfo} value={program.name}>
+                <TextField fullWidth size="small" value={editValues.name}
+                  onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
+              </DetailField>
+              <DetailField label="ID" editing={isEditingInfo} value={program.business_id} />
+              <DetailField label="Business Sponsor" editing={isEditingInfo} value={program.business_sponsor}>
+                <TextField fullWidth size="small" value={editValues.business_sponsor}
+                  onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })} />
+              </DetailField>
+              <DetailField label="Program Manager" editing={isEditingInfo} value={program.program_manager}>
+                <TextField fullWidth size="small" value={editValues.program_manager}
+                  onChange={(e) => setEditValues({ ...editValues, program_manager: e.target.value })} />
+              </DetailField>
+              <DetailField label="Technical Lead" editing={isEditingInfo} value={program.technical_lead}>
+                <TextField fullWidth size="small" value={editValues.technical_lead}
+                  onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })} />
+              </DetailField>
+              <DetailField label="Portfolio" editing={isEditingInfo} value={program.portfolio?.name || 'N/A'}>
+                <Autocomplete
+                  fullWidth
+                  size="small"
+                  options={portfolios}
+                  getOptionLabel={(option) => option.name}
+                  value={portfolios.find((p) => p.id === editValues.portfolio_id) || null}
+                  onChange={(_, newValue) => setEditValues({ ...editValues, portfolio_id: newValue?.id || '' })}
+                  renderInput={(params) => (
+                    <TextField {...params} size="small" placeholder="Select Portfolio" />
                   )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    ID
-                  </Typography>
-                  <Typography variant="body1">{program.business_id}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Business Sponsor
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.business_sponsor}
-                      onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{program.business_sponsor}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Program Manager
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.program_manager}
-                      onChange={(e) => setEditValues({ ...editValues, program_manager: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{program.program_manager}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Technical Lead
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.technical_lead}
-                      onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{program.technical_lead}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Portfolio
-                  </Typography>
-                  {isEditingInfo ? (
-                    <Autocomplete
-                      options={portfolios}
-                      getOptionLabel={(option) => option.name}
-                      value={portfolios.find((p) => p.id === editValues.portfolio_id) || null}
-                      onChange={(_, newValue) =>
-                        setEditValues({ ...editValues, portfolio_id: newValue?.id || '' })
-                      }
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          size="small"
-                          placeholder="Select Portfolio"
-                          sx={{ mt: 0.5 }}
-                        />
-                      )}
-                    />
-                  ) : (
-                    <Typography variant="body1">{program.portfolio?.name || 'N/A'}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Start Date
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="date"
-                      value={editValues.start_date}
-                      onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">
-                      {format(new Date(program.start_date), 'MMMM dd, yyyy')}
-                    </Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    End Date
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="date"
-                      value={editValues.end_date}
-                      onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">
-                      {format(new Date(program.end_date), 'MMMM dd, yyyy')}
-                    </Typography>
-                  )}
-                </Grid>
+                />
+              </DetailField>
+              <DetailField label="Start Date" editing={isEditingInfo}
+                value={format(new Date(program.start_date), 'MMMM dd, yyyy')}>
+                <TextField fullWidth size="small" type="date" value={editValues.start_date}
+                  onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })} />
+              </DetailField>
+              <DetailField label="End Date" editing={isEditingInfo}
+                value={format(new Date(program.end_date), 'MMMM dd, yyyy')}>
+                <TextField fullWidth size="small" type="date" value={editValues.end_date}
+                  onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
+              </DetailField>
+              <DetailField label="Description" editing={isEditingInfo} value={program.description} multiline>
+                <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
+                  onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} />
+              </DetailField>
             </Grid>
           </Paper>
         </Grid>

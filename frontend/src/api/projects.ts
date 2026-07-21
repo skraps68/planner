@@ -7,6 +7,7 @@ export interface ProjectCreateRequest {
   business_sponsor: string
   project_manager: string
   technical_lead: string
+  description?: string
   start_date: string
   end_date: string
   cost_center_code: string

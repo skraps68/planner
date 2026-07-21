@@ -36,6 +36,7 @@ import { Program } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
+import DetailField from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -326,139 +327,38 @@ const PortfolioDetailPage: React.FC = () => {
             )}
           </Box>
           <Grid container spacing={2}>
-            {/* Row 1: Name | ID | Reporting Start | Reporting End */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Portfolio Name
-              </Typography>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editValues.name}
-                  onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                  error={!!validationErrors.name}
-                  helperText={validationErrors.name}
-                  sx={{ mt: 0.5 }}
-                />
-              ) : (
-                <Typography variant="body1">{portfolio.name}</Typography>
-              )}
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                ID
-              </Typography>
-              <Typography variant="body1">{portfolio.business_id}</Typography>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Reporting Start Date
-              </Typography>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  value={editValues.reporting_start_date}
-                  onChange={(e) =>
-                    setEditValues({ ...editValues, reporting_start_date: e.target.value })
-                  }
-                  error={!!validationErrors.reporting_start_date}
-                  helperText={validationErrors.reporting_start_date}
-                  sx={{ mt: 0.5 }}
-                />
-              ) : (
-                <Typography variant="body1">
-                  {format(new Date(portfolio.reporting_start_date), 'MMMM dd, yyyy')}
-                </Typography>
-              )}
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Reporting End Date
-              </Typography>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  value={editValues.reporting_end_date}
-                  onChange={(e) =>
-                    setEditValues({ ...editValues, reporting_end_date: e.target.value })
-                  }
-                  error={!!validationErrors.reporting_end_date}
-                  helperText={validationErrors.reporting_end_date}
-                  sx={{ mt: 0.5 }}
-                />
-              ) : (
-                <Typography variant="body1">
-                  {format(new Date(portfolio.reporting_end_date), 'MMMM dd, yyyy')}
-                </Typography>
-              )}
-            </Grid>
-
-            {/* Row 2: Description | Owner | Created At | Updated At */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Description
-              </Typography>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  size="small"
-                  value={editValues.description}
-                  onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}
-                  error={!!validationErrors.description}
-                  helperText={validationErrors.description}
-                  sx={{ mt: 0.5 }}
-                />
-              ) : (
-                <Typography variant="body1">{portfolio.description}</Typography>
-              )}
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Owner
-              </Typography>
-              {isEditing ? (
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editValues.owner}
-                  onChange={(e) => setEditValues({ ...editValues, owner: e.target.value })}
-                  error={!!validationErrors.owner}
-                  helperText={validationErrors.owner}
-                  sx={{ mt: 0.5 }}
-                />
-              ) : (
-                <Typography variant="body1">{portfolio.owner}</Typography>
-              )}
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Created At
-              </Typography>
-              <Typography variant="body1">
-                {format(new Date(portfolio.created_at), 'MMMM dd, yyyy HH:mm')}
-              </Typography>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="caption" color="text.secondary">
-                Updated At
-              </Typography>
-              <Typography variant="body1">
-                {format(new Date(portfolio.updated_at), 'MMMM dd, yyyy HH:mm')}
-              </Typography>
-            </Grid>
+            <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name}>
+              <TextField fullWidth size="small" value={editValues.name}
+                onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                error={!!validationErrors.name} helperText={validationErrors.name} />
+            </DetailField>
+            <DetailField label="ID" editing={isEditing} value={portfolio.business_id} />
+            <DetailField label="Reporting Start Date" editing={isEditing}
+              value={format(new Date(portfolio.reporting_start_date), 'MMMM dd, yyyy')}>
+              <TextField fullWidth size="small" type="date" value={editValues.reporting_start_date}
+                onChange={(e) => setEditValues({ ...editValues, reporting_start_date: e.target.value })}
+                error={!!validationErrors.reporting_start_date} helperText={validationErrors.reporting_start_date} />
+            </DetailField>
+            <DetailField label="Reporting End Date" editing={isEditing}
+              value={format(new Date(portfolio.reporting_end_date), 'MMMM dd, yyyy')}>
+              <TextField fullWidth size="small" type="date" value={editValues.reporting_end_date}
+                onChange={(e) => setEditValues({ ...editValues, reporting_end_date: e.target.value })}
+                error={!!validationErrors.reporting_end_date} helperText={validationErrors.reporting_end_date} />
+            </DetailField>
+            <DetailField label="Owner" editing={isEditing} value={portfolio.owner}>
+              <TextField fullWidth size="small" value={editValues.owner}
+                onChange={(e) => setEditValues({ ...editValues, owner: e.target.value })}
+                error={!!validationErrors.owner} helperText={validationErrors.owner} />
+            </DetailField>
+            <DetailField label="Created At" editing={isEditing}
+              value={format(new Date(portfolio.created_at), 'MMMM dd, yyyy HH:mm')} />
+            <DetailField label="Updated At" editing={isEditing}
+              value={format(new Date(portfolio.updated_at), 'MMMM dd, yyyy HH:mm')} />
+            <DetailField label="Description" editing={isEditing} value={portfolio.description} multiline>
+              <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
+                onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}
+                error={!!validationErrors.description} helperText={validationErrors.description} />
+            </DetailField>
           </Grid>
         </Paper>
         </Grid>

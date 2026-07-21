@@ -29,6 +29,7 @@ import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import ChartSection from '../../components/portfolio/ChartSection'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
+import DetailField from '../../components/common/DetailField'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
 import ProjectActualsTab from '../../components/actuals/ProjectActualsTab'
 import ConflictDialog from '../../components/common/ConflictDialog'
@@ -81,6 +82,7 @@ const ProjectDetailPage: React.FC = () => {
     project_manager: '',
     technical_lead: '',
     cost_center_code: '',
+    description: '',
     start_date: '',
     end_date: '',
     version: 1,
@@ -196,6 +198,7 @@ const ProjectDetailPage: React.FC = () => {
         project_manager: project.project_manager,
         technical_lead: project.technical_lead,
         cost_center_code: project.cost_center_code,
+        description: project.description || '',
         start_date: project.start_date,
         end_date: project.end_date,
         version: project.version,
@@ -297,136 +300,42 @@ const ProjectDetailPage: React.FC = () => {
                 )}
               </Box>
               <Grid container rowSpacing={1} columnSpacing={1}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Project Name
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.name}
-                      onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.name}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    ID
-                  </Typography>
-                  <Typography variant="body1">{project.business_id}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Business Sponsor
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.business_sponsor}
-                      onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.business_sponsor}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Project Manager
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.project_manager}
-                      onChange={(e) => setEditValues({ ...editValues, project_manager: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.project_manager}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Technical Lead
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.technical_lead}
-                      onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.technical_lead}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Program
-                  </Typography>
-                  <Typography variant="body1">{program?.name || 'Loading...'}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Cost Center
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={editValues.cost_center_code}
-                      onChange={(e) => setEditValues({ ...editValues, cost_center_code: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">{project.cost_center_code}</Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Start Date
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="date"
-                      value={editValues.start_date}
-                      onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">
-                      {format(new Date(project.start_date), 'MMMM dd, yyyy')}
-                    </Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    End Date
-                  </Typography>
-                  {isEditingInfo ? (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      type="date"
-                      value={editValues.end_date}
-                      onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })}
-                      sx={{ mt: 0.5 }}
-                    />
-                  ) : (
-                    <Typography variant="body1">
-                      {format(new Date(project.end_date), 'MMMM dd, yyyy')}
-                    </Typography>
-                  )}
-                </Grid>
+                <DetailField label="Project Name" editing={isEditingInfo} value={project.name}>
+                  <TextField fullWidth size="small" value={editValues.name}
+                    onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
+                </DetailField>
+                <DetailField label="ID" editing={isEditingInfo} value={project.business_id} />
+                <DetailField label="Business Sponsor" editing={isEditingInfo} value={project.business_sponsor}>
+                  <TextField fullWidth size="small" value={editValues.business_sponsor}
+                    onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })} />
+                </DetailField>
+                <DetailField label="Project Manager" editing={isEditingInfo} value={project.project_manager}>
+                  <TextField fullWidth size="small" value={editValues.project_manager}
+                    onChange={(e) => setEditValues({ ...editValues, project_manager: e.target.value })} />
+                </DetailField>
+                <DetailField label="Technical Lead" editing={isEditingInfo} value={project.technical_lead}>
+                  <TextField fullWidth size="small" value={editValues.technical_lead}
+                    onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })} />
+                </DetailField>
+                <DetailField label="Program" editing={isEditingInfo} value={program?.name || 'Loading...'} />
+                <DetailField label="Cost Center" editing={isEditingInfo} value={project.cost_center_code}>
+                  <TextField fullWidth size="small" value={editValues.cost_center_code}
+                    onChange={(e) => setEditValues({ ...editValues, cost_center_code: e.target.value })} />
+                </DetailField>
+                <DetailField label="Start Date" editing={isEditingInfo}
+                  value={format(new Date(project.start_date), 'MMMM dd, yyyy')}>
+                  <TextField fullWidth size="small" type="date" value={editValues.start_date}
+                    onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })} />
+                </DetailField>
+                <DetailField label="End Date" editing={isEditingInfo}
+                  value={format(new Date(project.end_date), 'MMMM dd, yyyy')}>
+                  <TextField fullWidth size="small" type="date" value={editValues.end_date}
+                    onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
+                </DetailField>
+                <DetailField label="Description" editing={isEditingInfo} value={project.description} multiline>
+                  <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
+                    onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} />
+                </DetailField>
               </Grid>
             </Paper>
           </Grid>
