@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.resource import ResourceType
 from app.repositories.project import project_repository, project_phase_repository
 from app.repositories.program import program_repository
+from app.repositories.portfolio import portfolio_repository
 from app.repositories.resource_assignment import resource_assignment_repository
 from app.repositories.actual import actual_repository
 from app.repositories.resource import worker_repository
@@ -553,7 +554,107 @@ class ForecastingService:
             forecast_nonlabor_capital=forecast_nonlabor_capital,
             forecast_nonlabor_expense=forecast_nonlabor_expense
         )
-    
+
+    def calculate_portfolio_forecast(
+        self,
+        db: Session,
+        portfolio_id: UUID,
+        as_of_date: Optional[date] = None
+    ) -> ForecastData:
+        """
+        Calculate aggregated forecast for a portfolio (all its programs).
+
+        Sums each program's ForecastData using the same per-series accumulation
+        as calculate_program_forecast (which sums its projects) — a generic
+        summation over child ForecastData objects.
+
+        Raises:
+            ValueError: If portfolio not found
+        """
+        if as_of_date is None:
+            as_of_date = date.today()
+
+        portfolio = portfolio_repository.get(db, portfolio_id)
+        if not portfolio:
+            raise ValueError(f"Portfolio with ID {portfolio_id} does not exist")
+
+        total_budget = Decimal('0.00')
+        capital_budget = Decimal('0.00')
+        expense_budget = Decimal('0.00')
+        total_actual = Decimal('0.00')
+        capital_actual = Decimal('0.00')
+        expense_actual = Decimal('0.00')
+        total_forecast = Decimal('0.00')
+        capital_forecast = Decimal('0.00')
+        expense_forecast = Decimal('0.00')
+        budget_labor_capital = Decimal('0.00')
+        budget_labor_expense = Decimal('0.00')
+        budget_nonlabor_capital = Decimal('0.00')
+        budget_nonlabor_expense = Decimal('0.00')
+        actual_labor_capital = Decimal('0.00')
+        actual_labor_expense = Decimal('0.00')
+        actual_nonlabor_capital = Decimal('0.00')
+        actual_nonlabor_expense = Decimal('0.00')
+        forecast_labor_capital = Decimal('0.00')
+        forecast_labor_expense = Decimal('0.00')
+        forecast_nonlabor_capital = Decimal('0.00')
+        forecast_nonlabor_expense = Decimal('0.00')
+
+        for program in (portfolio.programs or []):
+            pf = self.calculate_program_forecast(
+                db=db,
+                program_id=program.id,
+                as_of_date=as_of_date
+            )
+            total_budget += pf.total_budget
+            capital_budget += pf.capital_budget
+            expense_budget += pf.expense_budget
+            total_actual += pf.total_actual
+            capital_actual += pf.capital_actual
+            expense_actual += pf.expense_actual
+            total_forecast += pf.total_forecast
+            capital_forecast += pf.capital_forecast
+            expense_forecast += pf.expense_forecast
+            budget_labor_capital += pf.budget_labor_capital
+            budget_labor_expense += pf.budget_labor_expense
+            budget_nonlabor_capital += pf.budget_nonlabor_capital
+            budget_nonlabor_expense += pf.budget_nonlabor_expense
+            actual_labor_capital += pf.actual_labor_capital
+            actual_labor_expense += pf.actual_labor_expense
+            actual_nonlabor_capital += pf.actual_nonlabor_capital
+            actual_nonlabor_expense += pf.actual_nonlabor_expense
+            forecast_labor_capital += pf.forecast_labor_capital
+            forecast_labor_expense += pf.forecast_labor_expense
+            forecast_nonlabor_capital += pf.forecast_nonlabor_capital
+            forecast_nonlabor_expense += pf.forecast_nonlabor_expense
+
+        return ForecastData(
+            entity_id=portfolio_id,
+            entity_name=portfolio.name,
+            entity_type="portfolio",
+            total_budget=total_budget,
+            capital_budget=capital_budget,
+            expense_budget=expense_budget,
+            total_actual=total_actual,
+            capital_actual=capital_actual,
+            expense_actual=expense_actual,
+            total_forecast=total_forecast,
+            capital_forecast=capital_forecast,
+            expense_forecast=expense_forecast,
+            budget_labor_capital=budget_labor_capital,
+            budget_labor_expense=budget_labor_expense,
+            budget_nonlabor_capital=budget_nonlabor_capital,
+            budget_nonlabor_expense=budget_nonlabor_expense,
+            actual_labor_capital=actual_labor_capital,
+            actual_labor_expense=actual_labor_expense,
+            actual_nonlabor_capital=actual_nonlabor_capital,
+            actual_nonlabor_expense=actual_nonlabor_expense,
+            forecast_labor_capital=forecast_labor_capital,
+            forecast_labor_expense=forecast_labor_expense,
+            forecast_nonlabor_capital=forecast_nonlabor_capital,
+            forecast_nonlabor_expense=forecast_nonlabor_expense,
+        )
+
     def get_budget_vs_actual_vs_forecast(
         self,
         db: Session,

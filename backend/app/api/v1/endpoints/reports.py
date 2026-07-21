@@ -81,6 +81,36 @@ async def get_program_forecast(
 
 
 @router.get(
+    "/forecast/portfolio/{portfolio_id}",
+    summary="Get portfolio forecast",
+    description="Calculate aggregated cost forecast for a portfolio (all its programs)"
+)
+async def get_portfolio_forecast(
+    portfolio_id: UUID,
+    as_of_date: Optional[date] = Query(default=None, description="Date to calculate forecast as of (default: today)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calculate aggregated forecast for a portfolio.
+
+    Returns budget vs actual vs forecast data aggregated across all programs.
+    """
+    try:
+        forecast_data = forecasting_service.calculate_portfolio_forecast(
+            db=db,
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date
+        )
+        return forecast_data.to_dict()
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+
+@router.get(
     "/budget-vs-actual/{entity_type}/{entity_id}",
     summary="Get budget vs actual vs forecast report",
     description="Get comprehensive budget vs actual vs forecast report for a project or program"

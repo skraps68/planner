@@ -29,7 +29,7 @@ export interface ForecastAnalysis {
 export interface ForecastApiResponse {
   entity_id: string
   entity_name: string
-  entity_type: 'project' | 'program'
+  entity_type: 'project' | 'program' | 'portfolio'
   budget: CategoryBreakdown
   actual: CategoryBreakdown
   forecast: CategoryBreakdown
@@ -71,6 +71,21 @@ export const getProjectForecast = async (
   
   const response = await apiClient.get(`/reports/forecast/project/${projectId}`, {
     params
+  })
+  return response.data
+}
+
+/**
+ * Get portfolio-level (aggregated across all programs) forecast data
+ * @param portfolioId - The ID of the portfolio
+ * @param asOfDate - The date to split actuals from forecast (ISO format: YYYY-MM-DD)
+ */
+export const getPortfolioForecast = async (
+  portfolioId: string,
+  asOfDate: string
+): Promise<ForecastApiResponse> => {
+  const response = await apiClient.get(`/reports/forecast/portfolio/${portfolioId}`, {
+    params: { as_of_date: asOfDate }
   })
   return response.data
 }

@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 from sqlalchemy.orm import Session
 
+from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
@@ -278,7 +279,41 @@ class TestForecastingEndpoints:
         """Test getting forecast for non-existent program."""
         fake_id = "00000000-0000-0000-0000-000000000099"
         response = client.get(f"/api/v1/reports/forecast/program/{fake_id}")
-        
+
+        assert response.status_code == 404
+
+    def test_get_portfolio_forecast(self, client, override_auth, db_session):
+        """Test getting an aggregated portfolio forecast.
+
+        Builds its own portfolio (the shared sample_program fixture is
+        pre-existing broken debt — it omits the now-required portfolio_id).
+        """
+        portfolio = Portfolio(
+            name="Reports Test Portfolio",
+            description="d",
+            owner="Owner",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31),
+        )
+        db_session.add(portfolio)
+        db_session.commit()
+        db_session.refresh(portfolio)
+
+        response = client.get(f"/api/v1/reports/forecast/portfolio/{portfolio.id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["entity_type"] == "portfolio"
+        assert data["entity_id"] == str(portfolio.id)
+        assert "budget" in data
+        assert "actual" in data
+        assert "analysis" in data
+
+    def test_get_portfolio_forecast_not_found(self, client, override_auth):
+        """Test getting forecast for a non-existent portfolio."""
+        fake_id = "00000000-0000-0000-0000-000000000099"
+        response = client.get(f"/api/v1/reports/forecast/portfolio/{fake_id}")
+
         assert response.status_code == 404
 
 
