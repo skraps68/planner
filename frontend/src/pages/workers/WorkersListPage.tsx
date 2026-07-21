@@ -24,9 +24,12 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const WorkersListPage = () => {
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission('manage_workers').hasPermission
   const [workers, setWorkers] = useState<Worker[]>([])
   const [workerTypes, setWorkerTypes] = useState<WorkerType[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,13 +104,15 @@ const WorkersListPage = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="h5">Workers</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/workers/new')}
-        >
-          Create Worker
-        </Button>
+        {canEdit && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/workers/new')}
+          >
+            Create Worker
+          </Button>
+        )}
       </Box>
 
       <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
@@ -148,12 +153,13 @@ const WorkersListPage = () => {
       ) : (
         <Paper>
           <TableContainer>
-            <Table>
+            <Table size="small">
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Worker Type</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Cost Center</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Rate</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
@@ -162,7 +168,7 @@ const WorkersListPage = () => {
               <TableBody>
                 {workers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center">
                       No workers found
                     </TableCell>
                   </TableRow>
@@ -172,15 +178,16 @@ const WorkersListPage = () => {
                       key={worker.id}
                       hover
                       onClick={() => navigate(`/workers/${worker.id}`)}
-                      sx={{ cursor: 'pointer', transition: 'all 0.2s ease', '&:hover': { backgroundColor: 'action.hover' } }}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                     >
                       <TableCell>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body2" fontWeight="medium">
                           {worker.name}
                         </Typography>
                       </TableCell>
                       <TableCell>{worker.external_id}</TableCell>
                       <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
+                      <TableCell>{worker.cost_center_code || '—'}</TableCell>
                       <TableCell>
                         {worker.current_rate ? `$${Number(worker.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                       </TableCell>

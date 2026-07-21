@@ -29,6 +29,7 @@ const worker = {
   external_id: 'EMP001',
   name: 'Jane Doe',
   worker_type_id: 'wt1',
+  cost_center_code: 'CC-1002',
   version: 1,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
@@ -53,6 +54,15 @@ const adminStore = () =>
         roles: ['ADMIN'],
         permissions: [],
       },
+      token: 't',
+      isAuthenticated: true,
+    },
+  })
+
+const viewerStore = () =>
+  createTestStore({
+    auth: {
+      user: { id: '2', username: 'v', email: 'v@e.c', roles: ['VIEWER'], permissions: [] },
       token: 't',
       isAuthenticated: true,
     },
@@ -94,5 +104,18 @@ describe('WorkersListPage', () => {
     const del = screen.getAllByRole('button').find((b) => b.querySelector('[data-testid="DeleteIcon"]'))!
     await user.click(del)
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('shows the Cost Center column and value', async () => {
+    render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
+    expect(screen.getByText('Cost Center')).toBeInTheDocument()
+    expect(screen.getByText('CC-1002')).toBeInTheDocument()
+  })
+
+  it('hides Create Worker for a user without manage_workers', async () => {
+    render(<WorkersListPage />, { store: viewerStore(), queryClient: createTestQueryClient() })
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /create worker/i })).toBeNull()
   })
 })

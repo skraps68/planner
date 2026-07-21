@@ -92,6 +92,7 @@ export interface Worker {
   name: string
   worker_type_id: string
   worker_type_name?: string
+  cost_center_code: string
   current_rate?: string
   version: number
   created_at: string
