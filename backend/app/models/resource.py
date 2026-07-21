@@ -4,7 +4,7 @@ Resource, Worker, and WorkerType models for resource management.
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, String, ForeignKey, Enum as SQLEnum, CheckConstraint
+from sqlalchemy import Column, String, ForeignKey, Enum as SQLEnum, CheckConstraint, text
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel, GUID
@@ -102,7 +102,8 @@ class Worker(BaseModel):
     # Required fields
     external_id = Column(String(100), nullable=False, unique=True, index=True)
     name = Column(String(255), nullable=False, index=True)
-    
+    cost_center_code = Column(String(50), nullable=False, server_default=text("'CC-0000'"), index=True)
+
     # Relationships
     worker_type = relationship("WorkerType", back_populates="workers")
     

@@ -322,7 +322,8 @@ async def create_worker(
             db=db,
             external_id=worker_in.external_id,
             name=worker_in.name,
-            worker_type_id=worker_in.worker_type_id
+            worker_type_id=worker_in.worker_type_id,
+            cost_center_code=worker_in.cost_center_code,
         )
         
         # Convert to response model
@@ -518,7 +519,8 @@ async def update_worker(
             worker_id=worker_id,
             external_id=worker_in.external_id,
             name=worker_in.name,
-            worker_type_id=worker_in.worker_type_id
+            worker_type_id=worker_in.worker_type_id,
+            cost_center_code=worker_in.cost_center_code,
         )
         
         response = WorkerResponse.model_validate(worker)

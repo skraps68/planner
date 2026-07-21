@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -23,6 +23,7 @@ import { usePresence } from '../../realtime/usePresence'
 import { PresenceBadge } from '../../realtime/PresenceBadge'
 import { useEntityLock } from '../../realtime/useEntityLock'
 import { LockBanner } from '../../realtime/LockBanner'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const WorkerDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -49,11 +50,14 @@ const WorkerDetailPage = () => {
     external_id: '',
     name: '',
     worker_type_id: '',
+    cost_center_code: '',
     version: 0,
   })
   const [isEditing, setIsEditing] = useState(false)
 
   const isNewWorker = id === 'new'
+  const { hasPermission } = usePermissions()
+  const canEdit = hasPermission('manage_workers').hasPermission
 
   const { others: presentOthers } = usePresence('worker', isNewWorker ? undefined : id, isEditing)
   const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
@@ -84,6 +88,7 @@ const WorkerDetailPage = () => {
         external_id: data.external_id,
         name: data.name,
         worker_type_id: data.worker_type_id,
+        cost_center_code: data.cost_center_code,
         version: data.version,
       })
     } catch (err: any) {
@@ -107,6 +112,12 @@ const WorkerDetailPage = () => {
       setSaving(true)
       setError(null)
 
+      if (isNewWorker && !formData.cost_center_code.trim()) {
+        setError('Cost center is required')
+        setSaving(false)
+        return
+      }
+
       if (isNewWorker) {
         await workersApi.create(formData)
         navigate('/workers')
@@ -129,6 +140,7 @@ const WorkerDetailPage = () => {
         external_id: worker.external_id,
         name: worker.name,
         worker_type_id: worker.worker_type_id,
+        cost_center_code: worker.cost_center_code,
         version: worker.version,
       })
     }
@@ -141,6 +153,10 @@ const WorkerDetailPage = () => {
         <CircularProgress />
       </Box>
     )
+  }
+
+  if (isNewWorker && !canEdit) {
+    return <Navigate to="/workers" replace />
   }
 
   return (
@@ -191,9 +207,11 @@ const WorkerDetailPage = () => {
               </Grid>
               <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
                 {!isEditing ? (
-                  <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
-                    Edit
-                  </Button>
+                  canEdit && (
+                    <Button variant="contained" size="small" startIcon={<EditIcon />} onClick={() => setIsEditing(true)}>
+                      Edit
+                    </Button>
+                  )
                 ) : lockState === 'blocked' ? (
                   <Button variant="outlined" size="small" onClick={handleCancelEdit}>Close</Button>
                 ) : (
@@ -240,6 +258,15 @@ const WorkerDetailPage = () => {
                   </Typography>
                 )}
               </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Cost Center</Typography>
+                {effectiveEditing ? (
+                  <TextField fullWidth size="small" value={formData.cost_center_code}
+                    onChange={(e) => setFormData({ ...formData, cost_center_code: e.target.value })} sx={{ mt: 0.5 }} />
+                ) : (
+                  <Typography variant="body1">{formData.cost_center_code || '—'}</Typography>
+                )}
+              </Grid>
             </Grid>
           ) : (
             <Grid container spacing={2}>
@@ -278,6 +305,16 @@ const WorkerDetailPage = () => {
                     ))}
                   </Select>
                 </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Cost Center"
+                  size="small"
+                  value={formData.cost_center_code}
+                  onChange={(e) => setFormData({ ...formData, cost_center_code: e.target.value })}
+                  required
+                />
               </Grid>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', gap: 2 }}>

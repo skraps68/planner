@@ -180,7 +180,8 @@ class TestResourceSchemas:
         worker_data = {
             "worker_type_id": uuid4(),
             "external_id": "EMP001",
-            "name": "John Developer"
+            "name": "John Developer",
+            "cost_center_code": "CC-001",
         }
         worker = WorkerCreate(**worker_data)
         assert worker.external_id == "EMP001"

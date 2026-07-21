@@ -5,12 +5,14 @@ export interface WorkerCreateInput {
   external_id: string
   name: string
   worker_type_id: string
+  cost_center_code: string
 }
 
 export interface WorkerUpdateInput {
   external_id?: string
   name?: string
   worker_type_id?: string
+  cost_center_code?: string
   version: number
 }
 

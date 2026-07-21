@@ -385,43 +385,50 @@ def create_workers(db: Session, worker_types: dict) -> dict:
             id=uuid4(),
             external_id="EMP001",
             name="John Smith",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1001",
         ),
         "jane_doe": Worker(
             id=uuid4(),
             external_id="EMP002",
             name="Jane Doe",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1002",
         ),
         "bob_johnson": Worker(
             id=uuid4(),
             external_id="EMP003",
             name="Bob Johnson",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1003",
         ),
         "alice_williams": Worker(
             id=uuid4(),
             external_id="EMP004",
             name="Alice Williams",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1004",
         ),
         "charlie_brown": Worker(
             id=uuid4(),
             external_id="EMP005",
             name="Charlie Brown",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1005",
         ),
         "diana_prince": Worker(
             id=uuid4(),
             external_id="EMP006",
             name="Diana Prince",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1006",
         ),
         "evan_peters": Worker(
             id=uuid4(),
             external_id="EMP007",
             name="Evan Peters",
-            worker_type_id=pick_worker_type_id()
+            worker_type_id=pick_worker_type_id(),
+            cost_center_code="CC-1007",
         ),
     }
 

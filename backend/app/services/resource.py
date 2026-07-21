@@ -523,7 +523,8 @@ class WorkerService:
         db: Session,
         external_id: str,
         name: str,
-        worker_type_id: UUID
+        worker_type_id: UUID,
+        cost_center_code: str,
     ) -> Worker:
         """
         Create a new worker.
@@ -553,7 +554,8 @@ class WorkerService:
         worker_data = {
             "external_id": external_id,
             "name": name,
-            "worker_type_id": worker_type_id
+            "worker_type_id": worker_type_id,
+            "cost_center_code": cost_center_code,
         }
         
         return self.repository.create(db, obj_in=worker_data)
@@ -604,7 +606,8 @@ class WorkerService:
         worker_id: UUID,
         external_id: Optional[str] = None,
         name: Optional[str] = None,
-        worker_type_id: Optional[UUID] = None
+        worker_type_id: Optional[UUID] = None,
+        cost_center_code: Optional[str] = None,
     ) -> Worker:
         """
         Update worker with validation.
@@ -651,7 +654,10 @@ class WorkerService:
             if not worker_type:
                 raise ValueError(f"Worker type with ID {worker_type_id} not found")
             update_data["worker_type_id"] = worker_type_id
-        
+
+        if cost_center_code is not None:
+            update_data["cost_center_code"] = cost_center_code
+
         return self.repository.update(db, db_obj=worker, obj_in=update_data)
     
     def delete_worker(self, db: Session, worker_id: UUID) -> bool:
