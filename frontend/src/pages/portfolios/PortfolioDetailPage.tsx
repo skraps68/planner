@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -18,9 +18,19 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Autocomplete,
+  Switch,
+  FormControlLabel,
 } from '@mui/material'
 import { Edit, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
+import { projectsApi } from '../../api/projects'
+import { phasesApi } from '../../api/phases'
+import { getPortfolioForecast, getProgramForecast, getProjectForecast } from '../../api/forecast'
+import { transformForecastData, LaborToggle } from '../../utils/forecastTransform'
+import { nextToggleState } from '../projects/laborToggle'
+import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
+import ChartSection from '../../components/portfolio/ChartSection'
 import { Portfolio, PortfolioUpdate } from '../../types/portfolio'
 import { Program } from '../../types'
 import { format } from 'date-fns'
@@ -70,6 +80,60 @@ const PortfolioDetailPage: React.FC = () => {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   })
+
+  // Financials drill-down state
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
+  const [toggle, setToggle] = useState<LaborToggle>({ laborOn: true, nonlaborOn: true })
+
+  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+
+  // Projects for the selected program (drill-down tier 2)
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects', 'program', selectedProgramId],
+    queryFn: () => projectsApi.list({ program_id: selectedProgramId!, limit: 1000 }),
+    enabled: !!selectedProgramId,
+  })
+  const drilldownProjects = projectsData?.items || []
+
+  // Phases for the selected project (drill-down tier 3)
+  const { data: phasesData, isLoading: phasesLoading } = useQuery({
+    queryKey: ['phases', selectedProjectId],
+    queryFn: () => phasesApi.list(selectedProjectId!),
+    enabled: !!selectedProjectId,
+  })
+  const drilldownPhases = phasesData || []
+
+  // Forecast scoped to the current drill-down selection
+  const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
+    queryKey: ['forecast', 'portfolio', id, selectedProgramId, selectedProjectId, selectedPhaseId, today],
+    queryFn: async () => {
+      if (selectedProjectId) {
+        return await getProjectForecast(selectedProjectId, today, selectedPhaseId)
+      }
+      if (selectedProgramId) {
+        return await getProgramForecast(selectedProgramId, today)
+      }
+      return await getPortfolioForecast(id!, today)
+    },
+    enabled: !!id,
+  })
+
+  const financialTableData = useMemo(() => {
+    if (!forecastData) return null
+    return transformForecastData(forecastData, toggle)
+  }, [forecastData, toggle])
+
+  const handleProgramChange = (programId: string | null) => {
+    setSelectedProgramId(programId)
+    setSelectedProjectId(null)
+    setSelectedPhaseId(null)
+  }
+  const handleProjectChange = (projectId: string | null) => {
+    setSelectedProjectId(projectId)
+    setSelectedPhaseId(null)
+  }
 
   // Update mutation
   const updateMutation = useMutation({
@@ -236,8 +300,11 @@ const PortfolioDetailPage: React.FC = () => {
         onClose={() => navigate('/portfolios')}
       />
 
+      {/* Details + Financials split view */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} md={5}>
       {/* Portfolio Info Section */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Paper sx={{ p: 2, height: '100%' }}>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minHeight: 34, mb: 1 }}>
             {(canEdit || isEditing) && (
               <>
@@ -394,6 +461,62 @@ const PortfolioDetailPage: React.FC = () => {
             </Grid>
           </Grid>
         </Paper>
+        </Grid>
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ p: 1.5, height: '100%' }}>
+            {/* Drill-down filters: scope financials to a program / project / phase */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+              <Autocomplete
+                size="small"
+                sx={{ flex: 1, minWidth: 140 }}
+                options={programs}
+                getOptionLabel={(option) => option.name}
+                value={programs.find((p) => p.id === selectedProgramId) || null}
+                onChange={(_, newValue) => handleProgramChange(newValue?.id || null)}
+                renderInput={(params) => <TextField {...params} label="Program" placeholder="All" />}
+              />
+              <Autocomplete
+                size="small"
+                sx={{ flex: 1, minWidth: 140 }}
+                options={drilldownProjects}
+                getOptionLabel={(option) => option.name}
+                value={drilldownProjects.find((p) => p.id === selectedProjectId) || null}
+                onChange={(_, newValue) => handleProjectChange(newValue?.id || null)}
+                disabled={!selectedProgramId}
+                renderInput={(params) => <TextField {...params} label="Project" placeholder="All" />}
+              />
+              <Autocomplete
+                size="small"
+                sx={{ flex: 1, minWidth: 140 }}
+                options={drilldownPhases}
+                getOptionLabel={(option) => option.name}
+                value={drilldownPhases.find((p) => p.id === selectedPhaseId) || null}
+                onChange={(_, newValue) => setSelectedPhaseId(newValue?.id || null)}
+                loading={phasesLoading}
+                disabled={!selectedProjectId || phasesLoading}
+                renderInput={(params) => <TextField {...params} label="Phase" placeholder="All" />}
+              />
+              <Box sx={{ display: 'flex', ml: 'auto' }}>
+                <FormControlLabel
+                  control={<Switch size="small" checked={toggle.laborOn} onChange={() => setToggle(nextToggleState(toggle, 'labor'))} />}
+                  label="Labor"
+                />
+                <FormControlLabel
+                  control={<Switch size="small" checked={toggle.nonlaborOn} onChange={() => setToggle(nextToggleState(toggle, 'nonlabor'))} />}
+                  label="Non-Labor"
+                />
+              </Box>
+            </Box>
+            <FinancialSummaryTable
+              compact
+              data={financialTableData}
+              loading={forecastLoading}
+              error={forecastError ? new Error('Failed to load financial data') : null}
+            />
+            <ChartSection compact data={financialTableData} />
+          </Paper>
+        </Grid>
+      </Grid>
 
       {/* Programs Section */}
       <Paper sx={{ p: 2 }}>
