@@ -54,6 +54,6 @@ describe('DetailField', () => {
 
   it('uses a taller slot for the multiline variant', () => {
     render(<DetailField label="Description" editing={false} value={'line1\nline2'} multiline />)
-    expect(screen.getByTestId('detail-slot').style.minHeight).toBe('54px')
+    expect(screen.getByTestId('detail-slot').style.minHeight).toBe('64px')
   })
 })

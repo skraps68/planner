@@ -36,7 +36,7 @@ import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
-import DetailField from '../../components/common/DetailField'
+import DetailField, { DETAIL_BUTTON_BAND } from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -278,8 +278,9 @@ const ProgramDetailPage: React.FC = () => {
       {/* Combined Details + Financials split view */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 1.5, height: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minHeight: 34, mb: 0.5 }}>
+          <Paper sx={{ p: 1.5, height: '100%', position: 'relative' }}>
+            {/* Edit/Save sit in the reserved band at the top-right of row 1 */}
+            <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
               {!isEditingInfo ? (
                 <Button variant="contained" size="small" startIcon={<Edit />} onClick={handleEditInfo}>
                   Edit
@@ -295,24 +296,14 @@ const ProgramDetailPage: React.FC = () => {
                 </Box>
               )}
             </Box>
-            <Grid container rowSpacing={0.25} columnSpacing={1}>
-              <DetailField label="Program Name" editing={isEditingInfo} value={program.name} fullWidth>
+            {/* Single column; value columns reserve DETAIL_BUTTON_BAND on the right
+                for the button, and the Description reclaims it (negative margin). */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${DETAIL_BUTTON_BAND}px` }}>
+              <DetailField label="Program Name" editing={isEditingInfo} value={program.name}>
                 <TextField fullWidth size="small" value={editValues.name}
                   onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
               </DetailField>
               <DetailField label="ID" editing={isEditingInfo} value={program.business_id} />
-              <DetailField label="Business Sponsor" editing={isEditingInfo} value={program.business_sponsor}>
-                <TextField fullWidth size="small" value={editValues.business_sponsor}
-                  onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })} />
-              </DetailField>
-              <DetailField label="Program Manager" editing={isEditingInfo} value={program.program_manager}>
-                <TextField fullWidth size="small" value={editValues.program_manager}
-                  onChange={(e) => setEditValues({ ...editValues, program_manager: e.target.value })} />
-              </DetailField>
-              <DetailField label="Technical Lead" editing={isEditingInfo} value={program.technical_lead}>
-                <TextField fullWidth size="small" value={editValues.technical_lead}
-                  onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })} />
-              </DetailField>
               <DetailField label="Portfolio" editing={isEditingInfo} value={program.portfolio?.name || 'N/A'}>
                 <Autocomplete
                   fullWidth
@@ -326,6 +317,18 @@ const ProgramDetailPage: React.FC = () => {
                   )}
                 />
               </DetailField>
+              <DetailField label="Business Sponsor" editing={isEditingInfo} value={program.business_sponsor}>
+                <TextField fullWidth size="small" value={editValues.business_sponsor}
+                  onChange={(e) => setEditValues({ ...editValues, business_sponsor: e.target.value })} />
+              </DetailField>
+              <DetailField label="Program Manager" editing={isEditingInfo} value={program.program_manager}>
+                <TextField fullWidth size="small" value={editValues.program_manager}
+                  onChange={(e) => setEditValues({ ...editValues, program_manager: e.target.value })} />
+              </DetailField>
+              <DetailField label="Technical Lead" editing={isEditingInfo} value={program.technical_lead}>
+                <TextField fullWidth size="small" value={editValues.technical_lead}
+                  onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })} />
+              </DetailField>
               <DetailField label="Start Date" editing={isEditingInfo}
                 value={format(new Date(program.start_date), 'MMMM dd, yyyy')}>
                 <TextField fullWidth size="small" type="date" value={editValues.start_date}
@@ -336,11 +339,13 @@ const ProgramDetailPage: React.FC = () => {
                 <TextField fullWidth size="small" type="date" value={editValues.end_date}
                   onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
               </DetailField>
-              <DetailField label="Description" editing={isEditingInfo} value={program.description} multiline>
-                <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
-                  onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} />
-              </DetailField>
-            </Grid>
+              <Box sx={{ mr: `-${DETAIL_BUTTON_BAND}px` }}>
+                <DetailField label="Description" editing={isEditingInfo} value={program.description} multiline>
+                  <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
+                    onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} />
+                </DetailField>
+              </Box>
+            </Box>
           </Paper>
         </Grid>
         <Grid item xs={12} md={7}>

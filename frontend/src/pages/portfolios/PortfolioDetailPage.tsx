@@ -36,7 +36,7 @@ import { Program } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
-import DetailField from '../../components/common/DetailField'
+import DetailField, { DETAIL_BUTTON_BAND } from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -305,29 +305,27 @@ const PortfolioDetailPage: React.FC = () => {
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={5}>
       {/* Portfolio Info Section */}
-      <Paper sx={{ p: 2, height: '100%' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', minHeight: 34, mb: 1 }}>
-            {(canEdit || isEditing) && (
-              <>
-                {!isEditing ? (
-                  <Button variant="outlined" size="small" startIcon={<Edit />} onClick={handleEdit}>
-                    Edit
+      <Paper sx={{ p: 2, height: '100%', position: 'relative' }}>
+          {(canEdit || isEditing) && (
+            <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
+              {!isEditing ? (
+                <Button variant="outlined" size="small" startIcon={<Edit />} onClick={handleEdit}>
+                  Edit
+                </Button>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel}>
+                    Cancel
                   </Button>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel}>
-                      Cancel
-                    </Button>
-                    <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSave} disabled={updateMutation.isPending}>
-                      {updateMutation.isPending ? 'Saving...' : 'Save'}
-                    </Button>
-                  </Box>
-                )}
-              </>
-            )}
-          </Box>
-          <Grid container rowSpacing={0.25} columnSpacing={1}>
-            <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name} fullWidth>
+                  <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSave} disabled={updateMutation.isPending}>
+                    {updateMutation.isPending ? 'Saving...' : 'Save'}
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${DETAIL_BUTTON_BAND}px` }}>
+            <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name}>
               <TextField fullWidth size="small" value={editValues.name}
                 onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
                 error={!!validationErrors.name} helperText={validationErrors.name} />
@@ -354,12 +352,14 @@ const PortfolioDetailPage: React.FC = () => {
               value={format(new Date(portfolio.created_at), 'MMMM dd, yyyy HH:mm')} />
             <DetailField label="Updated At" editing={isEditing}
               value={format(new Date(portfolio.updated_at), 'MMMM dd, yyyy HH:mm')} />
-            <DetailField label="Description" editing={isEditing} value={portfolio.description} multiline>
-              <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
-                onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}
-                error={!!validationErrors.description} helperText={validationErrors.description} />
-            </DetailField>
-          </Grid>
+            <Box sx={{ mr: `-${DETAIL_BUTTON_BAND}px` }}>
+              <DetailField label="Description" editing={isEditing} value={portfolio.description} multiline>
+                <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
+                  onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}
+                  error={!!validationErrors.description} helperText={validationErrors.description} />
+              </DetailField>
+            </Box>
+          </Box>
         </Paper>
         </Grid>
         <Grid item xs={12} md={7}>
