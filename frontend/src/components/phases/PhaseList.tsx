@@ -293,10 +293,26 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ ...cellSx, whiteSpace: 'nowrap', textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell
+                      data-changed={isFieldChanged(phase.id, 'start_date') ? 'true' : undefined}
+                      sx={{
+                        ...cellSx,
+                        whiteSpace: 'nowrap',
+                        ...getChangedCellStyle(isFieldChanged(phase.id, 'start_date')),
+                        textDecoration: isDeleted ? 'line-through' : 'none',
+                      }}
+                    >
                       {phase.start_date ? formatDate(phase.start_date) : '-'}
                     </TableCell>
-                    <TableCell sx={{ ...cellSx, whiteSpace: 'nowrap', textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                    <TableCell
+                      data-changed={isFieldChanged(phase.id, 'end_date') ? 'true' : undefined}
+                      sx={{
+                        ...cellSx,
+                        whiteSpace: 'nowrap',
+                        ...getChangedCellStyle(isFieldChanged(phase.id, 'end_date')),
+                        textDecoration: isDeleted ? 'line-through' : 'none',
+                      }}
+                    >
                       {phase.end_date ? formatDate(phase.end_date) : '-'}
                     </TableCell>
                     {renderBudgetCell(phase, 'labor_capital_budget')}
