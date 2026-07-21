@@ -47,13 +47,13 @@ describe('DetailField', () => {
       </DetailField>
     )
     const editHeight = screen.getByTestId('detail-slot').style.minHeight
-    expect(viewHeight).toBe('30px')
-    expect(editHeight).toBe('30px')
+    expect(viewHeight).toBe('28px')
+    expect(editHeight).toBe('28px')
     expect(viewHeight).toBe(editHeight)
   })
 
   it('uses a taller slot for the multiline variant', () => {
     render(<DetailField label="Description" editing={false} value={'line1\nline2'} multiline />)
-    expect(screen.getByTestId('detail-slot').style.minHeight).toBe('56px')
+    expect(screen.getByTestId('detail-slot').style.minHeight).toBe('54px')
   })
 })

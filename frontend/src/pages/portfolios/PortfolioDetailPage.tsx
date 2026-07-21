@@ -326,7 +326,7 @@ const PortfolioDetailPage: React.FC = () => {
               </>
             )}
           </Box>
-          <Grid container spacing={2}>
+          <Grid container rowSpacing={0.25} columnSpacing={1}>
             <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name}>
               <TextField fullWidth size="small" value={editValues.name}
                 onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}

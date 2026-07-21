@@ -299,7 +299,7 @@ const ProjectDetailPage: React.FC = () => {
                   </Box>
                 )}
               </Box>
-              <Grid container rowSpacing={1} columnSpacing={1}>
+              <Grid container rowSpacing={0.25} columnSpacing={1}>
                 <DetailField label="Project Name" editing={isEditingInfo} value={project.name}>
                   <TextField fullWidth size="small" value={editValues.name}
                     onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
