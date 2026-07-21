@@ -127,10 +127,16 @@ describe('PhaseList Bug Fixes', () => {
         />
       )
 
-      // Verify budget fields show 0, not NaN (there are four inputs with value 0:
-      // labor capital, labor expense, non-labor capital, non-labor expense)
-      const budgetInputs = screen.getAllByDisplayValue('0') as HTMLInputElement[]
+      // Undefined budgets render as empty inputs (Option A: empty-for-zero) — the
+      // key guarantee is that they are never "NaN". Four numeric budget inputs.
+      const budgetInputs = Array.from(
+        document.querySelectorAll('input[inputmode="numeric"]')
+      ) as HTMLInputElement[]
       expect(budgetInputs.length).toBe(4) // labor capital, labor expense, nonlabor capital, nonlabor expense
+      budgetInputs.forEach((input) => {
+        expect(input.value).toBe('')
+        expect(input.value).not.toMatch(/NaN/)
+      })
 
       // Verify total budget shows $0.00, not NaN
       const rows = screen.getAllByRole('row')

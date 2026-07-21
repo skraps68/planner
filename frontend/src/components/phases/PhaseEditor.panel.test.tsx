@@ -54,7 +54,7 @@ describe('PhaseEditor merged panel', () => {
     expect(screen.getByRole('button', { name: /add phase/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /save changes/i })).toBeTruthy()
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(4)   // four budgets
+    expect(document.querySelectorAll('input[inputmode="numeric"]')).toHaveLength(4)   // four budgets
     expect(document.querySelectorAll('input[type="date"]').length).toBe(0)  // dates read-only
   })
 
@@ -62,7 +62,7 @@ describe('PhaseEditor merged panel', () => {
     renderEditor()
     await waitForLoaded()
     fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
-    const budget = screen.getAllByRole('spinbutton')[0]
+    const budget = document.querySelectorAll('input[inputmode="numeric"]')[0]
     fireEvent.change(budget, { target: { value: '150' } })
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
     await waitFor(() => expect(batchMock).toHaveBeenCalledTimes(1))

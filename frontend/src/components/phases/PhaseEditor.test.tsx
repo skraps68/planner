@@ -57,7 +57,7 @@ describe('PhaseList Component', () => {
       />
     )
 
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(8) // 4 budgets x 2 phases
+    expect(document.querySelectorAll('input[inputmode="numeric"]')).toHaveLength(8) // 4 budgets x 2 phases
   })
 
   it('disables delete button when only one phase exists', () => {

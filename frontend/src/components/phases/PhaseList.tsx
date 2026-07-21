@@ -171,12 +171,23 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
         textDecoration: isDeleted ? 'line-through' : 'none',
       }}>
         {editMode ? (
+          // Text input with a digit filter (not type="number"): lets the box be
+          // empty and strips leading zeros, so a new phase's "0" is never sticky.
+          // Display is decoupled from the stored number — 0 shows as an empty box
+          // with a "0" placeholder; the value pushed up is always a whole number.
           <TextField
             size="small"
-            type="number"
-            value={Math.round(toNumber(phase[field]))}
-            onChange={(e) => onUpdate(phase.id!, { [field]: Math.round(parseFloat(e.target.value) || 0) } as Partial<ProjectPhase>)}
-            inputProps={{ min: 0, step: 1, style: { textAlign: 'right' } }}
+            type="text"
+            placeholder="0"
+            value={(() => {
+              const n = Math.round(toNumber(phase[field]))
+              return n === 0 ? '' : String(n)
+            })()}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '')
+              onUpdate(phase.id!, { [field]: digits === '' ? 0 : parseInt(digits, 10) } as Partial<ProjectPhase>)
+            }}
+            inputProps={{ inputMode: 'numeric', style: { textAlign: 'right' } }}
             sx={editNumberFieldSx}
           />
         ) : (

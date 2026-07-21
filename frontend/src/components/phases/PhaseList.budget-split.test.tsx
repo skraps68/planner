@@ -22,8 +22,8 @@ describe('PhaseList', () => {
 
   it('edit mode: name + four budget inputs, dates stay read-only text', () => {
     render(<PhaseList phases={[phase as any]} editMode onUpdate={vi.fn()} onDelete={vi.fn()} />)
-    // four numeric budget inputs
-    expect(screen.getAllByRole('spinbutton')).toHaveLength(4)
+    // four numeric budget inputs (text inputs with a numeric input mode)
+    expect(document.querySelectorAll('input[inputmode="numeric"]')).toHaveLength(4)
     // a name text input
     expect(screen.getAllByRole('textbox').length).toBeGreaterThanOrEqual(1)
     // dates are NOT inputs (no type=date fields)
@@ -34,7 +34,7 @@ describe('PhaseList', () => {
   it('edit mode: editing a budget calls onUpdate with that field', () => {
     const onUpdate = vi.fn()
     render(<PhaseList phases={[phase as any]} editMode onUpdate={onUpdate} onDelete={vi.fn()} />)
-    const inputs = screen.getAllByRole('spinbutton')  // first budget input is labor_capital
+    const inputs = document.querySelectorAll('input[inputmode="numeric"]')  // first budget input is labor_capital
     fireEvent.change(inputs[0], { target: { value: '150' } })
     expect(onUpdate).toHaveBeenCalledWith('p1', expect.objectContaining({ labor_capital_budget: 150 }))
   })
