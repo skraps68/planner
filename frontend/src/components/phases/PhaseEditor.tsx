@@ -9,6 +9,7 @@ import PhaseList from './PhaseList'
 import ValidationErrorDisplay from './ValidationErrorDisplay'
 import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
+import { computeChangedFields, withSyncedTotal, BUDGET_FIELDS, toNumber } from './phaseChangeTracking'
 
 interface PhaseEditorProps {
   projectId: string
@@ -34,19 +35,35 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   const [isEditMode, setIsEditMode] = useState(false)
   const [phases, setPhases] = useState<Partial<ProjectPhase>[]>([])
   const [originalPhases, setOriginalPhases] = useState<Partial<ProjectPhase>[]>([])
-  const [changedFields, setChangedFields] = useState<Record<string, Set<string>>>({}) // Track which fields changed per phase
+  // Creation-time snapshots for new (temp-) phases, so their cells diff against
+  // the value they were born with (budgets 0, split dates) — see computeChangedFields.
+  const [newPhaseBaselines, setNewPhaseBaselines] = useState<Record<string, Partial<ProjectPhase>>>({})
   const [deletedPhaseIds, setDeletedPhaseIds] = useState<Set<string>>(new Set()) // Track phases marked for deletion
   const [validationErrors, setValidationErrors] = useState<PhaseValidationError[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [hasChanges, setHasChanges] = useState(false)
 
-  // Helper function to safely convert budget values to numbers
-  const toNumber = (value: string | number | undefined): number => {
-    if (value === undefined || value === null) return 0
-    if (typeof value === 'string') return parseFloat(value) || 0
-    return value
-  }
+  // Baseline (original values) per phase id: saved phases from the API, plus the
+  // creation snapshot of any new phase. Drives the derived change highlighting.
+  const baselineById = useMemo(() => {
+    const map: Record<string, Partial<ProjectPhase>> = {}
+    for (const phase of originalPhases) if (phase.id) map[phase.id] = phase
+    for (const [id, baseline] of Object.entries(newPhaseBaselines)) map[id] = baseline
+    return map
+  }, [originalPhases, newPhaseBaselines])
+
+  // Which fields deviate from baseline, derived from current state (immune to the
+  // stale-closure / replace-vs-merge bugs of incremental tracking; clears on revert).
+  const changedFields = useMemo(
+    () => computeChangedFields(phases, baselineById, deletedPhaseIds),
+    [phases, baselineById, deletedPhaseIds]
+  )
+
+  // There are unsaved changes if a field deviates, a phase is deleted, or a new phase exists.
+  const hasChanges =
+    deletedPhaseIds.size > 0 ||
+    Object.keys(changedFields).length > 0 ||
+    phases.some((p) => p.id?.startsWith('temp-'))
 
   // Load phases on mount
   useEffect(() => {
@@ -63,29 +80,14 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
     }
   }, [phases, deletedPhaseIds, projectStartDate, projectEndDate])
 
-  // Detect changes automatically
-  useEffect(() => {
-    // Check if there are any deleted phases
-    const hasDeletions = deletedPhaseIds.size > 0
-    
-    // Check if there are any field changes
-    const hasFieldChanges = Object.keys(changedFields).length > 0
-    
-    // Check if phases array length changed (new phases added)
-    const hasNewPhases = phases.some(p => p.id?.startsWith('temp-'))
-    
-    setHasChanges(hasDeletions || hasFieldChanges || hasNewPhases)
-  }, [phases, changedFields, deletedPhaseIds])
-
   const loadPhases = async () => {
     try {
       setIsLoading(true)
       const data = await phasesApi.list(projectId)
       setPhases(data)
       setOriginalPhases(data)
-      setChangedFields({})
+      setNewPhaseBaselines({})
       setDeletedPhaseIds(new Set())
-      setHasChanges(false)
     } catch (error) {
       console.error('Error loading phases:', error)
     } finally {
@@ -124,113 +126,57 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
         newPhaseStartDate = getNextDay(midpoint.toISOString().split('T')[0])
         newPhaseEndDate = lastPhase.end_date
 
-        setPhases([
-          ...updatedPhases,
-          {
-            id: `temp-${Date.now()}`,
-            project_id: projectId,
-            name: `Phase ${phases.length + 1}`,
-            start_date: newPhaseStartDate,
-            end_date: newPhaseEndDate,
-            description: '',
-            labor_capital_budget: 0,
-            labor_expense_budget: 0,
-            nonlabor_capital_budget: 0,
-            nonlabor_expense_budget: 0,
-            total_budget: 0,
-          },
-        ])
-      }
-    } else {
-      // First phase - use entire project duration
-      setPhases([
-        {
-          id: `temp-${Date.now()}`,
+        const tempId = `temp-${Date.now()}`
+        const newPhase: Partial<ProjectPhase> = {
+          id: tempId,
           project_id: projectId,
-          name: 'Phase 1',
-          start_date: projectStartDate,
-          end_date: projectEndDate,
+          name: `Phase ${phases.length + 1}`,
+          start_date: newPhaseStartDate,
+          end_date: newPhaseEndDate,
           description: '',
           labor_capital_budget: 0,
           labor_expense_budget: 0,
           nonlabor_capital_budget: 0,
           nonlabor_expense_budget: 0,
           total_budget: 0,
-        },
-      ])
+        }
+        setPhases([...updatedPhases, newPhase])
+        setNewPhaseBaselines((prev) => ({ ...prev, [tempId]: { ...newPhase } }))
+      }
+    } else {
+      // First phase - use entire project duration
+      const tempId = `temp-${Date.now()}`
+      const newPhase: Partial<ProjectPhase> = {
+        id: tempId,
+        project_id: projectId,
+        name: 'Phase 1',
+        start_date: projectStartDate,
+        end_date: projectEndDate,
+        description: '',
+        labor_capital_budget: 0,
+        labor_expense_budget: 0,
+        nonlabor_capital_budget: 0,
+        nonlabor_expense_budget: 0,
+        total_budget: 0,
+      }
+      setPhases([newPhase])
+      setNewPhaseBaselines((prev) => ({ ...prev, [tempId]: { ...newPhase } }))
     }
   }
 
   const handleUpdatePhase = (phaseId: string, rawUpdates: Partial<ProjectPhase>) => {
-    // The table now pushes a single changed field per keystroke (no more
-    // per-row save buffer), so total_budget must be kept in sync here
-    // whenever one of the four budget fields changes - otherwise the
-    // total_budget-matches-sum validation fires spuriously while typing.
-    const budgetFields: (keyof ProjectPhase)[] = [
-      'labor_capital_budget',
-      'labor_expense_budget',
-      'nonlabor_capital_budget',
-      'nonlabor_expense_budget',
-    ]
-    const touchesBudget = budgetFields.some((field) => field in rawUpdates)
-    const currentPhase = phases.find((p) => p.id === phaseId)
-    const updates: Partial<ProjectPhase> = touchesBudget && currentPhase
-      ? {
-          ...rawUpdates,
-          total_budget: budgetFields.reduce(
-            (sum, field) => sum + toNumber(field in rawUpdates ? rawUpdates[field] : currentPhase[field]),
-            0
-          ),
-        }
-      : rawUpdates
-
+    // Apply the edit and, when a budget field is touched, re-sync total_budget from
+    // the MERGED phase (not a render-time snapshot) so the total always equals the
+    // sum of the four budgets regardless of update batching. Change highlighting is
+    // derived from state (see changedFields), so nothing is tracked imperatively here.
+    const touchesBudget = BUDGET_FIELDS.some((field) => field in rawUpdates)
     setPhases((prev) =>
-      prev.map((phase) => (phase.id === phaseId ? { ...phase, ...updates } : phase))
+      prev.map((phase) => {
+        if (phase.id !== phaseId) return phase
+        const merged = { ...phase, ...rawUpdates }
+        return touchesBudget ? withSyncedTotal(merged) : merged
+      })
     )
-    
-    // Track which fields changed
-    setChangedFields((prev) => {
-      const newChangedFields = { ...prev }
-      const originalPhase = originalPhases.find(p => p.id === phaseId)
-      const updatedPhase = phases.find(p => p.id === phaseId)
-      
-      if (!originalPhase || !updatedPhase) {
-        // New phase - mark all fields as changed
-        newChangedFields[phaseId] = new Set(Object.keys(updates))
-      } else {
-        // Existing phase - check which fields actually changed
-        const changedFieldsSet = new Set<string>()
-        Object.keys(updates).forEach(key => {
-          const originalValue = originalPhase[key as keyof ProjectPhase]
-          const newValue = { ...updatedPhase, ...updates }[key as keyof ProjectPhase]
-          if (originalValue !== newValue) {
-            changedFieldsSet.add(key)
-          }
-        })
-        
-        // Merge with existing changed fields
-        if (prev[phaseId]) {
-          prev[phaseId].forEach(field => changedFieldsSet.add(field))
-        }
-        
-        // Remove fields that match original value
-        Object.keys(updates).forEach(key => {
-          const originalValue = originalPhase[key as keyof ProjectPhase]
-          const newValue = { ...updatedPhase, ...updates }[key as keyof ProjectPhase]
-          if (originalValue === newValue) {
-            changedFieldsSet.delete(key)
-          }
-        })
-        
-        if (changedFieldsSet.size > 0) {
-          newChangedFields[phaseId] = changedFieldsSet
-        } else {
-          delete newChangedFields[phaseId]
-        }
-      }
-      
-      return newChangedFields
-    })
   }
 
   const handlePhaseResize = (phaseId: string, newStartDate: string, newEndDate: string) => {
@@ -241,46 +187,9 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
   }
 
   const handlePhaseReorder = (reorderedPhases: Partial<ProjectPhase>[]) => {
-    // Update phases with the reordered list
+    // Update phases with the reordered list; change highlighting (start_date/end_date
+    // deviations) is derived from state, so no imperative tracking is needed here.
     setPhases(reorderedPhases)
-    
-    // Track which fields changed for each phase
-    setChangedFields((prev) => {
-      const newChangedFields = { ...prev }
-      
-      reorderedPhases.forEach((reorderedPhase) => {
-        const originalPhase = originalPhases.find(p => p.id === reorderedPhase.id)
-        
-        if (!originalPhase || !reorderedPhase.id) return
-        
-        // Check which fields actually changed
-        const changedFieldsSet = new Set<string>(prev[reorderedPhase.id] || [])
-        
-        // Check if dates changed
-        if (originalPhase.start_date !== reorderedPhase.start_date) {
-          changedFieldsSet.add('start_date')
-        }
-        if (originalPhase.end_date !== reorderedPhase.end_date) {
-          changedFieldsSet.add('end_date')
-        }
-        
-        // Remove fields that match original value
-        if (originalPhase.start_date === reorderedPhase.start_date) {
-          changedFieldsSet.delete('start_date')
-        }
-        if (originalPhase.end_date === reorderedPhase.end_date) {
-          changedFieldsSet.delete('end_date')
-        }
-        
-        if (changedFieldsSet.size > 0) {
-          newChangedFields[reorderedPhase.id] = changedFieldsSet
-        } else {
-          delete newChangedFields[reorderedPhase.id]
-        }
-      })
-      
-      return newChangedFields
-    })
   }
 
   const handleDeletePhase = (phaseId: string) => {
@@ -400,7 +309,6 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
 
       // Reload phases
       await loadPhases()
-      setHasChanges(false)
       setIsEditMode(false)
 
       if (onSave) {
@@ -422,9 +330,8 @@ const PhaseEditor: React.FC<PhaseEditorProps> = ({
 
   const handleCancel = () => {
     setPhases(originalPhases)
-    setChangedFields({})
+    setNewPhaseBaselines({})
     setDeletedPhaseIds(new Set())
-    setHasChanges(false)
     setValidationErrors([])
     setIsEditMode(false)
 
