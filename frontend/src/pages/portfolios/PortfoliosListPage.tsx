@@ -121,7 +121,7 @@ const LIST_SCROLL_KEY = 'portfoliosListScroll'
  */
 const PortfoliosListPage: React.FC = () => {
   const navigate = useNavigate()
-  const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram, idMode } =
+  const { search, setSearch, expandedPortfolios, expandedPrograms, togglePortfolio, toggleProgram, idMode, toggleIdMode } =
     usePortfolioListState()
 
   const displayName = (businessId: string | undefined, name: string) =>
@@ -395,6 +395,25 @@ const PortfoliosListPage: React.FC = () => {
             ),
           }}
         />
+        <Tooltip title={idMode ? 'Hide IDs' : 'Show IDs'}>
+          <IconButton
+            aria-label="Toggle ID mode"
+            aria-pressed={idMode}
+            size="small"
+            onClick={toggleIdMode}
+            sx={{
+              border: '1px solid',
+              borderColor: idMode ? 'primary.main' : 'divider',
+              borderRadius: 1,
+              color: idMode ? 'primary.main' : 'text.secondary',
+              fontSize: '0.9rem',
+              width: 34,
+              height: 34,
+            }}
+          >
+            #
+          </IconButton>
+        </Tooltip>
         <Box sx={{ flex: 1 }} />
         <PermissionButton
           permission="create_portfolios"

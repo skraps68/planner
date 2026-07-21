@@ -260,4 +260,24 @@ describe('PortfoliosListPage', () => {
       expect(screen.getByText(/\(010000001\) Digital Transformation/)).toBeInTheDocument()
     })
   })
+
+  it('the ID (#) toggle turns the (business_id) prefixes on and off', async () => {
+    const user = userEvent.setup()
+    render(<PortfoliosListPage />, { store, queryClient })
+    await waitFor(() => expect(screen.getByText('Digital Transformation')).toBeInTheDocument())
+
+    // Off by default: no prefix
+    expect(screen.queryByText(/\(010000001\) Digital Transformation/)).toBeNull()
+
+    const toggle = screen.getByRole('button', { name: /toggle id mode/i })
+    await user.click(toggle)
+    await waitFor(() =>
+      expect(screen.getByText(/\(010000001\) Digital Transformation/)).toBeInTheDocument()
+    )
+
+    await user.click(toggle)
+    await waitFor(() =>
+      expect(screen.queryByText(/\(010000001\) Digital Transformation/)).toBeNull()
+    )
+  })
 })
