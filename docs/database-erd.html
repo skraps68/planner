@@ -1,0 +1,685 @@
+<title>Planner — Entity Relationship Diagram</title>
+<style>
+  :root {
+    --bg: #F1F2ED;
+    --surface: #FCFCF9;
+    --surface-raised: #FFFFFF;
+    --ink: #1B2027;
+    --ink-dim: #5B6169;
+    --ink-faint: #8A8F94;
+    --line: #CBCDC2;
+    --line-strong: #A8ABA0;
+    --copper: #A85A26;
+    --copper-soft: rgba(168,90,38,0.12);
+    --steel: #3E5A73;
+    --steel-soft: rgba(62,90,115,0.12);
+    --zone-gov: rgba(62,90,115,0.055);
+    --zone-gov-border: rgba(62,90,115,0.22);
+    --zone-res: rgba(168,90,38,0.055);
+    --zone-res-border: rgba(168,90,38,0.22);
+    --zone-acc: rgba(107,84,140,0.06);
+    --zone-acc-border: rgba(107,84,140,0.24);
+    --violet: #6B548C;
+    --grid-line: rgba(27,32,39,0.05);
+    --grid-line-major: rgba(27,32,39,0.09);
+    --shadow: 0 1px 2px rgba(27,32,39,0.06), 0 4px 14px rgba(27,32,39,0.05);
+
+    --font-display: "Iowan Old Style","Palatino Linotype","Palatino","URW Palladio L","P052",Georgia,serif;
+    --font-mono: ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono","Roboto Mono",Consolas,"Liberation Mono",monospace;
+    --font-ui: "Avenir Next","Century Gothic",Futura,"Segoe UI",system-ui,sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151A;
+      --surface: #1A1F26;
+      --surface-raised: #1F252D;
+      --ink: #E8E6DF;
+      --ink-dim: #9DA3AC;
+      --ink-faint: #6B7178;
+      --line: #333A42;
+      --line-strong: #454E58;
+      --copper: #E08A4B;
+      --copper-soft: rgba(224,138,75,0.15);
+      --steel: #86ADCC;
+      --steel-soft: rgba(134,173,204,0.14);
+      --zone-gov: rgba(134,173,204,0.06);
+      --zone-gov-border: rgba(134,173,204,0.22);
+      --zone-res: rgba(224,138,75,0.06);
+      --zone-res-border: rgba(224,138,75,0.22);
+      --zone-acc: rgba(160,138,196,0.07);
+      --zone-acc-border: rgba(160,138,196,0.26);
+      --violet: #A08AC4;
+      --grid-line: rgba(232,230,223,0.045);
+      --grid-line-major: rgba(232,230,223,0.08);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151A; --surface: #1A1F26; --surface-raised: #1F252D;
+    --ink: #E8E6DF; --ink-dim: #9DA3AC; --ink-faint: #6B7178;
+    --line: #333A42; --line-strong: #454E58;
+    --copper: #E08A4B; --copper-soft: rgba(224,138,75,0.15);
+    --steel: #86ADCC; --steel-soft: rgba(134,173,204,0.14);
+    --zone-gov: rgba(134,173,204,0.06); --zone-gov-border: rgba(134,173,204,0.22);
+    --zone-res: rgba(224,138,75,0.06); --zone-res-border: rgba(224,138,75,0.22);
+    --zone-acc: rgba(160,138,196,0.07); --zone-acc-border: rgba(160,138,196,0.26);
+    --violet: #A08AC4;
+    --grid-line: rgba(232,230,223,0.045); --grid-line-major: rgba(232,230,223,0.08);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.28);
+  }
+  :root[data-theme="light"] {
+    --bg: #F1F2ED; --surface: #FCFCF9; --surface-raised: #FFFFFF;
+    --ink: #1B2027; --ink-dim: #5B6169; --ink-faint: #8A8F94;
+    --line: #CBCDC2; --line-strong: #A8ABA0;
+    --copper: #A85A26; --copper-soft: rgba(168,90,38,0.12);
+    --steel: #3E5A73; --steel-soft: rgba(62,90,115,0.12);
+    --zone-gov: rgba(62,90,115,0.055); --zone-gov-border: rgba(62,90,115,0.22);
+    --zone-res: rgba(168,90,38,0.055); --zone-res-border: rgba(168,90,38,0.22);
+    --zone-acc: rgba(107,84,140,0.06); --zone-acc-border: rgba(107,84,140,0.24);
+    --violet: #6B548C;
+    --grid-line: rgba(27,32,39,0.05); --grid-line-major: rgba(27,32,39,0.09);
+    --shadow: 0 1px 2px rgba(27,32,39,0.06), 0 4px 14px rgba(27,32,39,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .page { max-width: 1720px; margin: 0 auto; padding: 40px 32px 64px; }
+
+  header.top { margin-bottom: 28px; }
+  .eyebrow {
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--steel);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(28px, 3.4vw, 40px);
+    line-height: 1.15;
+    margin: 0 0 10px;
+    text-wrap: balance;
+    letter-spacing: 0.002em;
+  }
+  .sub {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    max-width: 66ch;
+    margin: 0 0 20px;
+  }
+  .sub code { font-family: var(--font-mono); font-size: 0.92em; background: var(--steel-soft); padding: 0.1em 0.4em; border-radius: 3px; }
+
+  .stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+  .stat {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-dim);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 13px;
+    display: flex; align-items: baseline; gap: 5px;
+  }
+  .stat b { color: var(--ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 18px 26px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 1.5;
+  }
+  .badge-pk { background: var(--copper); color: #FCFAF6; }
+  .badge-fk { background: transparent; color: var(--steel); border: 1.2px solid var(--steel); }
+  .badge-uk { background: transparent; color: var(--ink-faint); border: 1.2px solid var(--line-strong); }
+  .legend-line { width: 30px; height: 0; border-top: 2px solid var(--steel); display: inline-block; }
+  .legend-line.dashed { border-top-style: dashed; opacity: 0.75; }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid var(--line-strong); }
+
+  .canvas-wrap {
+    margin-top: 26px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+  #canvas {
+    position: relative;
+    background-image:
+      repeating-linear-gradient(to right, var(--grid-line-major) 0 1px, transparent 1px 120px),
+      repeating-linear-gradient(to bottom, var(--grid-line-major) 0 1px, transparent 1px 120px),
+      repeating-linear-gradient(to right, var(--grid-line) 0 1px, transparent 1px 24px),
+      repeating-linear-gradient(to bottom, var(--grid-line) 0 1px, transparent 1px 24px);
+  }
+
+  .zone-panel {
+    position: absolute;
+    border-radius: 16px;
+    border: 1.5px solid;
+    pointer-events: none;
+  }
+  .zone-panel.gov { background: var(--zone-gov); border-color: var(--zone-gov-border); }
+  .zone-panel.res { background: var(--zone-res); border-color: var(--zone-res-border); }
+  .zone-panel.acc { background: var(--zone-acc); border-color: var(--zone-acc-border); }
+  .zone-panel.util { background: transparent; border-color: var(--line-strong); border-style: dashed; }
+
+  .zone-label {
+    position: absolute;
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  .zone-label.gov { color: var(--steel); background: var(--surface); border: 1px solid var(--zone-gov-border); }
+  .zone-label.res { color: var(--copper); background: var(--surface); border: 1px solid var(--zone-res-border); }
+  .zone-label.acc { color: var(--violet); background: var(--surface); border: 1px solid var(--zone-acc-border); }
+  .zone-label.util { color: var(--ink-faint); background: var(--surface); border: 1px dashed var(--line-strong); }
+
+  svg#lines { position: absolute; top: 0; left: 0; overflow: visible; }
+  .rel-path { fill: none; stroke: var(--steel); stroke-width: 1.5; opacity: 0.55; transition: opacity .18s ease, stroke-width .18s ease; }
+  .rel-path.optional { stroke-dasharray: 5 4; opacity: 0.42; }
+  .rel-label { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; fill: var(--steel); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; opacity: 0.75; transition: opacity .18s ease; }
+  .rel-dot { fill: var(--steel); opacity: 0.6; transition: opacity .18s ease; }
+
+  .card {
+    position: absolute;
+    background: var(--surface-raised);
+    border: 1.3px solid var(--line-strong);
+    border-radius: 9px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: transform .16s ease, box-shadow .16s ease, opacity .18s ease, border-color .16s ease;
+    cursor: default;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(27,32,39,0.09), 0 14px 30px rgba(27,32,39,0.11); border-color: var(--steel); z-index: 40 !important; }
+  .card .head {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 7px 12px 6px;
+    background: var(--surface);
+    border-bottom: 1.3px solid var(--line-strong);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  }
+  .card .head .ttitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .head .tname {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600; color: var(--ink-faint);
+    flex-shrink: 0; max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .row {
+    display: flex; align-items: center; gap: 7px;
+    padding: 0 12px;
+    height: 21px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    border-top: 1px solid var(--grid-line-major);
+  }
+  .row:first-of-type { border-top: none; }
+  .row .fname { color: var(--ink); flex-shrink: 0; }
+  .row .ftype { color: var(--ink-faint); font-size: 10.5px; margin-left: auto; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .q { color: var(--steel); font-weight: 700; }
+  .row.pk { background: var(--copper-soft); }
+  .row.fk { background: var(--steel-soft); }
+  .row .mini-badge {
+    font-size: 8.5px; font-weight: 800; letter-spacing: 0.02em;
+    padding: 0 4px; border-radius: 3px; flex-shrink: 0;
+    font-family: var(--font-ui);
+  }
+  .row.pk .mini-badge { background: var(--copper); color: #FCFAF6; }
+  .row.fk .mini-badge { color: var(--steel); border: 1px solid var(--steel); }
+  .row.uk-only .mini-badge { color: var(--ink-faint); border: 1px solid var(--line-strong); }
+  .row.audit { color: var(--ink-faint); font-style: italic; font-size: 10.5px; justify-content: center; background: transparent; }
+  .row.note { color: var(--ink-faint); font-style: italic; font-size: 9.5px; justify-content: flex-start; white-space: normal; height: auto; padding: 4px 12px 6px; line-height: 1.35; border-top: 1px dashed var(--line); }
+
+  .card.dim { opacity: 0.28; }
+  .rel-path.dim, .rel-label.dim, .rel-dot.dim { opacity: 0.06; }
+  .rel-path.hot { opacity: 1; stroke-width: 2.4; }
+  .rel-label.hot, .rel-dot.hot { opacity: 1; }
+  .card.hot { border-color: var(--copper); }
+
+  .titleblock {
+    position: absolute;
+    background: var(--surface-raised);
+    border: 1.5px solid var(--ink);
+    border-radius: 3px;
+    padding: 10px 14px 12px;
+    width: 236px;
+    font-family: var(--font-ui);
+  }
+  .titleblock .tb-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .titleblock .tb-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-dim); padding: 2px 0; border-top: 1px solid var(--line); }
+  .titleblock .tb-row:first-of-type { border-top: 1px solid var(--ink); margin-top: 4px; padding-top: 5px; }
+  .titleblock .tb-row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  footer.note { margin-top: 18px; font-size: 11.5px; color: var(--ink-faint); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card, .rel-path, .rel-label, .rel-dot { transition: none !important; animation: none !important; }
+  }
+
+  @keyframes riseIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="page">
+  <header class="top">
+    <p class="eyebrow">Database schema · generated from source</p>
+    <h1>Planner — Entity Relationship Diagram</h1>
+    <p class="sub">
+      Three domains sit on one schema: a governance spine (<code>portfolios → programs → projects → phases</code>),
+      the resourcing &amp; finance tables that split every phase's budget and every actual cost into labor vs.
+      non-labor, and access control. Read directly from <code>backend/app/models/*.py</code> — every column,
+      key and constraint shown here exists in the live SQLAlchemy models.
+    </p>
+    <div class="stats" id="stats"></div>
+    <div class="legend">
+      <span class="legend-item"><span class="badge badge-pk">PK</span> primary key</span>
+      <span class="legend-item"><span class="badge badge-fk">FK</span> foreign key</span>
+      <span class="legend-item"><span class="badge badge-uk">UK</span> unique</span>
+      <span class="legend-item"><span class="q">?</span> nullable</span>
+      <span class="legend-item"><span class="legend-line"></span> required (1 → N)</span>
+      <span class="legend-item"><span class="legend-line dashed"></span> optional FK (0/1 → N)</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--zone-gov-border); border-color:var(--zone-gov-border)"></span> governance</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--zone-res-border); border-color:var(--zone-res-border)"></span> resourcing &amp; finance</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--zone-acc-border); border-color:var(--zone-acc-border)"></span> access &amp; audit</span>
+      <span class="legend-item">hover a table to trace its relationships →</span>
+    </div>
+  </header>
+
+  <div class="canvas-wrap"><div id="canvas"></div></div>
+
+  <footer class="note">
+    Every table above inherits <code style="font-family:var(--font-mono)">BaseModel</code> (uuid <code style="font-family:var(--font-mono)">id</code>, <code style="font-family:var(--font-mono)">created_at</code>, <code style="font-family:var(--font-mono)">updated_at</code>, optimistic-lock <code style="font-family:var(--font-mono)">version</code>) except <code style="font-family:var(--font-mono)">business_id_config</code>, a plain lookup table keyed by <code style="font-family:var(--font-mono)">entity_type</code>.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- layout constants -----------------------------------------------
+  var CARD_W = 280, HEADER_H = 34, PAD_V = 8, ROW_H = 21, GAP = 80;
+
+  function rowsFor(e) {
+    var n = e.fields.length;
+    if (e.audit) n += 1;
+    if (e.note) n += 1; // note row is variable height but we budget one row-equivalent + extra below
+    return n;
+  }
+  function heightOf(e) {
+    var h = HEADER_H + PAD_V * 2 + (e.fields.length + (e.audit ? 1 : 0)) * ROW_H;
+    if (e.note) h += 34; // note rows wrap; give fixed extra space
+    return h;
+  }
+
+  // ---- entity data (mirrors backend/app/models/*.py exactly) ----------
+  function F(name, type, flag, nullable) { return { name: name, type: type, flag: flag || null, nullable: !!nullable }; }
+
+  var portfolios = { id: "portfolios", title: "Portfolio", zone: "gov", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("business_id", "varchar(9)", "UK", true),
+    F("name", "varchar(255)"),
+    F("description", "varchar(1000)"),
+    F("owner", "varchar(255)"),
+    F("reporting_start_date", "date"),
+    F("reporting_end_date", "date")
+  ]};
+
+  var programs = { id: "programs", title: "Program", zone: "gov", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("portfolio_id", "uuid", "FK"),
+    F("business_id", "varchar(9)", "UK", true),
+    F("name", "varchar(255)"),
+    F("business_sponsor", "varchar(255)"),
+    F("program_manager", "varchar(255)"),
+    F("technical_lead", "varchar(255)"),
+    F("start_date", "date"),
+    F("end_date", "date"),
+    F("description", "varchar(1000)", null, true)
+  ]};
+
+  var projects = { id: "projects", title: "Project", zone: "gov", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("program_id", "uuid", "FK"),
+    F("business_id", "varchar(9)", "UK", true),
+    F("name", "varchar(255)"),
+    F("business_sponsor", "varchar(255)"),
+    F("project_manager", "varchar(255)"),
+    F("technical_lead", "varchar(255)"),
+    F("start_date", "date"),
+    F("end_date", "date"),
+    F("cost_center_code", "varchar(50)", "UK"),
+    F("description", "varchar(1000)", null, true)
+  ]};
+
+  var project_phases = { id: "project_phases", title: "ProjectPhase", zone: "gov", audit: true, note:
+      "Δ derived, not stored: capital_budget = labor_capital + nonlabor_capital · expense_budget = labor_expense + nonlabor_expense", fields: [
+    F("id", "uuid", "PK"),
+    F("project_id", "uuid", "FK"),
+    F("name", "varchar(100)"),
+    F("start_date", "date"),
+    F("end_date", "date"),
+    F("labor_capital_budget", "numeric(15,2)"),
+    F("labor_expense_budget", "numeric(15,2)"),
+    F("nonlabor_capital_budget", "numeric(15,2)"),
+    F("nonlabor_expense_budget", "numeric(15,2)"),
+    F("total_budget", "numeric(15,2)"),
+    F("description", "varchar(500)", null, true)
+  ]};
+
+  var worker_types = { id: "worker_types", title: "WorkerType", zone: "res", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("type", "varchar(100)", "UK"),
+    F("description", "varchar(1000)")
+  ]};
+
+  var workers = { id: "workers", title: "Worker", zone: "res", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("worker_type_id", "uuid", "FK"),
+    F("external_id", "varchar(100)", "UK"),
+    F("name", "varchar(255)")
+  ]};
+
+  var resources = { id: "resources", title: "Resource", zone: "res", audit: true, note:
+      "CHECK: resource_type='LABOR' ⇒ worker_id required · 'NON_LABOR' ⇒ worker_id NULL", fields: [
+    F("id", "uuid", "PK"),
+    F("name", "varchar(255)"),
+    F("resource_type", "LABOR|NON_LABOR"),
+    F("worker_id", "uuid", "FK", true),
+    F("description", "varchar(1000)", null, true)
+  ]};
+
+  var rates = { id: "rates", title: "Rate", zone: "res", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("worker_type_id", "uuid", "FK"),
+    F("rate_amount", "numeric(15,2)"),
+    F("start_date", "date"),
+    F("end_date", "date", null, true)
+  ]};
+
+  var resource_assignments = { id: "resource_assignments", title: "ResourceAssignment", zone: "res", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("resource_id", "uuid", "FK"),
+    F("project_id", "uuid", "FK"),
+    F("assignment_date", "date"),
+    F("capital_percentage", "numeric(5,2)"),
+    F("expense_percentage", "numeric(5,2)")
+  ]};
+
+  var actuals = { id: "actuals", title: "Actual", zone: "res", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("project_id", "uuid", "FK"),
+    F("resource_id", "uuid", "FK"),
+    F("external_worker_id", "varchar(100)", null, true),
+    F("worker_name", "varchar(255)", null, true),
+    F("actual_date", "date"),
+    F("allocation_percentage", "numeric(5,2)", null, true),
+    F("actual_cost", "numeric(15,2)"),
+    F("capital_amount", "numeric(15,2)"),
+    F("expense_amount", "numeric(15,2)")
+  ]};
+
+  var users = { id: "users", title: "User", zone: "acc", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("username", "varchar(100)", "UK"),
+    F("email", "varchar(255)", "UK"),
+    F("password_hash", "varchar(255)"),
+    F("is_active", "bool")
+  ]};
+
+  var user_roles = { id: "user_roles", title: "UserRole", zone: "acc", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("user_id", "uuid", "FK"),
+    F("role_type", "enum(6 roles)"),
+    F("is_active", "bool")
+  ]};
+
+  var scope_assignments = { id: "scope_assignments", title: "ScopeAssignment", zone: "acc", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("user_role_id", "uuid", "FK"),
+    F("program_id", "uuid", "FK", true),
+    F("project_id", "uuid", "FK", true),
+    F("scope_type", "global|program|project"),
+    F("is_active", "bool")
+  ]};
+
+  var audit_logs = { id: "audit_logs", title: "AuditLog", zone: "acc", audit: true, fields: [
+    F("id", "uuid", "PK"),
+    F("user_id", "uuid", "FK"),
+    F("entity_type", "varchar(100)"),
+    F("entity_id", "uuid"),
+    F("operation", "varchar(50)"),
+    F("before_values", "jsonb", null, true),
+    F("after_values", "jsonb", null, true)
+  ]};
+
+  var business_id_config = { id: "business_id_config", title: "BusinessIdConfig", zone: "util", audit: false, fields: [
+    F("entity_type", "varchar(20)", "PK"),
+    F("base_id", "integer"),
+    F("next_sequence", "integer")
+  ]};
+
+  var ENTITIES = [portfolios, programs, projects, project_phases, worker_types, workers, resources,
+    rates, resource_assignments, actuals, users, user_roles, scope_assignments, audit_logs, business_id_config];
+  var byId = {}; ENTITIES.forEach(function (e) { byId[e.id] = e; });
+
+  // ---- position the columns --------------------------------------------
+  function stack(list, x, startY) {
+    var y = startY;
+    list.forEach(function (e) {
+      e.x = x; e.y = y; e.w = CARD_W; e.h = heightOf(e);
+      y += e.h + GAP;
+    });
+  }
+  stack([portfolios, programs, projects, project_phases], 40, 40);
+  stack([worker_types, workers, resources], 390, 40);
+
+  rates.x = 700; rates.y = worker_types.y; rates.w = CARD_W; rates.h = heightOf(rates);
+  resource_assignments.x = 700; resource_assignments.y = resources.y; resource_assignments.w = CARD_W; resource_assignments.h = heightOf(resource_assignments);
+  actuals.x = 700; actuals.y = resource_assignments.y + resource_assignments.h + GAP; actuals.w = CARD_W; actuals.h = heightOf(actuals);
+
+  stack([users, user_roles, scope_assignments], 1050, 40);
+
+  audit_logs.x = 1360; audit_logs.y = users.y; audit_logs.w = CARD_W; audit_logs.h = heightOf(audit_logs);
+  // Positioned below the *entire* access column (not just audit_logs) plus extra
+  // clearance so its "standalone" panel never nests inside the Access zone panel.
+  business_id_config.x = 1360; business_id_config.y = scope_assignments.y + scope_assignments.h + GAP + 40; business_id_config.w = CARD_W; business_id_config.h = heightOf(business_id_config);
+
+  // ---- relationships ------------------------------------------------
+  // kind: 'stack' = same-column vertical chain · 'side' = cross-column horizontal
+  var RELS = [
+    { from: "portfolios", to: "programs", toField: 1, kind: "stack", card: "N" },
+    { from: "programs", to: "projects", toField: 1, kind: "stack", card: "N" },
+    { from: "projects", to: "project_phases", toField: 1, kind: "stack", card: "N" },
+    { from: "worker_types", to: "workers", toField: 1, kind: "stack", card: "N" },
+    { from: "workers", to: "resources", toField: 3, kind: "stack", card: "0/1", optional: true },
+    { from: "worker_types", to: "rates", toField: 1, kind: "side", card: "N" },
+    { from: "resources", to: "resource_assignments", toField: 1, kind: "side", card: "N" },
+    { from: "resources", to: "actuals", toField: 2, kind: "side", card: "N" },
+    { from: "projects", to: "resource_assignments", toField: 2, kind: "side", card: "N" },
+    { from: "projects", to: "actuals", toField: 1, kind: "side", card: "N" },
+    { from: "users", to: "user_roles", toField: 1, kind: "stack", card: "N" },
+    { from: "user_roles", to: "scope_assignments", toField: 1, kind: "stack", card: "N" },
+    { from: "users", to: "audit_logs", toField: 1, kind: "side", card: "N" },
+    { from: "programs", to: "scope_assignments", toField: 2, kind: "side", card: "0/N", optional: true },
+    { from: "projects", to: "scope_assignments", toField: 3, kind: "side", card: "0/N", optional: true }
+  ];
+
+  function fieldRowY(e, idx) { return e.y + HEADER_H + PAD_V + idx * ROW_H + ROW_H / 2; }
+  function pkRowY(e) { return fieldRowY(e, 0); }
+
+  // ---- canvas extents --------------------------------------------------
+  var maxX = 0, maxY = 0;
+  ENTITIES.forEach(function (e) { maxX = Math.max(maxX, e.x + e.w); maxY = Math.max(maxY, e.y + e.h); });
+  var CANVAS_W = maxX + 60, CANVAS_H = maxY + 60;
+
+  var canvas = document.getElementById("canvas");
+  canvas.style.width = CANVAS_W + "px";
+  canvas.style.height = CANVAS_H + "px";
+
+  // ---- zone panels -------------------------------------------------
+  var ZONES = [
+    { key: "gov", label: "Governance", members: [portfolios, programs, projects, project_phases] },
+    { key: "res", label: "Resourcing & Finance", members: [worker_types, workers, resources, rates, resource_assignments, actuals] },
+    { key: "acc", label: "Access & Audit", members: [users, user_roles, scope_assignments, audit_logs] },
+    { key: "util", label: "Standalone", members: [business_id_config] }
+  ];
+  var zoneHtml = "";
+  ZONES.forEach(function (z) {
+    var minX = Infinity, minY = Infinity, maxXz = -Infinity, maxYz = -Infinity;
+    z.members.forEach(function (e) {
+      minX = Math.min(minX, e.x); minY = Math.min(minY, e.y);
+      maxXz = Math.max(maxXz, e.x + e.w); maxYz = Math.max(maxYz, e.y + e.h);
+    });
+    var pad = 22;
+    var px = minX - pad, py = minY - pad, pw = (maxXz - minX) + pad * 2, ph = (maxYz - minY) + pad * 2;
+    zoneHtml += '<div class="zone-panel ' + z.key + '" style="left:' + px + 'px;top:' + py + 'px;width:' + pw + 'px;height:' + ph + 'px"></div>';
+    zoneHtml += '<div class="zone-label ' + z.key + '" style="left:' + (px + 14) + 'px;top:' + (py - 12) + 'px">' + z.label + '</div>';
+  });
+
+  // ---- cards ---------------------------------------------------------
+  function escapeHtml(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+
+  var cardHtml = "";
+  ENTITIES.forEach(function (e, idx) {
+    var rows = "";
+    e.fields.forEach(function (f) {
+      var cls = f.flag === "PK" ? "pk" : f.flag === "FK" ? "fk" : (f.flag === "UK" ? "uk-only" : "");
+      var badge = f.flag ? '<span class="mini-badge">' + f.flag + '</span>' : "";
+      var q = f.nullable ? '<span class="q">?</span>' : "";
+      // Native title tooltip recovers the full name/type on hover for the rare
+      // row too long for a 280px card (long budget columns, spelled-out enums).
+      var full = f.name + " : " + f.type + (f.nullable ? " (nullable)" : "");
+      rows += '<div class="row ' + cls + '" title="' + escapeHtml(full) + '">' + badge +
+        '<span class="fname">' + escapeHtml(f.name) + '</span>' +
+        '<span class="ftype">' + escapeHtml(f.type) + q + '</span></div>';
+    });
+    if (e.audit) rows += '<div class="row audit">created_at · updated_at · version</div>';
+    if (e.note) rows += '<div class="row note">' + escapeHtml(e.note) + '</div>';
+
+    var delay = (idx * 18) % 260;
+    cardHtml += '<div class="card" data-entity="' + e.id + '" style="left:' + e.x + 'px;top:' + e.y + 'px;width:' + e.w +
+      'px;animation:riseIn .32s ease both;animation-delay:' + delay + 'ms">' +
+      '<div class="head" title="' + e.title + ' (table: ' + e.id + ')"><span class="ttitle">' + e.title + '</span><span class="tname">' + e.id + '</span></div>' +
+      rows + '</div>';
+  });
+
+  // ---- title block -----------------------------------------------------
+  var relCount = RELS.length, tableCount = ENTITIES.length;
+  var tbX = CANVAS_W - 236 - 40, tbY = CANVAS_H - 168;
+  var titleBlockHtml = '<div class="titleblock" style="left:' + tbX + 'px;top:' + tbY + 'px">' +
+    '<div class="tb-title">Planner · Schema</div>' +
+    '<div class="tb-row"><span>Tables</span><b>' + tableCount + '</b></div>' +
+    '<div class="tb-row"><span>Relationships</span><b>' + relCount + '</b></div>' +
+    '<div class="tb-row"><span>Domains</span><b>3</b> + 1 utility</div>' +
+    '<div class="tb-row"><span>Source</span><b style="font-family:var(--font-mono);font-size:9px">app/models/*.py</b></div>' +
+    '</div>';
+
+  // DOM order matters for stacking: zone panels lowest, then the connector
+  // lines, then cards on top (so lines tuck behind opaque cards instead of
+  // drawing over them), then the title block.
+  canvas.innerHTML = zoneHtml +
+    '<svg id="lines" width="' + CANVAS_W + '" height="' + CANVAS_H + '"></svg>' +
+    cardHtml + titleBlockHtml;
+
+  // ---- connectors --------------------------------------------------
+  var svg = document.getElementById("lines");
+  var svgParts = [];
+  RELS.forEach(function (rel, i) {
+    var from = byId[rel.from], to = byId[rel.to];
+    var x1, y1, x2, y2, path;
+    if (rel.kind === "stack") {
+      x1 = from.x + 40; y1 = from.y + from.h;
+      x2 = to.x + 40; y2 = to.y;
+      var midY = (y1 + y2) / 2;
+      path = "M " + x1 + "," + y1 + " C " + x1 + "," + midY + " " + x2 + "," + midY + " " + x2 + "," + y2;
+    } else {
+      var fromRight = from.x < to.x;
+      x1 = fromRight ? from.x + from.w : from.x;
+      y1 = pkRowY(from);
+      x2 = fromRight ? to.x : to.x + to.w;
+      y2 = fieldRowY(to, rel.toField);
+      var midX = (x1 + x2) / 2;
+      path = "M " + x1 + "," + y1 + " C " + midX + "," + y1 + " " + midX + "," + y2 + " " + x2 + "," + y2;
+    }
+    var cls = "rel-path" + (rel.optional ? " optional" : "");
+    svgParts.push('<path class="' + cls + '" data-from="' + rel.from + '" data-to="' + rel.to + '" d="' + path + '"></path>');
+    svgParts.push('<circle class="rel-dot" data-from="' + rel.from + '" data-to="' + rel.to + '" cx="' + x1 + '" cy="' + y1 + '" r="2.6"></circle>');
+    // labels near each end, offset along the line's local direction
+    var lx1 = x1 + (x2 > x1 ? 7 : -7), ly1 = y1 - 5;
+    var lx2 = x2 + (x2 > x1 ? -7 : 7), ly2 = y2 - 5;
+    svgParts.push('<text class="rel-label" data-from="' + rel.from + '" data-to="' + rel.to + '" x="' + lx1 + '" y="' + ly1 + '" text-anchor="' + (x2 > x1 ? "start" : "end") + '">1</text>');
+    svgParts.push('<text class="rel-label" data-from="' + rel.from + '" data-to="' + rel.to + '" x="' + lx2 + '" y="' + ly2 + '" text-anchor="' + (x2 > x1 ? "end" : "start") + '">' + rel.card + '</text>');
+  });
+  svg.innerHTML = svgParts.join("");
+
+  // ---- stats strip -----------------------------------------------------
+  document.getElementById("stats").innerHTML =
+    '<span class="stat"><b>' + tableCount + '</b> tables</span>' +
+    '<span class="stat"><b>' + relCount + '</b> relationships</span>' +
+    '<span class="stat"><b>3</b> domains</span>';
+
+  // ---- hover-to-trace interactivity ------------------------------------
+  var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+  var relEls = Array.prototype.slice.call(document.querySelectorAll(".rel-path, .rel-label, .rel-dot"));
+
+  function clearHover() {
+    cards.forEach(function (c) { c.classList.remove("dim", "hot"); });
+    relEls.forEach(function (r) { r.classList.remove("dim", "hot"); });
+  }
+  cards.forEach(function (card) {
+    card.addEventListener("mouseenter", function () {
+      var id = card.getAttribute("data-entity");
+      var connected = {};
+      connected[id] = true;
+      relEls.forEach(function (r) {
+        var f = r.getAttribute("data-from"), t = r.getAttribute("data-to");
+        if (f === id || t === id) {
+          r.classList.add("hot"); r.classList.remove("dim");
+          connected[f] = true; connected[t] = true;
+        } else {
+          r.classList.add("dim"); r.classList.remove("hot");
+        }
+      });
+      cards.forEach(function (c) {
+        var cid = c.getAttribute("data-entity");
+        if (connected[cid]) { c.classList.remove("dim"); if (cid === id) c.classList.add("hot"); }
+        else { c.classList.add("dim"); }
+      });
+    });
+    card.addEventListener("mouseleave", clearHover);
+  });
+})();
+</script>
