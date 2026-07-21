@@ -205,7 +205,51 @@ class TestForecastingService:
         # Should aggregate from all projects in the program
         assert forecast.total_budget == Decimal('150000.00')
         assert forecast.total_actual == Decimal('2500.00')
-    
+
+    def test_calculate_portfolio_forecast(self, db, sample_program, sample_project):
+        """Portfolio forecast aggregates its programs; a single-program portfolio
+        equals that program's forecast. (Does not use the sample_actuals fixture,
+        which is pre-existing broken debt; budget aggregation flows from the
+        project, with actuals at zero.)"""
+        portfolio_id = sample_program.portfolio_id
+        forecast = forecasting_service.calculate_portfolio_forecast(
+            db=db,
+            portfolio_id=portfolio_id,
+            as_of_date=date(2024, 1, 10),
+        )
+        program_forecast = forecasting_service.calculate_program_forecast(
+            db=db, program_id=sample_program.id, as_of_date=date(2024, 1, 10),
+        )
+        assert forecast.entity_type == "portfolio"
+        assert forecast.entity_id == portfolio_id
+        # Single-program portfolio equals that program's forecast
+        assert forecast.total_budget == program_forecast.total_budget
+        assert forecast.total_forecast == program_forecast.total_forecast
+        assert forecast.total_budget == Decimal('150000.00')
+        assert forecast.total_actual == Decimal('0.00')
+
+    def test_calculate_portfolio_forecast_empty(self, db):
+        """A portfolio with no programs yields an all-zero forecast."""
+        portfolio = Portfolio(
+            name="Empty Portfolio",
+            description="No programs",
+            owner="Owner",
+            reporting_start_date=date(2024, 1, 1),
+            reporting_end_date=date(2024, 12, 31),
+        )
+        db.add(portfolio)
+        db.commit()
+        db.refresh(portfolio)
+        forecast = forecasting_service.calculate_portfolio_forecast(db=db, portfolio_id=portfolio.id)
+        assert forecast.entity_type == "portfolio"
+        assert forecast.total_budget == Decimal('0.00')
+        assert forecast.total_forecast == Decimal('0.00')
+
+    def test_calculate_portfolio_forecast_not_found(self, db):
+        """Unknown portfolio id raises ValueError."""
+        with pytest.raises(ValueError, match="does not exist"):
+            forecasting_service.calculate_portfolio_forecast(db=db, portfolio_id=uuid4())
+
     def test_get_budget_vs_actual_vs_forecast(self, db, sample_project, sample_actuals):
         """Test budget vs actual vs forecast report."""
         report = forecasting_service.get_budget_vs_actual_vs_forecast(
