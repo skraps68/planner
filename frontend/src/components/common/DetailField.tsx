@@ -22,6 +22,8 @@ export interface DetailFieldProps {
   value: React.ReactNode
   children?: React.ReactNode
   multiline?: boolean
+  /** Span the full row as a single column (single-line) — e.g. a long name. */
+  fullWidth?: boolean
 }
 
 export const ROW_H = 28
@@ -37,7 +39,7 @@ const trimmedInputSx = {
   '& .MuiAutocomplete-input': { paddingTop: '2px', paddingBottom: '2px' },
 }
 
-const DetailField: React.FC<DetailFieldProps> = ({ label, editing, value, children, multiline }) => {
+const DetailField: React.FC<DetailFieldProps> = ({ label, editing, value, children, multiline, fullWidth }) => {
   const showEditor = editing && children != null
   const isEmpty = value === '' || value === null || value === undefined
 
@@ -71,7 +73,7 @@ const DetailField: React.FC<DetailFieldProps> = ({ label, editing, value, childr
   }
 
   return (
-    <Grid item xs={12} sm={6}>
+    <Grid item xs={12} sm={fullWidth ? 12 : 6}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ...trimmedInputSx }}>
         <Typography
           variant="caption"

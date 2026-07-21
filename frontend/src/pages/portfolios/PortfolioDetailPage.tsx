@@ -327,7 +327,7 @@ const PortfolioDetailPage: React.FC = () => {
             )}
           </Box>
           <Grid container rowSpacing={0.25} columnSpacing={1}>
-            <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name}>
+            <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name} fullWidth>
               <TextField fullWidth size="small" value={editValues.name}
                 onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
                 error={!!validationErrors.name} helperText={validationErrors.name} />

@@ -296,7 +296,7 @@ const ProgramDetailPage: React.FC = () => {
               )}
             </Box>
             <Grid container rowSpacing={0.25} columnSpacing={1}>
-              <DetailField label="Program Name" editing={isEditingInfo} value={program.name}>
+              <DetailField label="Program Name" editing={isEditingInfo} value={program.name} fullWidth>
                 <TextField fullWidth size="small" value={editValues.name}
                   onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
               </DetailField>
