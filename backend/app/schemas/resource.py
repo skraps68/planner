@@ -93,6 +93,7 @@ class WorkerBase(BaseSchema):
     worker_type_id: UUID = Field(description="Worker type ID")
     external_id: str = Field(min_length=1, max_length=100, description="External worker ID")
     name: str = Field(min_length=1, max_length=255, description="Worker name")
+    cost_center_code: str = Field(min_length=1, max_length=50, description="Cost center code")
 
 
 class WorkerCreate(WorkerBase):
@@ -106,6 +107,7 @@ class WorkerUpdate(VersionedSchema):
     worker_type_id: Optional[UUID] = Field(default=None, description="Worker type ID")
     external_id: Optional[str] = Field(default=None, min_length=1, max_length=100, description="External worker ID")
     name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Worker name")
+    cost_center_code: Optional[str] = Field(default=None, min_length=1, max_length=50, description="Cost center code")
 
 
 class WorkerResponse(WorkerBase, TimestampMixin, VersionedSchema):
