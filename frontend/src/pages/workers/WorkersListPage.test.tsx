@@ -35,6 +35,17 @@ const worker = {
   updated_at: '2026-01-01T00:00:00Z',
 }
 
+const worker2 = {
+  id: 'w2',
+  external_id: 'EMP777',
+  name: 'Bob Smith',
+  worker_type_id: 'wt1',
+  cost_center_code: 'CC-1003',
+  version: 1,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+}
+
 const workerType = {
   id: 'wt1',
   type: 'Engineer',
@@ -117,5 +128,36 @@ describe('WorkersListPage', () => {
     render(<WorkersListPage />, { store: viewerStore(), queryClient: createTestQueryClient() })
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: /create worker/i })).toBeNull()
+  })
+
+  it('filters as you type by name and highlights the match', async () => {
+    const user = userEvent.setup()
+    vi.mocked(workersApi.list).mockResolvedValue({
+      items: [worker, worker2], total: 2, page: 1, size: 1000, pages: 1,
+    } as any)
+    render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+
+    await user.type(screen.getByPlaceholderText(/search name or employee id/i), 'Jane')
+
+    await waitFor(() => expect(screen.queryByText('Bob Smith')).toBeNull())
+    const mark = document.querySelector('[data-highlight]')
+    expect(mark).not.toBeNull()
+    expect(mark!.textContent).toBe('Jane')
+  })
+
+  it('searches by employee (external) ID', async () => {
+    const user = userEvent.setup()
+    vi.mocked(workersApi.list).mockResolvedValue({
+      items: [worker, worker2], total: 2, page: 1, size: 1000, pages: 1,
+    } as any)
+    render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText(/search name or employee id/i), 'EMP777')
+
+    await waitFor(() => expect(screen.queryByText('Jane Doe')).toBeNull())
+    expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
 })

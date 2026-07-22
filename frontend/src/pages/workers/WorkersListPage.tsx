@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -25,6 +25,8 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 import { usePermissions } from '../../hooks/usePermissions'
+import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
 
 const WorkersListPage = () => {
   const navigate = useNavigate()
@@ -36,22 +38,17 @@ const WorkersListPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [selectedWorkerType, setSelectedWorkerType] = useState<string>('')
 
+  // Load the full set once and filter/paginate client-side so search is
+  // filter-as-you-type (instant, no round-trip) and matches can be highlighted.
   const fetchWorkers = async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await workersApi.list({
-        page: page + 1,
-        size: rowsPerPage,
-        search: search || undefined,
-        worker_type_id: selectedWorkerType || undefined,
-      })
+      const data = await workersApi.list({ page: 1, size: 1000 })
       setWorkers(data.items)
-      setTotal(data.total)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load workers')
     } finally {
@@ -60,6 +57,25 @@ const WorkersListPage = () => {
   }
 
   const workerTypeMap = new Map(workerTypes.map((type) => [type.id, type.type]))
+
+  // Filter by the worker-type dropdown and the search term (name + employee/
+  // external ID), then paginate the result client-side.
+  const filteredWorkers = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return workers.filter((w) => {
+      if (selectedWorkerType && w.worker_type_id !== selectedWorkerType) return false
+      if (!term) return true
+      return (
+        w.name.toLowerCase().includes(term) ||
+        (w.external_id || '').toLowerCase().includes(term)
+      )
+    })
+  }, [workers, search, selectedWorkerType])
+
+  const pagedWorkers = useMemo(
+    () => filteredWorkers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredWorkers, page, rowsPerPage]
+  )
 
   const fetchWorkerTypes = async () => {
     try {
@@ -72,11 +88,8 @@ const WorkersListPage = () => {
 
   useEffect(() => {
     fetchWorkerTypes()
-  }, [])
-
-  useEffect(() => {
     fetchWorkers()
-  }, [page, rowsPerPage, search, selectedWorkerType])
+  }, [])
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage)
@@ -102,33 +115,27 @@ const WorkersListPage = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="h5">Workers</Typography>
-        {canEdit && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/workers/new')}
-          >
-            Create Worker
-          </Button>
-        )}
-      </Box>
+      <ScopeBreadcrumbs
+        items={[
+          { label: 'Home', path: '/dashboard' },
+          { label: 'Workers' },
+        ]}
+      />
 
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
         <TextField
-          placeholder="Search workers..."
+          placeholder="Search name or employee ID..."
           size="small"
           value={search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          sx={{ flexGrow: 1 }}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0) }}
+          sx={{ flex: '0 0 40%' }}
         />
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>Worker Type</InputLabel>
           <Select
             value={selectedWorkerType}
             label="Worker Type"
-            onChange={(e: any) => setSelectedWorkerType(e.target.value)}
+            onChange={(e: any) => { setSelectedWorkerType(e.target.value); setPage(0) }}
           >
             <MenuItem value="">All</MenuItem>
             {workerTypes.map((type: WorkerType) => (
@@ -138,6 +145,16 @@ const WorkersListPage = () => {
             ))}
           </Select>
         </FormControl>
+        <Box sx={{ flexGrow: 1 }} />
+        {canEdit && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/workers/new')}
+          >
+            Create Worker
+          </Button>
+        )}
       </Box>
 
       {error && (
@@ -153,7 +170,7 @@ const WorkersListPage = () => {
       ) : (
         <Paper>
           <TableContainer>
-            <Table size="small">
+            <Table size="small" sx={{ '& .MuiTableCell-root': { paddingTop: '1px', paddingBottom: '1px' } }}>
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
@@ -166,14 +183,14 @@ const WorkersListPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {workers.length === 0 ? (
+                {filteredWorkers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} align="center">
                       No workers found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  workers.map((worker: Worker) => (
+                  pagedWorkers.map((worker: Worker) => (
                     <TableRow
                       key={worker.id}
                       hover
@@ -182,10 +199,10 @@ const WorkersListPage = () => {
                     >
                       <TableCell>
                         <Typography variant="body2" fontWeight="medium">
-                          {worker.name}
+                          <HighlightedLabel label={worker.name} term={search} />
                         </Typography>
                       </TableCell>
-                      <TableCell>{worker.external_id}</TableCell>
+                      <TableCell><HighlightedLabel label={worker.external_id} term={search} /></TableCell>
                       <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
                       <TableCell>{worker.cost_center_code || '—'}</TableCell>
                       <TableCell>
@@ -208,7 +225,7 @@ const WorkersListPage = () => {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={total}
+            count={filteredWorkers.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}
