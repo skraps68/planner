@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import DetailField from './DetailField'
 
 describe('DetailField', () => {
@@ -55,5 +56,19 @@ describe('DetailField', () => {
   it('uses a taller slot for the multiline variant', () => {
     render(<DetailField label="Description" editing={false} value={'line1\nline2'} multiline />)
     expect(screen.getByTestId('detail-slot').style.minHeight).toBe('64px')
+  })
+
+  it('renders an info icon with a tooltip when info is provided', async () => {
+    const user = userEvent.setup()
+    render(<DetailField label="Start Date" editing={false} value="Jan 01, 2026" info="Captured within these dates" />)
+    const icon = screen.getByTestId('InfoOutlinedIcon')
+    expect(icon).toBeInTheDocument()
+    await user.hover(icon)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Captured within these dates')
+  })
+
+  it('has no info icon when info is not provided', () => {
+    render(<DetailField label="ID" editing={false} value="PF-1" />)
+    expect(screen.queryByTestId('InfoOutlinedIcon')).toBeNull()
   })
 })

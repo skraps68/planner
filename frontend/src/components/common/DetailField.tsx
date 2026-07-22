@@ -1,5 +1,6 @@
 import React from 'react'
-import { Typography, Box } from '@mui/material'
+import { Typography, Box, Tooltip } from '@mui/material'
+import { InfoOutlined } from '@mui/icons-material'
 
 /**
  * A single labelled field in a (single-column) detail section: a right-aligned
@@ -21,6 +22,8 @@ export interface DetailFieldProps {
   value: React.ReactNode
   children?: React.ReactNode
   multiline?: boolean
+  /** When set, shows an info (ⓘ) icon next to the label with this tooltip text. */
+  info?: string
 }
 
 export const ROW_H = 28
@@ -39,25 +42,48 @@ const trimmedInputSx = {
   '& .MuiAutocomplete-input': { paddingTop: '2px', paddingBottom: '2px' },
 }
 
-const DetailField: React.FC<DetailFieldProps> = ({ label, editing, value, children, multiline }) => {
+const DetailField: React.FC<DetailFieldProps> = ({ label, editing, value, children, multiline, info }) => {
   const showEditor = editing && children != null
   const isEmpty = value === '' || value === null || value === undefined
 
-  return (
-    <Box sx={{ display: 'flex', alignItems: multiline ? 'flex-start' : 'center', gap: 0.75, ...trimmedInputSx }}>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{
-          width: LABEL_W,
-          flexShrink: 0,
-          textAlign: 'right',
-          lineHeight: LABEL_LINE_H,
-          ...(multiline ? { pt: TOP_PAD } : {}),
-        }}
-      >
+  const labelNode = info ? (
+    <Box
+      sx={{
+        width: LABEL_W,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 0.25,
+        ...(multiline ? { pt: TOP_PAD } : {}),
+      }}
+    >
+      <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: LABEL_LINE_H }}>
         {label}
       </Typography>
+      <Tooltip title={info}>
+        <InfoOutlined sx={{ fontSize: 14, color: 'action.active', cursor: 'help', flexShrink: 0 }} />
+      </Tooltip>
+    </Box>
+  ) : (
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      sx={{
+        width: LABEL_W,
+        flexShrink: 0,
+        textAlign: 'right',
+        lineHeight: LABEL_LINE_H,
+        ...(multiline ? { pt: TOP_PAD } : {}),
+      }}
+    >
+      {label}
+    </Typography>
+  )
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: multiline ? 'flex-start' : 'center', gap: 0.75, ...trimmedInputSx }}>
+      {labelNode}
       <Box
         data-testid="detail-slot"
         style={{ minHeight: multiline ? MULTILINE_SLOT_H : ROW_H }}

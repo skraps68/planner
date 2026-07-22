@@ -331,13 +331,15 @@ const PortfolioDetailPage: React.FC = () => {
                 error={!!validationErrors.name} helperText={validationErrors.name} />
             </DetailField>
             <DetailField label="ID" editing={isEditing} value={portfolio.business_id} />
-            <DetailField label="Reporting Start Date" editing={isEditing}
+            <DetailField label="Start Date" editing={isEditing}
+              info="Financials captured within these dates regardless of program/project dates."
               value={format(new Date(portfolio.reporting_start_date), 'MMMM dd, yyyy')}>
               <TextField fullWidth size="small" type="date" value={editValues.reporting_start_date}
                 onChange={(e) => setEditValues({ ...editValues, reporting_start_date: e.target.value })}
                 error={!!validationErrors.reporting_start_date} helperText={validationErrors.reporting_start_date} />
             </DetailField>
-            <DetailField label="Reporting End Date" editing={isEditing}
+            <DetailField label="End Date" editing={isEditing}
+              info="Financials captured within these dates regardless of program/project dates."
               value={format(new Date(portfolio.reporting_end_date), 'MMMM dd, yyyy')}>
               <TextField fullWidth size="small" type="date" value={editValues.reporting_end_date}
                 onChange={(e) => setEditValues({ ...editValues, reporting_end_date: e.target.value })}
