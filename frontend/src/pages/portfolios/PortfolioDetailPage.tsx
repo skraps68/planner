@@ -309,7 +309,7 @@ const PortfolioDetailPage: React.FC = () => {
           {(canEdit || isEditing) && (
             <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1 }}>
               {!isEditing ? (
-                <Button variant="outlined" size="small" startIcon={<Edit />} onClick={handleEdit}>
+                <Button variant="contained" size="small" startIcon={<Edit />} onClick={handleEdit}>
                   Edit
                 </Button>
               ) : (
