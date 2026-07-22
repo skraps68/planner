@@ -29,7 +29,7 @@ import PhaseEditor from '../../components/phases/PhaseEditor'
 import { FinancialSummaryTable } from '../../components/portfolio/FinancialSummaryTable'
 import ChartSection from '../../components/portfolio/ChartSection'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
-import DetailField, { DETAIL_BUTTON_BAND } from '../../components/common/DetailField'
+import DetailField, { DETAIL_BUTTON_BAND_VIEW, DETAIL_BUTTON_BAND_EDIT } from '../../components/common/DetailField'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
 import ProjectActualsTab from '../../components/actuals/ProjectActualsTab'
 import ConflictDialog from '../../components/common/ConflictDialog'
@@ -300,7 +300,7 @@ const ProjectDetailPage: React.FC = () => {
                   </Box>
                 )}
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${DETAIL_BUTTON_BAND}px` }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${isEditingInfo ? DETAIL_BUTTON_BAND_EDIT : DETAIL_BUTTON_BAND_VIEW}px` }}>
                 <DetailField label="Project Name" editing={isEditingInfo} value={project.name}>
                   <TextField fullWidth size="small" value={editValues.name}
                     onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
@@ -333,7 +333,7 @@ const ProjectDetailPage: React.FC = () => {
                   <TextField fullWidth size="small" type="date" value={editValues.end_date}
                     onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
                 </DetailField>
-                <Box sx={{ mr: `-${DETAIL_BUTTON_BAND}px` }}>
+                <Box sx={{ mr: `-${isEditingInfo ? DETAIL_BUTTON_BAND_EDIT : DETAIL_BUTTON_BAND_VIEW}px` }}>
                   <DetailField label="Description" editing={isEditingInfo} value={project.description} multiline>
                     <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
                       onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} />

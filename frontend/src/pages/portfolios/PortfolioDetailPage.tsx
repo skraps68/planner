@@ -36,7 +36,7 @@ import { Program } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
-import DetailField, { DETAIL_BUTTON_BAND } from '../../components/common/DetailField'
+import DetailField, { DETAIL_BUTTON_BAND_VIEW, DETAIL_BUTTON_BAND_EDIT } from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -324,7 +324,7 @@ const PortfolioDetailPage: React.FC = () => {
               )}
             </Box>
           )}
-          <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${DETAIL_BUTTON_BAND}px` }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${isEditing ? DETAIL_BUTTON_BAND_EDIT : DETAIL_BUTTON_BAND_VIEW}px` }}>
             <DetailField label="Portfolio Name" editing={isEditing} value={portfolio.name}>
               <TextField fullWidth size="small" value={editValues.name}
                 onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
@@ -354,7 +354,7 @@ const PortfolioDetailPage: React.FC = () => {
               value={format(new Date(portfolio.created_at), 'MMMM dd, yyyy HH:mm')} />
             <DetailField label="Updated At" editing={isEditing}
               value={format(new Date(portfolio.updated_at), 'MMMM dd, yyyy HH:mm')} />
-            <Box sx={{ mr: `-${DETAIL_BUTTON_BAND}px` }}>
+            <Box sx={{ mr: `-${isEditing ? DETAIL_BUTTON_BAND_EDIT : DETAIL_BUTTON_BAND_VIEW}px` }}>
               <DetailField label="Description" editing={isEditing} value={portfolio.description} multiline>
                 <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
                   onChange={(e) => setEditValues({ ...editValues, description: e.target.value })}

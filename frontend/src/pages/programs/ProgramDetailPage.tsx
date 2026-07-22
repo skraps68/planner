@@ -36,7 +36,7 @@ import { Project } from '../../types'
 import { format } from 'date-fns'
 import { usePermissions } from '../../hooks/usePermissions'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
-import DetailField, { DETAIL_BUTTON_BAND } from '../../components/common/DetailField'
+import DetailField, { DETAIL_BUTTON_BAND_VIEW, DETAIL_BUTTON_BAND_EDIT } from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 
@@ -298,7 +298,7 @@ const ProgramDetailPage: React.FC = () => {
             </Box>
             {/* Single column; value columns reserve DETAIL_BUTTON_BAND on the right
                 for the button, and the Description reclaims it (negative margin). */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${DETAIL_BUTTON_BAND}px` }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 0.25, pr: `${isEditingInfo ? DETAIL_BUTTON_BAND_EDIT : DETAIL_BUTTON_BAND_VIEW}px` }}>
               <DetailField label="Program Name" editing={isEditingInfo} value={program.name}>
                 <TextField fullWidth size="small" value={editValues.name}
                   onChange={(e) => setEditValues({ ...editValues, name: e.target.value })} />
@@ -339,7 +339,7 @@ const ProgramDetailPage: React.FC = () => {
                 <TextField fullWidth size="small" type="date" value={editValues.end_date}
                   onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
               </DetailField>
-              <Box sx={{ mr: `-${DETAIL_BUTTON_BAND}px` }}>
+              <Box sx={{ mr: `-${isEditingInfo ? DETAIL_BUTTON_BAND_EDIT : DETAIL_BUTTON_BAND_VIEW}px` }}>
                 <DetailField label="Description" editing={isEditingInfo} value={program.description} multiline>
                   <TextField fullWidth multiline rows={3} size="small" value={editValues.description}
                     onChange={(e) => setEditValues({ ...editValues, description: e.target.value })} />

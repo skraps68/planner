@@ -29,8 +29,11 @@ export interface DetailFieldProps {
 export const ROW_H = 28
 export const MULTILINE_SLOT_H = 64
 // Right-hand band each detail section reserves on its value rows so the Edit/Save
-// buttons sit at the top-right without crowding row 1; the Description reclaims it.
-export const DETAIL_BUTTON_BAND = 180
+// button(s) sit at the top-right without crowding row 1; the Description reclaims it.
+// Sized to the actual buttons in each mode so view-mode values aren't needlessly
+// truncated by space reserved for the (wider) edit-mode Cancel/Save buttons.
+export const DETAIL_BUTTON_BAND_VIEW = 100
+export const DETAIL_BUTTON_BAND_EDIT = 200
 const LABEL_W = 98
 const LABEL_LINE_H = 1.5
 const TOP_PAD = '3px' // shared top offset so a multiline label & value first-lines align
