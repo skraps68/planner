@@ -16,8 +16,6 @@ import {
   Typography,
   MenuItem,
   Select,
-  FormControl,
-  InputLabel,
   CircularProgress,
   Alert,
 } from '@mui/material'
@@ -25,7 +23,6 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 import { usePermissions } from '../../hooks/usePermissions'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
 
 const WorkersListPage = () => {
@@ -123,13 +120,6 @@ const WorkersListPage = () => {
 
   return (
     <Box>
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Workers' },
-        ]}
-      />
-
       <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
         <TextField
           placeholder="Search name or employee ID..."
@@ -138,21 +128,6 @@ const WorkersListPage = () => {
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0) }}
           sx={{ flex: '0 0 40%' }}
         />
-        <FormControl size="small" sx={{ minWidth: 180 }}>
-          <InputLabel>Worker Type</InputLabel>
-          <Select
-            value={selectedWorkerType}
-            label="Worker Type"
-            onChange={(e: any) => { setSelectedWorkerType(e.target.value); setPage(0) }}
-          >
-            <MenuItem value="">All</MenuItem>
-            {workerTypes.map((type: WorkerType) => (
-              <MenuItem key={type.id} value={type.id}>
-                {type.type}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
         <Box sx={{ flexGrow: 1 }} />
         {canEdit && (
           <Button
@@ -183,7 +158,22 @@ const WorkersListPage = () => {
                 <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Worker Type</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>
+                    <Select
+                      variant="standard"
+                      disableUnderline
+                      value={selectedWorkerType}
+                      onChange={(e: any) => { setSelectedWorkerType(e.target.value); setPage(0) }}
+                      displayEmpty
+                      renderValue={(val) => (val ? (workerTypeMap.get(val as string) || (val as string)) : 'Worker Type')}
+                      sx={{ fontWeight: 'bold', fontSize: 'inherit', color: 'inherit' }}
+                    >
+                      <MenuItem value="">All</MenuItem>
+                      {workerTypes.map((type: WorkerType) => (
+                        <MenuItem key={type.id} value={type.id}>{type.type}</MenuItem>
+                      ))}
+                    </Select>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Cost Center</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Rate</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
