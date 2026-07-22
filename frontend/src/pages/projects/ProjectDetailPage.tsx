@@ -290,12 +290,12 @@ const ProjectDetailPage: React.FC = () => {
                     Edit
                   </Button>
                 ) : (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancelEdit}>
-                      Cancel
-                    </Button>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'stretch' }}>
                     <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleSaveInfo}>
                       Save
+                    </Button>
+                    <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancelEdit}>
+                      Cancel
                     </Button>
                   </Box>
                 )}
