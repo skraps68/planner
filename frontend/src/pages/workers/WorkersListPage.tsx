@@ -16,6 +16,8 @@ import {
   Typography,
   MenuItem,
   Select,
+  Checkbox,
+  ListItemText,
   CircularProgress,
   Alert,
 } from '@mui/material'
@@ -36,7 +38,7 @@ const WorkersListPage = () => {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [search, setSearch] = useState('')
-  const [selectedWorkerType, setSelectedWorkerType] = useState<string>('')
+  const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>([])
 
   // Load the full set once (all pages, since the API caps size at 100) and
   // filter/paginate client-side so search is filter-as-you-type (instant, no
@@ -68,14 +70,14 @@ const WorkersListPage = () => {
   const filteredWorkers = useMemo(() => {
     const term = search.trim().toLowerCase()
     return workers.filter((w) => {
-      if (selectedWorkerType && w.worker_type_id !== selectedWorkerType) return false
+      if (selectedWorkerTypes.length && !selectedWorkerTypes.includes(w.worker_type_id)) return false
       if (!term) return true
       return (
         w.name.toLowerCase().includes(term) ||
         (w.external_id || '').toLowerCase().includes(term)
       )
     })
-  }, [workers, search, selectedWorkerType])
+  }, [workers, search, selectedWorkerTypes])
 
   const pagedWorkers = useMemo(
     () => filteredWorkers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
@@ -160,17 +162,30 @@ const WorkersListPage = () => {
                   <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>
                     <Select
+                      multiple
                       variant="standard"
                       disableUnderline
-                      value={selectedWorkerType}
-                      onChange={(e: any) => { setSelectedWorkerType(e.target.value); setPage(0) }}
+                      value={selectedWorkerTypes}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setSelectedWorkerTypes(typeof val === 'string' ? val.split(',') : val)
+                        setPage(0)
+                      }}
                       displayEmpty
-                      renderValue={(val) => (val ? (workerTypeMap.get(val as string) || (val as string)) : 'Worker Type')}
+                      renderValue={(vals) =>
+                        vals.length === 0
+                          ? 'Worker Type'
+                          : vals.length === 1
+                            ? (workerTypeMap.get(vals[0]) || vals[0])
+                            : `${vals.length} types`
+                      }
                       sx={{ fontWeight: 'bold', fontSize: 'inherit', color: 'inherit' }}
                     >
-                      <MenuItem value="">All</MenuItem>
                       {workerTypes.map((type: WorkerType) => (
-                        <MenuItem key={type.id} value={type.id}>{type.type}</MenuItem>
+                        <MenuItem key={type.id} value={type.id}>
+                          <Checkbox size="small" checked={selectedWorkerTypes.includes(type.id)} />
+                          <ListItemText primary={type.type} />
+                        </MenuItem>
                       ))}
                     </Select>
                   </TableCell>
