@@ -41,14 +41,22 @@ const WorkersListPage = () => {
   const [search, setSearch] = useState('')
   const [selectedWorkerType, setSelectedWorkerType] = useState<string>('')
 
-  // Load the full set once and filter/paginate client-side so search is
-  // filter-as-you-type (instant, no round-trip) and matches can be highlighted.
+  // Load the full set once (all pages, since the API caps size at 100) and
+  // filter/paginate client-side so search is filter-as-you-type (instant, no
+  // round-trip) and matches can be highlighted.
   const fetchWorkers = async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await workersApi.list({ page: 1, size: 1000 })
-      setWorkers(data.items)
+      const PAGE_SIZE = 100
+      const first = await workersApi.list({ page: 1, size: PAGE_SIZE })
+      let all = first.items
+      const totalPages = first.pages || 1
+      for (let p = 2; p <= totalPages; p++) {
+        const next = await workersApi.list({ page: p, size: PAGE_SIZE })
+        all = all.concat(next.items)
+      }
+      setWorkers(all)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load workers')
     } finally {
