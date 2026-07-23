@@ -26,6 +26,7 @@ import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 import { usePermissions } from '../../hooks/usePermissions'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
+import { TABLE_ROW_HEIGHT } from '../../theme'
 
 const WorkersListPage = () => {
   const navigate = useNavigate()
@@ -122,15 +123,8 @@ const WorkersListPage = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
-        <TextField
-          placeholder="Search name or employee ID..."
-          size="small"
-          value={search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0) }}
-          sx={{ flex: '0 0 40%' }}
-        />
-        <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="h5">Workers</Typography>
         {canEdit && (
           <Button
             variant="contained"
@@ -140,6 +134,16 @@ const WorkersListPage = () => {
             Create Worker
           </Button>
         )}
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
+        <TextField
+          placeholder="Search name or employee ID..."
+          size="small"
+          value={search}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0) }}
+          sx={{ flex: '0 0 40%' }}
+        />
       </Box>
 
       {error && (
@@ -155,7 +159,7 @@ const WorkersListPage = () => {
       ) : (
         <Paper>
           <TableContainer>
-            <Table size="small" sx={{ '& .MuiTableCell-root': { paddingTop: '1px', paddingBottom: '1px' } }}>
+            <Table size="small">
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
@@ -208,7 +212,7 @@ const WorkersListPage = () => {
                       key={worker.id}
                       hover
                       onClick={() => navigate(`/workers/${worker.id}`)}
-                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                      sx={{ height: TABLE_ROW_HEIGHT, cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                     >
                       <TableCell>
                         <Typography variant="body2" fontWeight="medium">
