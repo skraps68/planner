@@ -29,10 +29,10 @@ export const COLOR_INK     = '#18212e'  // primary text + table header rule
 export const COLOR_MUTED   = '#64707f'  // labels, captions, secondary text
 export const COLOR_LINE    = '#e4e8ee'  // borders, row dividers
 
-// Accent — the single brand hue (see DECISION below)
-export const COLOR_ACCENT      = '#0e7c7b' // teal
-export const COLOR_ACCENT_DARK = '#0b5f5e'
-export const COLOR_ACCENT_LT   = '#2f9d9a'
+// Accent — the single brand hue (CONFIRMED: institutional navy)
+export const COLOR_ACCENT      = '#1b4965' // navy
+export const COLOR_ACCENT_DARK = '#12344a'
+export const COLOR_ACCENT_LT   = '#35678c'
 
 // Semantic (institutional, muted — separate from the accent)
 export const COLOR_GOOD = '#1f8a54'
@@ -46,7 +46,7 @@ export const TABLE_CELL_PADDING = '4px 12px'
 export const NUMERIC_FONT = 'ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace'
 ```
 
-**DECISION TO CONFIRM AT REVIEW (one thing):** the accent. Option B was rendered in **teal (`#0e7c7b`)**, which becomes the app's `primary` (buttons, links, tabs, active sort, focus) — replacing today's bright `#1565c0`. That is what makes the whole app match the table. If you'd rather keep a blue identity, the drop-in alternative is an **institutional navy `#1b4965`** (same structure, different hue). Everything else in this plan is identical either way. **The plan assumes teal; say the word to switch to navy.**
+**ACCENT — CONFIRMED: institutional navy `#1b4965`.** It becomes the app's `primary` (buttons, links, tabs, active sort, focus), replacing today's bright `#1565c0`, and is what makes the whole app match the table. (Teal `#0e7c7b` was the rejected alternative.)
 
 **The Underline-Neutral table header** (applied via theme, so both MUI `<Table>` and DataGrid inherit it):
 - No background fill (remove `#A5C1D8`).
@@ -117,9 +117,9 @@ export const COLOR_SURFACE = '#ffffff'
 export const COLOR_INK = '#18212e'
 export const COLOR_MUTED = '#64707f'
 export const COLOR_LINE = '#e4e8ee'
-export const COLOR_ACCENT = '#0e7c7b'
-export const COLOR_ACCENT_DARK = '#0b5f5e'
-export const COLOR_ACCENT_LT = '#2f9d9a'
+export const COLOR_ACCENT = '#1b4965'
+export const COLOR_ACCENT_DARK = '#12344a'
+export const COLOR_ACCENT_LT = '#35678c'
 export const COLOR_GOOD = '#1f8a54'
 export const COLOR_WARN = '#b7791f'
 export const COLOR_BAD = '#c0392f'
@@ -395,7 +395,7 @@ These can't become flat grids; they keep MUI `<Table>` but now inherit the theme
 
 ## Notes for the reviewer (decide before Task 1)
 
-1. **Accent = teal (`#0e7c7b`) or navy (`#1b4965`)?** This is the one identity call; the plan assumes teal (from Option B). Everything else is unchanged either way.
+1. **Accent = institutional navy `#1b4965`** — confirmed by the user.
 2. **Row height 30px** everywhere (Resources already ~36 → will tighten to 30 too, staying consistent).
 3. **Flat lists → DataGrid** for real sort/filter (Workers, Users, Audit, Reference Data), grids you already own; **custom tables** (hierarchy, phase editor, calendars) stay MUI tables with the new theme.
 4. **Workers highlight**: keep the amber type-ahead highlight (extra `renderCell` work) or accept the grid's native match styling? (per-page choice in Task 4).
