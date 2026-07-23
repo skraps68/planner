@@ -27,7 +27,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({ dates }) => {
         sx={{
           position: 'sticky',
           left: 0,
-          backgroundColor: '#A5C1D8',
+          backgroundColor: '#eef1f5',
           padding: '12px',
           fontWeight: 'bold',
           borderRight: '1px solid #ddd',
@@ -44,7 +44,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({ dates }) => {
         <Box
           key={index}
           sx={{
-            backgroundColor: '#A5C1D8',
+            backgroundColor: '#eef1f5',
             padding: '12px',
             textAlign: 'center',
             borderRight: '1px solid #ddd',

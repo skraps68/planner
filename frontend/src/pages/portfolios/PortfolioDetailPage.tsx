@@ -435,7 +435,7 @@ const PortfolioDetailPage: React.FC = () => {
           <TableContainer>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>Program Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Business Sponsor</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Program Manager</TableCell>

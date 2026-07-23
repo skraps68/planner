@@ -342,7 +342,7 @@ const VarianceAnalysisPage = () => {
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+            <TableRow>
               <TableCell width={50} sx={{ fontWeight: 'bold' }}></TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Worker</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>

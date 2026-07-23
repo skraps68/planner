@@ -129,7 +129,7 @@ const UserAuditPage: React.FC = () => {
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Timestamp</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Operation</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Entity Type</TableCell>

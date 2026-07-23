@@ -48,7 +48,7 @@ const AllocationConflictDialog = ({
         <TableContainer>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Worker</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Existing Allocation</TableCell>

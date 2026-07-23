@@ -161,7 +161,7 @@ const WorkersListPage = () => {
           <TableContainer>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#A5C1D8', height: TABLE_ROW_HEIGHT }}>
+                <TableRow sx={{ height: TABLE_ROW_HEIGHT }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>

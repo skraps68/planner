@@ -19,14 +19,13 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material'
-import { Add, Search, KeyboardArrowDown, KeyboardArrowRight, CloseFullscreen } from '@mui/icons-material'
+import { Add, Search, KeyboardArrowDown, KeyboardArrowRight, CloseFullscreen, Cancel } from '@mui/icons-material'
 import { portfoliosApi } from '../../api/portfolios'
 import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
 import { Portfolio } from '../../types/portfolio'
 import { Program, Project } from '../../types'
 import { format } from 'date-fns'
-import { TABLE_HEADER_BG } from '../../theme'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
@@ -268,7 +267,7 @@ const PortfoliosListPage: React.FC = () => {
       ) : (
         <Table size="small" sx={{ tableLayout: 'fixed' }}>
           <TableHead>
-            <TableRow sx={{ backgroundColor: TABLE_HEADER_BG }}>
+            <TableRow>
               <TableCell sx={headerCellSx}>Project Name</TableCell>
               <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Project Manager</TableCell>
               <TableCell sx={{ ...headerCellSx, width: COL.personB }}>Cost Center</TableCell>
@@ -313,7 +312,7 @@ const PortfoliosListPage: React.FC = () => {
       ) : (
         <Table size="small" sx={{ tableLayout: 'fixed' }}>
           <TableHead>
-            <TableRow sx={{ backgroundColor: TABLE_HEADER_BG }}>
+            <TableRow>
               <TableCell sx={{ ...headerCellSx, width: ARROW_COL_WIDTH, px: 0.5 }} />
               <TableCell sx={headerCellSx}>Program Name</TableCell>
               <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Business Sponsor</TableCell>
@@ -393,6 +392,20 @@ const PortfoliosListPage: React.FC = () => {
                 <Search fontSize="small" />
               </InputAdornment>
             ),
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label="Clear filter"
+                  size="small"
+                  edge="end"
+                  onClick={() => setSearch('')}
+                  sx={{ p: 0.25 }}
+                >
+                  {/* Filled circle-x reads as "x inside a light circle" */}
+                  <Cancel sx={{ fontSize: '1rem', color: 'grey.400' }} />
+                </IconButton>
+              </InputAdornment>
+            ) : undefined,
           }}
         />
         <Tooltip title={idMode ? 'Hide IDs' : 'Show IDs'}>
@@ -461,7 +474,7 @@ const PortfoliosListPage: React.FC = () => {
         ) : (
           <Table size="small" sx={{ tableLayout: 'fixed' }}>
             <TableHead>
-              <TableRow sx={{ backgroundColor: TABLE_HEADER_BG }}>
+              <TableRow>
                 <TableCell sx={{ ...headerCellSx, width: ARROW_COL_WIDTH, px: 0.5 }} />
                 <TableCell sx={headerCellSx}>Portfolio Name</TableCell>
                 <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Owner</TableCell>

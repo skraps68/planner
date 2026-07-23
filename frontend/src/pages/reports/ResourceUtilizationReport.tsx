@@ -165,7 +165,7 @@ const ResourceUtilizationReport: React.FC = () => {
     <TableContainer component={Paper}>
       <Table>
         <TableHead>
-          <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+          <TableRow>
             <TableCell sx={{ fontWeight: 'bold' }}>Resource Name</TableCell>
             <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
             <TableCell align="right" sx={{ fontWeight: 'bold' }}>Avg Allocation %</TableCell>

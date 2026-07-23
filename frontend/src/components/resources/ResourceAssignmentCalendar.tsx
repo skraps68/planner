@@ -1062,7 +1062,7 @@ const ResourceAssignmentCalendar = ({
                 sx={{
                   position: 'sticky',
                   left: 0,
-                  backgroundColor: '#A5C1D8',
+                  backgroundColor: '#eef1f5',
                   fontWeight: 'bold',
                   zIndex: 4,
                   minWidth: 200,
@@ -1076,7 +1076,7 @@ const ResourceAssignmentCalendar = ({
                 sx={{
                   position: 'sticky',
                   left: 200, // Adjust based on resource name column width
-                  backgroundColor: '#A5C1D8',
+                  backgroundColor: '#eef1f5',
                   fontWeight: 'bold',
                   zIndex: 4,
                   minWidth: 60,
@@ -1095,7 +1095,7 @@ const ResourceAssignmentCalendar = ({
                     key={index}
                     align="center"
                     sx={{
-                      backgroundColor: '#A5C1D8',
+                      backgroundColor: '#eef1f5',
                       fontWeight: 'bold',
                       minWidth: 50,
                       padding: '6px 4px',

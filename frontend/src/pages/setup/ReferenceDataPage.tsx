@@ -77,7 +77,7 @@ const WorkerTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <TableContainer>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Workers</TableCell>
@@ -206,7 +206,7 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <TableContainer>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableRow>
                 <TableCell sx={{ width: 40 }} />
                 <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Current Rate</TableCell>
@@ -329,7 +329,7 @@ const ResourceRolesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <TableContainer>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+              <TableRow>
                 <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Resources</TableCell>

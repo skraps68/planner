@@ -4,13 +4,18 @@
 
 - how do we account for BAU? is it just another project (nothing special) that you assign labor and non-labor resources to? does that mean that all non-labor (contracts, licenses, SOWs, etc. also need to be captured?). what additional data models would we need to capture all of that cleanly.
 => it's probably just a year long project with both types of resources
+=> i think this is solved via the portfolio concept which allows custom start/end dates
+
+- do we want to allow the concept of virtual portfolios, i.e. put any program/project you want into it and assing any dates just to create different views? or should the base concept of portfolio just not be a strict hierarchy in the first place and be a virtual view from the start?
 
 - if we want to capture BAU as a project, then will we assign all resources to BAU? do we need to support the concept of a "plug" to make it easier and less labor intensive? 
 => could allow creation of a temp/fake resource with a custom rate
+=> how about having an automated calculation of left over resources and then provide an approval list to a project manager to approve aligning excess resource capacity with BAU, either resource by resource or multi-pick/bulk approval
 
 - what about the concept of auto-adjusting BAU based on a resource's other assignments? e.g. if a resource is assigned <100%, then automaticlaly offer up a BAU assignment for the remainder, and ask the user to confirm? if we do this, then BAU is indeed a special project, OR, do we create a feature whereby you can choose a "slop" or "remainder" project to auto-assign remaining percentages to (after confirmation).
+=> see comments on auto-calc above. probably shoud enable as feature that can be turned on/off (auto or explicit approval after system provides opportunites for BAU)
 
-- need the concept of proposed assignment edits that can be stored against a particular user as drafts. draft assignments can then be applied at any time, and the system will keep track of these. need to be able to groups a bunch of assignments/re-assignments and even non-labor changes together into an edit (what should we call this edit set?) and assign a unique ID to the edit set. the system can then apply, generate a history of edits sets applied, and even roll back an edit, assuming other edits were not made over it (this could create conflicts and make it unclear what a rollback means). alternatively, the system could offer to rollback the edit set and all edit sets done since then?
+- need the concept of proposed assignment edits that can be stored against a particular user as drafts. draft assignments can then be applied at any time, and the system will keep track of these. need to be able to group a bunch of assignments/re-assignments and even non-labor changes together into an edit (what should we call this edit set?) and assign a unique ID to the edit set. the system can then apply, generate a history of edits sets applied, and even roll back an edit, assuming other edits were not made over it (this could create conflicts and make it unclear what a rollback means). alternatively, the system could offer to rollback the edit set and all edit sets done since then?
 
 - draft edits sets should be creatable and the impacts of them should be visible in a "modeling" mode whereby the user is experimenting with moving resources around and understanding the impacts to a project/program/overall annual budget. that means that top-level statistics of variance vs budget AND vs the the previous forecast need to be tracked and clearly displayed as potential impact. this will allow a user to model until they achieve the desired impacts before "saving" or "applying" the edit set.
 
@@ -91,18 +96,39 @@
 
 - that screen should replace the current vertical view of a worker's allocations and be a project-based table, i.e. project on y-axis, dates on x-axis, across all projects
 
-- add project ID search to expanded hierarchy page
-
 - make financials graphs be on the same scale so that the relative cost of cap vs exp is clear
 
-- merge the phase timeline and phase edit sections to be one, moving both buttons to top right (?)
+- non-labor resources need to have the option (default?) to be assignable via a cash flow schedule in dollars
 
-- move portfolio/program/project ids up to same row as names. for program and project this mean same row as button.
+- add "Jump to Resource Assignments" hover over in Resource list
 
-- do we want portfolio-level financials?
+- blank assignment cells have a collapsed rounded rectangle. fix together with overall assignments table fixes.
+
+- we have a "back" link on the Workers list. do we want anywhere else?
+
+- merge assignments and actuals into the same table? keep an actuals screen for import?
+
+- in the users screen, add a view to group users by role instead of listing users one-by-one.
 
 -------------------------------
 
 - collapse project overview and phases tab together. there is no need to keep these separate. need to make sure project fields are still editable, maybe on screen without jumping to a new screen.
 
 - make the header rows in the Programs list and Projects list bolded
+
+- add IDs to the detailed hierarchy screen (and '#' button)
+
+- add portfolio manager fields
+
+- move worker type from worker table to resource, because it's really a role. in parallel replace worker type with true worker type, i.e. FTE, FTC, Fixed (make these categories configurable)
+
+- do we want portfolio-level financials?
+
+- move portfolio/program/project ids up to same row as names. for program and project this mean same row as button.
+
+- merge the phase timeline and phase edit sections to be one, moving both buttons to top right (?)
+
+- add project ID search to expanded hierarchy page
+
+- add portfolio level financials (detail page)
+

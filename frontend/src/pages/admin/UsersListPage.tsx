@@ -155,7 +155,7 @@ const UsersListPage: React.FC = () => {
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+            <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Username</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Roles</TableCell>

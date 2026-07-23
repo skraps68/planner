@@ -401,15 +401,15 @@ const ResourceAllocationCalendar: React.FC<{
           <Table size="small" stickyHeader sx={{ tableLayout: 'auto' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 200 }}>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, backgroundColor: 'background.paper', fontWeight: 'bold', minWidth: 200 }}>
                   Project
                 </TableCell>
-                <TableCell sx={{ position: 'sticky', left: 200, zIndex: 4, backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 60 }}>
+                <TableCell sx={{ position: 'sticky', left: 200, zIndex: 4, backgroundColor: 'background.paper', fontWeight: 'bold', minWidth: 60 }}>
                   Type
                 </TableCell>
                 {dates.map((date, i) => (
                   <TableCell key={i} align="center" sx={{
-                    backgroundColor: '#A5C1D8', fontWeight: 'bold', minWidth: 50, padding: '6px 4px',
+                    backgroundColor: 'background.paper', fontWeight: 'bold', minWidth: 50, padding: '6px 4px',
                     ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
                   }}>
                     {formatColDate(date)}

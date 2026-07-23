@@ -261,6 +261,22 @@ describe('PortfoliosListPage', () => {
     })
   })
 
+  it('the clear (x) control instantly erases the search text', async () => {
+    const user = userEvent.setup()
+    render(<PortfoliosListPage />, { store, queryClient })
+    await waitFor(() => expect(screen.getByText('Digital Transformation')).toBeInTheDocument())
+
+    const searchInput = screen.getByPlaceholderText('Search portfolios, programs, projects...')
+    // No clear control while the field is empty
+    expect(screen.queryByRole('button', { name: /clear filter/i })).toBeNull()
+
+    await user.type(searchInput, 'Digital')
+    expect(searchInput).toHaveValue('Digital')
+
+    await user.click(screen.getByRole('button', { name: /clear filter/i }))
+    expect(searchInput).toHaveValue('')
+  })
+
   it('the ID (#) toggle turns the (business_id) prefixes on and off', async () => {
     const user = userEvent.setup()
     render(<PortfoliosListPage />, { store, queryClient })

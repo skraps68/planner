@@ -417,7 +417,7 @@ const ProgramDetailPage: React.FC = () => {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                    <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>Project Name</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
                       <TableCell sx={{ fontWeight: 'bold' }}>End Date</TableCell>

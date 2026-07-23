@@ -21,8 +21,6 @@ export const TABLE_CELL_PADDING = '4px 12px'
 export const TABLE_ROW_HEIGHT = 30
 export const TABLE_HEADER_HEIGHT = 34
 export const NUMERIC_FONT = 'ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace'
-// Temporary shim so the legacy #A5C1D8 header sites still compile until Task 2 removes them.
-export const TABLE_HEADER_BG = 'transparent'
 
 const theme = createTheme({
   palette: {

@@ -218,7 +218,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
             <col style={{ width: ACTIONS_W }} />{/* Actions */}
           </colgroup>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+            <TableRow>
               <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Name</TableCell>
               <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Start Date</TableCell>
               <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>End Date</TableCell>
@@ -227,7 +227,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
               <TableCell rowSpan={2} align="center" sx={{ fontWeight: 'bold' }}>Total Budget</TableCell>
               <TableCell rowSpan={2} sx={{ width: ACTIONS_W }} />
             </TableRow>
-            <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+            <TableRow>
               <TableCell align="center" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold' }}>Expense</TableCell>
               <TableCell align="center" sx={{ fontWeight: 'bold' }}>Capital</TableCell>
@@ -381,7 +381,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
             {/* Totals Row */}
             {sortedPhases.length > 0 && (
               <TableRow sx={{
-                backgroundColor: '#A5C1D8',
+                backgroundColor: 'grey.100',
                 borderTop: '2px solid',
                 borderTopColor: 'grey.300',
               }}>

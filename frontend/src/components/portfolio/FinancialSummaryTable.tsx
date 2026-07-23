@@ -85,7 +85,7 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
     >
       <Table size={compact ? 'small' : 'medium'} sx={compact ? {} : { minWidth: 650 }}>
         <TableHead>
-          <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+          <TableRow>
             <TableCell sx={{ ...cellSx, fontWeight: 'bold', ...(compact ? {} : { minWidth: 100 }) }}>Category</TableCell>
             <TableCell align="right" sx={{ ...cellSx, fontWeight: 'bold', ...(compact ? {} : { minWidth: 120 }) }}>Budget</TableCell>
             <TableCell align="right" sx={{ ...cellSx, fontWeight: 'bold', ...(compact ? {} : { minWidth: 120 }) }}>Actuals</TableCell>
