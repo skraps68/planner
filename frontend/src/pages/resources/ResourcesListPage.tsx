@@ -9,12 +9,12 @@ import {
   TextField,
   InputAdornment,
   Alert,
+  Typography,
 } from '@mui/material'
 import { Add, Search } from '@mui/icons-material'
 import { DataGrid, GridColDef } from '@mui/x-data-grid'
 import { resourcesApi } from '../../api/resources'
 import { Resource } from '../../types'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
 import PermissionButton from '../../components/common/PermissionButton'
 
 interface TabPanelProps {
@@ -147,14 +147,13 @@ const ResourcesListPage: React.FC = () => {
 
   return (
     <Box>
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Resources' },
-        ]}
-      />
+      <Typography variant="h5" sx={{ mb: 1.5 }}>Resources</Typography>
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tab} onChange={handleTabChange}>
+          <Tab label="Labor" />
+          <Tab label="Non-Labor" />
+        </Tabs>
         <PermissionButton
           permission="manage_resources"
           variant="contained"
@@ -163,13 +162,6 @@ const ResourcesListPage: React.FC = () => {
         >
           Create Resource
         </PermissionButton>
-      </Box>
-
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={tab} onChange={handleTabChange}>
-          <Tab label="Labor" />
-          <Tab label="Non-Labor" />
-        </Tabs>
       </Box>
 
       <TabPanel value={tab} index={0}>
