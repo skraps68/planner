@@ -161,7 +161,7 @@ const WorkersListPage = () => {
           <TableContainer>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#A5C1D8' }}>
+                <TableRow sx={{ backgroundColor: '#A5C1D8', height: TABLE_ROW_HEIGHT }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>
@@ -176,19 +176,19 @@ const WorkersListPage = () => {
                         setPage(0)
                       }}
                       displayEmpty
-                      renderValue={(vals) =>
-                        vals.length === 0
-                          ? 'Worker Type'
-                          : vals.length === 1
-                            ? (workerTypeMap.get(vals[0]) || vals[0])
-                            : `${vals.length} types`
-                      }
+                      // Header label is fixed; the active filter shows via the checkboxes in the popup.
+                      renderValue={() => 'Worker Type'}
                       sx={{ fontWeight: 'bold', fontSize: 'inherit', color: 'inherit' }}
+                      MenuProps={{
+                        anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                        transformOrigin: { vertical: 'top', horizontal: 'left' },
+                        MenuListProps: { dense: true, sx: { py: 0 } },
+                      }}
                     >
                       {workerTypes.map((type: WorkerType) => (
-                        <MenuItem key={type.id} value={type.id}>
-                          <Checkbox size="small" checked={selectedWorkerTypes.includes(type.id)} />
-                          <ListItemText primary={type.type} />
+                        <MenuItem key={type.id} value={type.id} sx={{ py: 0 }}>
+                          <Checkbox size="small" checked={selectedWorkerTypes.includes(type.id)} sx={{ p: 0.25, mr: 0.5 }} />
+                          <ListItemText primary={type.type} primaryTypographyProps={{ fontSize: '0.8rem' }} />
                         </MenuItem>
                       ))}
                     </Select>
@@ -229,8 +229,8 @@ const WorkersListPage = () => {
                         {new Date(worker.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker.id) }}>
-                          <DeleteIcon />
+                        <IconButton size="small" sx={{ p: 0.5 }} onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker.id) }}>
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </TableCell>
                     </TableRow>
