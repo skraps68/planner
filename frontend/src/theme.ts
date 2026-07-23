@@ -1,38 +1,39 @@
 import { createTheme } from '@mui/material/styles'
 import type {} from '@mui/x-data-grid/themeAugmentation'
 
-// Shared spacing constants for tables and data grids, kept in one place so
-// list/header density stays consistent across the app.
-export const TABLE_CELL_PADDING = '4px 10px'
-export const TABLE_HEADER_BG = '#A5C1D8'
-export const TABLE_ROW_HEIGHT = 36
-export const TABLE_HEADER_HEIGHT = 36
+// Underline-Neutral design tokens — one source of truth for the app's look.
+// Neutrals (cool-biased, chosen not defaulted)
+export const COLOR_BG = '#f4f6f8'
+export const COLOR_SURFACE = '#ffffff'
+export const COLOR_INK = '#18212e'
+export const COLOR_MUTED = '#64707f'
+export const COLOR_LINE = '#e4e8ee'
+// Accent — institutional navy (the single brand hue)
+export const COLOR_ACCENT = '#1b4965'
+export const COLOR_ACCENT_DARK = '#12344a'
+export const COLOR_ACCENT_LT = '#35678c'
+// Semantic (institutional, muted — separate from the accent)
+export const COLOR_GOOD = '#1f8a54'
+export const COLOR_WARN = '#b7791f'
+export const COLOR_BAD = '#c0392f'
+// Density / tables
+export const TABLE_CELL_PADDING = '4px 12px'
+export const TABLE_ROW_HEIGHT = 30
+export const TABLE_HEADER_HEIGHT = 34
+export const NUMERIC_FONT = 'ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace'
+// Temporary shim so the legacy #A5C1D8 header sites still compile until Task 2 removes them.
+export const TABLE_HEADER_BG = 'transparent'
 
 const theme = createTheme({
   palette: {
-    primary: {
-      main: '#1565c0',
-      light: '#1976d2',
-      dark: '#0d47a1',
-    },
-    secondary: {
-      main: '#7b1fa2',
-      light: '#9c27b0',
-      dark: '#6a1b9a',
-    },
-    error: {
-      main: '#c62828',
-    },
-    warning: {
-      main: '#e65100',
-    },
-    success: {
-      main: '#2e7d32',
-    },
-    background: {
-      default: '#f0f2f5',
-      paper: '#ffffff',
-    },
+    primary: { main: COLOR_ACCENT, light: COLOR_ACCENT_LT, dark: COLOR_ACCENT_DARK, contrastText: '#ffffff' },
+    secondary: { main: '#5b6b7f' },
+    error: { main: COLOR_BAD },
+    warning: { main: COLOR_WARN },
+    success: { main: COLOR_GOOD },
+    text: { primary: COLOR_INK, secondary: COLOR_MUTED },
+    divider: COLOR_LINE,
+    background: { default: COLOR_BG, paper: COLOR_SURFACE },
   },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
@@ -51,7 +52,7 @@ const theme = createTheme({
   },
   spacing: 8,
   shape: {
-    borderRadius: 3,
+    borderRadius: 6,
   },
   components: {
     MuiAppBar: {
@@ -70,7 +71,7 @@ const theme = createTheme({
       },
     },
     MuiButton: {
-      defaultProps: { size: 'small' },
+      defaultProps: { size: 'small', disableElevation: true },
       styleOverrides: {
         root: { textTransform: 'none', fontWeight: 500, lineHeight: 1.4 },
         sizeSmall: { padding: '3px 10px', fontSize: '0.8rem' },
@@ -122,20 +123,30 @@ const theme = createTheme({
     },
     MuiCard: {
       styleOverrides: {
-        root: { boxShadow: '0 1px 3px rgba(0,0,0,0.08)', borderRadius: 3 },
+        root: { border: `1px solid ${COLOR_LINE}`, boxShadow: '0 1px 2px rgba(20,30,45,0.05)', borderRadius: 6 },
       },
     },
     MuiPaper: {
       styleOverrides: {
-        root: { boxShadow: '0 1px 3px rgba(0,0,0,0.08)' },
-        elevation1: { boxShadow: '0 1px 3px rgba(0,0,0,0.08)' },
+        root: { boxShadow: '0 1px 2px rgba(20,30,45,0.05)' },
+        elevation1: { boxShadow: '0 1px 2px rgba(20,30,45,0.05)' },
       },
     },
     MuiTableCell: {
       styleOverrides: {
-        root: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem' },
-        head: { fontWeight: 600, fontSize: '0.78rem', padding: '2px 10px' },
-        sizeSmall: { padding: TABLE_CELL_PADDING, fontSize: '0.78rem' },
+        root: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem', borderColor: COLOR_LINE },
+        head: {
+          backgroundColor: 'transparent',
+          color: COLOR_MUTED,
+          fontWeight: 600,
+          fontSize: '0.68rem',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          padding: '6px 12px',
+          borderBottom: `2px solid ${COLOR_INK}`,
+          whiteSpace: 'nowrap',
+        },
+        sizeSmall: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem' },
       },
     },
     MuiTableRow: {
@@ -150,10 +161,13 @@ const theme = createTheme({
         columnHeaderHeight: TABLE_HEADER_HEIGHT,
       },
       styleOverrides: {
-        cell: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem' },
+        root: { border: `1px solid ${COLOR_LINE}`, borderRadius: 6 },
+        cell: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem', borderColor: COLOR_LINE },
         columnHeader: { padding: TABLE_CELL_PADDING },
-        columnHeaders: { backgroundColor: TABLE_HEADER_BG },
-        columnHeaderTitle: { fontWeight: 600, fontSize: '0.78rem' },
+        columnHeaders: { backgroundColor: 'transparent', borderBottom: `2px solid ${COLOR_INK}` },
+        columnHeaderTitle: { fontWeight: 600, fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: COLOR_MUTED },
+        columnSeparator: { display: 'none' },
+        row: { '&:hover': { backgroundColor: 'rgba(24,33,46,0.03)' } },
       },
     },
     MuiListItemButton: {
