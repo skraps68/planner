@@ -1,21 +1,19 @@
-import React, { useState, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Box,
-  Paper,
   Tab,
   Tabs,
-  TextField,
-  InputAdornment,
   Alert,
-  Typography,
 } from '@mui/material'
-import { Add, Search } from '@mui/icons-material'
-import { DataGrid, GridColDef } from '@mui/x-data-grid'
+import { Add } from '@mui/icons-material'
+import { GridColDef } from '@mui/x-data-grid'
 import { resourcesApi } from '../../api/resources'
 import { Resource } from '../../types'
 import PermissionButton from '../../components/common/PermissionButton'
+import PageHeader from '../../components/common/PageHeader'
+import DataTable from '../../components/common/DataTable'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -33,31 +31,21 @@ const ResourceTab: React.FC<{
   resourceType: 'LABOR' | 'NON_LABOR'
   onRowClick: (id: string) => void
 }> = ({ resourceType, onRowClick }) => {
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['resources', resourceType, page, pageSize, search],
-    queryFn: () =>
-      resourcesApi.list({
-        page: page + 1,
-        size: pageSize,
-        resource_type: resourceType,
-        search: search || undefined,
-      }),
+  // Load every page up front (the API caps size at 100); the grid then sorts,
+  // filters, and paginates client-side so the toolbar search covers all rows.
+  const { data: rows = [], isLoading, error } = useQuery({
+    queryKey: ['resources', 'all', resourceType],
+    queryFn: async () => {
+      const PAGE_SIZE = 100
+      const first = await resourcesApi.list({ page: 1, size: PAGE_SIZE, resource_type: resourceType })
+      let all = first.items
+      for (let p = 2; p <= (first.pages || 1); p++) {
+        const next = await resourcesApi.list({ page: p, size: PAGE_SIZE, resource_type: resourceType })
+        all = all.concat(next.items)
+      }
+      return all
+    },
   })
-
-  const rows = useMemo(() => {
-    if (!data?.items) return []
-    if (!search) return data.items
-    const lower = search.toLowerCase()
-    return data.items.filter(
-      (r) =>
-        r.name.toLowerCase().includes(lower) ||
-        (r.description || '').toLowerCase().includes(lower)
-    )
-  }, [data?.items, search])
 
   const columns: GridColDef<Resource>[] = [
     { field: 'name', headerName: 'Name', flex: 1, minWidth: 200 },
@@ -80,47 +68,14 @@ const ResourceTab: React.FC<{
   }
 
   return (
-    <>
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
-        <TextField
-          placeholder={`Search ${resourceType === 'LABOR' ? 'labor' : 'non-labor'} resources...`}
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          sx={{ flex: '0 0 40%' }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start"><Search fontSize="small" /></InputAdornment>
-            ),
-          }}
-        />
-      </Box>
-
-      <Paper sx={{ height: 'calc(100vh - 240px)', width: '100%' }}>
-        <DataGrid
-          rows={rows}
-          columns={columns}
-          loading={isLoading}
-          pageSizeOptions={[10, 25, 50, 100]}
-          paginationModel={{ page, pageSize }}
-          onPaginationModelChange={(model) => { setPage(model.page); setPageSize(model.pageSize) }}
-          rowCount={data?.total ?? rows.length}
-          paginationMode="server"
-          disableRowSelectionOnClick
-          onRowClick={(params) => onRowClick(params.row.id)}
-          sx={{
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-                border: '2px solid',
-                borderColor: 'primary.main',
-              },
-            },
-          }}
-        />
-      </Paper>
-    </>
+    <DataTable
+      rows={rows}
+      columns={columns}
+      loading={isLoading}
+      height="calc(100vh - 240px)"
+      onRowClick={(params) => onRowClick(params.row.id)}
+      sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+    />
   )
 }
 
@@ -147,7 +102,7 @@ const ResourcesListPage: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 1.5 }}>Resources</Typography>
+      <PageHeader title="Resources" />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={handleTabChange}>
