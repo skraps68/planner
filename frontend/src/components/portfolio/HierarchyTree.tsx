@@ -13,10 +13,11 @@ import HighlightedLabel from './HighlightedLabel'
 
 export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
-// Per-level row shading in the navy-accent family (rgb 40,94,130), using the SAME
-// opacities as the expanded hierarchy view (open portfolio row 0.06, programs
-// group 0.035): portfolio rows strongest, program rows lighter, projects unshaded.
-const DEPTH_BG = ['rgba(40,94,130,0.06)', 'rgba(40,94,130,0.035)', 'transparent']
+// Level accents matching the expanded hierarchy view's language exactly: white
+// rows with a navy LEFT RAIL per level (the expanded view's group borders) —
+// portfolio = primary navy, program = lighter navy, project = none. No fills:
+// even a 6% tinted band reads as a stray light-blue header against white.
+const DEPTH_RAIL = ['#285e82', '#4d82a8', 'transparent']
 
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
@@ -212,8 +213,9 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         py: 0.25,
         cursor: 'pointer',
         borderRadius: 1,
-        // Level shading: portfolios strongest, programs lighter, projects none
-        backgroundColor: DEPTH_BG[depth] || 'transparent',
+        // Level accent: navy left rail (portfolio strongest), like the expanded view
+        borderLeft: '3px solid',
+        borderLeftColor: DEPTH_RAIL[depth] || 'transparent',
         color: 'text.primary',
         // Selected row: thick inset outline (no layout shift) instead of a fill
         boxShadow: isActive
