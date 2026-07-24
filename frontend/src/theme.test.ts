@@ -9,9 +9,8 @@ describe('theme tokens (Underline-Neutral)', () => {
     expect(TABLE_HEADER_HEIGHT).toBe(34)
     expect(TABLE_CELL_PADDING).toBe('4px 12px')
   })
-  it('uses the navy accent as the MUI primary', () => {
+  it('uses the accent as the MUI primary', () => {
     expect(theme.palette.primary.main.toLowerCase()).toBe(COLOR_ACCENT.toLowerCase())
-    expect(COLOR_ACCENT.toLowerCase()).toBe('#1b4965')
   })
   it('table headers use the slate institutional fill', () => {
     const head = (theme.components?.MuiTableCell?.styleOverrides as any)?.head

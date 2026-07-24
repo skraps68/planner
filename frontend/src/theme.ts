@@ -8,10 +8,10 @@ export const COLOR_SURFACE = '#ffffff'
 export const COLOR_INK = '#18212e'
 export const COLOR_MUTED = '#64707f'
 export const COLOR_LINE = '#e4e8ee'
-// Accent — institutional navy (the single brand hue)
-export const COLOR_ACCENT = '#1b4965'
-export const COLOR_ACCENT_DARK = '#12344a'
-export const COLOR_ACCENT_LT = '#35678c'
+// Accent — institutional navy (the single brand hue), a step lighter (steel navy)
+export const COLOR_ACCENT = '#285e82'
+export const COLOR_ACCENT_DARK = '#1c4560'
+export const COLOR_ACCENT_LT = '#4d82a8'
 // Semantic (institutional, muted — separate from the accent)
 export const COLOR_GOOD = '#1f8a54'
 export const COLOR_WARN = '#b7791f'
