@@ -13,10 +13,10 @@ import HighlightedLabel from './HighlightedLabel'
 
 export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
-// Per-level row shading in the navy-accent family (rgb 40,94,130), matching the
-// expanded hierarchy view: portfolio rows strongest, program rows lighter,
-// project rows unshaded.
-const DEPTH_BG = ['rgba(40,94,130,0.10)', 'rgba(40,94,130,0.045)', 'transparent']
+// Per-level row shading in the navy-accent family (rgb 40,94,130), using the SAME
+// opacities as the expanded hierarchy view (open portfolio row 0.06, programs
+// group 0.035): portfolio rows strongest, program rows lighter, projects unshaded.
+const DEPTH_BG = ['rgba(40,94,130,0.06)', 'rgba(40,94,130,0.035)', 'transparent']
 
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
