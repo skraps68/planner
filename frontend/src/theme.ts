@@ -21,6 +21,9 @@ export const TABLE_CELL_PADDING = '4px 12px'
 export const TABLE_ROW_HEIGHT = 30
 export const TABLE_HEADER_HEIGHT = 34
 export const NUMERIC_FONT = 'ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace'
+// Table header (Slate Institutional): solid slate fill + light labels
+export const COLOR_HEADER_BG = '#2f3a49'
+export const COLOR_HEADER_FG = '#eef2f7'
 
 const theme = createTheme({
   palette: {
@@ -134,14 +137,13 @@ const theme = createTheme({
       styleOverrides: {
         root: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem', borderColor: COLOR_LINE },
         head: {
-          backgroundColor: 'transparent',
-          color: COLOR_MUTED,
+          backgroundColor: COLOR_HEADER_BG,
+          color: COLOR_HEADER_FG,
           fontWeight: 600,
           fontSize: '0.68rem',
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           padding: '6px 12px',
-          borderBottom: `2px solid ${COLOR_INK}`,
           whiteSpace: 'nowrap',
         },
         sizeSmall: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem' },
@@ -162,8 +164,12 @@ const theme = createTheme({
         root: { border: `1px solid ${COLOR_LINE}`, borderRadius: 6 },
         cell: { padding: TABLE_CELL_PADDING, fontSize: '0.8rem', borderColor: COLOR_LINE },
         columnHeader: { padding: TABLE_CELL_PADDING },
-        columnHeaders: { backgroundColor: 'transparent', borderBottom: `2px solid ${COLOR_INK}` },
-        columnHeaderTitle: { fontWeight: 600, fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: COLOR_MUTED },
+        columnHeaders: {
+          backgroundColor: COLOR_HEADER_BG,
+          color: COLOR_HEADER_FG,
+          '& .MuiDataGrid-sortIcon, & .MuiDataGrid-menuIconButton, & .MuiDataGrid-filterIcon': { color: COLOR_HEADER_FG },
+        },
+        columnHeaderTitle: { fontWeight: 600, fontSize: '0.68rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: COLOR_HEADER_FG },
         columnSeparator: { display: 'none' },
         row: { '&:hover': { backgroundColor: 'rgba(24,33,46,0.03)' } },
       },

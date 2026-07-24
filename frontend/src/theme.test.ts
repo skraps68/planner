@@ -13,9 +13,10 @@ describe('theme tokens (Underline-Neutral)', () => {
     expect(theme.palette.primary.main.toLowerCase()).toBe(COLOR_ACCENT.toLowerCase())
     expect(COLOR_ACCENT.toLowerCase()).toBe('#1b4965')
   })
-  it('table headers have no background fill', () => {
+  it('table headers use the slate institutional fill', () => {
     const head = (theme.components?.MuiTableCell?.styleOverrides as any)?.head
-    expect(head.backgroundColor === undefined || head.backgroundColor === 'transparent').toBe(true)
+    expect(head.backgroundColor.toLowerCase()).toBe('#2f3a49')
+    expect(head.color.toLowerCase()).toBe('#eef2f7')
   })
   it('keeps neutral tokens defined', () => {
     expect(COLOR_INK).toBeTruthy(); expect(COLOR_MUTED).toBeTruthy(); expect(COLOR_LINE).toBeTruthy()
