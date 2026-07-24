@@ -8,16 +8,21 @@ import { programsApi } from '../../api/programs'
 import { projectsApi } from '../../api/projects'
 import { Program, Project } from '../../types'
 import { useScopeFilter } from '../../hooks/usePermissions'
+import { COLOR_HEADER_BG, COLOR_HEADER_FG } from '../../theme'
 import { usePortfolioListState } from '../../hooks/usePortfolioListState'
 import HighlightedLabel from './HighlightedLabel'
 
 export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
-// Level accents matching the expanded hierarchy view's language exactly: white
-// rows with a navy LEFT RAIL per level (the expanded view's group borders) —
-// portfolio = primary navy, program = lighter navy, project = none. No fills:
-// even a 6% tinted band reads as a stray light-blue header against white.
-const DEPTH_RAIL = ['#285e82', '#4d82a8', 'transparent']
+// Per-level row treatment. Portfolio rows are HEADERS and use the exact table
+// header treatment from the theme (slate fill + light text) so the tree matches
+// every other table header in the app; program rows get a faint slate wash;
+// project rows are plain.
+const DEPTH_STYLE = [
+  { bg: COLOR_HEADER_BG, color: COLOR_HEADER_FG, dim: 'rgba(238,242,247,0.55)', hover: 'rgba(255,255,255,0.10)' },
+  { bg: 'rgba(47,58,73,0.07)', color: 'text.primary', dim: 'text.disabled', hover: 'action.hover' },
+  { bg: 'transparent', color: 'text.primary', dim: 'text.disabled', hover: 'action.hover' },
+]
 
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
@@ -213,15 +218,14 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         py: 0.25,
         cursor: 'pointer',
         borderRadius: 1,
-        // Level accent: navy left rail (portfolio strongest), like the expanded view
-        borderLeft: '3px solid',
-        borderLeftColor: DEPTH_RAIL[depth] || 'transparent',
-        color: 'text.primary',
-        // Selected row: thick inset outline (no layout shift) instead of a fill
+        backgroundColor: DEPTH_STYLE[depth].bg,
+        color: DEPTH_STYLE[depth].color,
+        // Selected row: thick inset outline (no layout shift) instead of a fill;
+        // light outline on the slate header rows, primary on light rows.
         boxShadow: isActive
-          ? (theme) => `inset 0 0 0 2px ${theme.palette.primary.main}`
+          ? (theme) => `inset 0 0 0 2px ${depth === 0 ? COLOR_HEADER_FG : theme.palette.primary.main}`
           : 'none',
-        '&:hover': { backgroundColor: 'action.hover' },
+        '&:hover': { backgroundColor: DEPTH_STYLE[depth].hover },
       }}
     >
       {arrow}
@@ -233,7 +237,7 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
         sx={{
           fontSize: '0.78rem',
           fontWeight: depth < 2 ? 600 : 400,
-          color: dimColor && !isActive ? 'text.disabled' : undefined,
+          color: dimColor && !isActive ? DEPTH_STYLE[depth].dim : undefined,
         }}
       >
         {labelNode}
