@@ -87,7 +87,7 @@ const programsGroupSx = {
   borderRight: 0,
   borderLeftWidth: 3,
   borderLeftColor: 'primary.main',
-  backgroundColor: 'rgba(21, 101, 192, 0.03)',
+  backgroundColor: 'rgba(40,94,130,0.035)',
   overflow: 'hidden',
 }
 
@@ -99,8 +99,8 @@ const projectsGroupSx = {
   borderColor: 'divider',
   borderRight: 0,
   borderLeftWidth: 3,
-  borderLeftColor: 'secondary.main',
-  backgroundColor: 'rgba(123, 31, 162, 0.03)',
+  borderLeftColor: 'primary.light',
+  backgroundColor: 'rgba(40,94,130,0.02)',
   overflow: 'hidden',
 }
 
@@ -332,7 +332,7 @@ const PortfoliosListPage: React.FC = () => {
                     ...clickableRowSx,
                     // Echo the projects-group accent when open so the parent reads as the group header
                     ...(isProgramOpen(program.id) && {
-                      backgroundColor: 'rgba(123, 31, 162, 0.06)',
+                      backgroundColor: 'rgba(40,94,130,0.045)',
                     }),
                   }}
                 >
@@ -504,7 +504,7 @@ const PortfoliosListPage: React.FC = () => {
                       ...clickableRowSx,
                       // Echo the programs-group accent when open so the parent reads as the group header
                       ...(isPortfolioOpen(portfolio.id) && {
-                        backgroundColor: 'rgba(21, 101, 192, 0.06)',
+                        backgroundColor: 'rgba(40,94,130,0.06)',
                       }),
                     }}
                   >

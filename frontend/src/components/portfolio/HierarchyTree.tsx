@@ -13,9 +13,10 @@ import HighlightedLabel from './HighlightedLabel'
 
 export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 
-// Per-level row shading (blue-grey family matching the table header color):
-// portfolio rows strongest, program rows lighter, project rows unshaded
-const DEPTH_BG = ['#C9D9E8', '#F1F6FA', 'transparent']
+// Per-level row shading in the navy-accent family (rgb 40,94,130), matching the
+// expanded hierarchy view: portfolio rows strongest, program rows lighter,
+// project rows unshaded.
+const DEPTH_BG = ['rgba(40,94,130,0.10)', 'rgba(40,94,130,0.045)', 'transparent']
 
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
