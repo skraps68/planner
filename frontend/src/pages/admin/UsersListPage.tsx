@@ -1,82 +1,52 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  IconButton,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Typography,
-  Tooltip,
-  FormControlLabel,
-  Switch,
+  Alert, Box, Button, Chip, IconButton, Typography, Tooltip, FormControlLabel, Switch,
 } from '@mui/material'
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Visibility as ViewIcon,
-  Security as SecurityIcon,
+  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Visibility as ViewIcon, Security as SecurityIcon,
 } from '@mui/icons-material'
+import { GridColDef } from '@mui/x-data-grid'
 import { useNavigate } from 'react-router-dom'
 import { usersApi, User } from '../../api/users'
+import PageHeader from '../../components/common/PageHeader'
+import DataTable from '../../components/common/DataTable'
+
+const getRoleBadgeColor = (roleType: string): 'error' | 'primary' | 'success' | 'secondary' | 'warning' | 'info' => {
+  switch (roleType) {
+    case 'admin': return 'error'
+    case 'program_manager': return 'primary'
+    case 'project_manager': return 'success'
+    case 'finance_manager': return 'secondary'
+    case 'resource_manager': return 'warning'
+    default: return 'info'
+  }
+}
 
 const UsersListPage: React.FC = () => {
   const navigate = useNavigate()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
-  const [total, setTotal] = useState(0)
-  const [searchTerm, setSearchTerm] = useState('')
   const [activeOnly, setActiveOnly] = useState(false)
 
   const fetchUsers = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await usersApi.listUsers({
-        skip: page * rowsPerPage,
-        limit: rowsPerPage,
-        is_active: activeOnly ? true : undefined,
-      })
+      // Load all and let the grid sort/filter/paginate client-side.
+      const response = await usersApi.listUsers({ skip: 0, limit: 1000 })
       setUsers(response.items)
-      setTotal(response.total)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load users')
-      console.error('Error fetching users:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchUsers()
-  }, [page, rowsPerPage, activeOnly])
-
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage)
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
+  useEffect(() => { fetchUsers() }, [])
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to deactivate this user?')) {
-      return
-    }
-
+    if (!window.confirm('Are you sure you want to deactivate this user?')) return
     try {
       await usersApi.deleteUser(userId)
       fetchUsers()
@@ -85,187 +55,71 @@ const UsersListPage: React.FC = () => {
     }
   }
 
-  const getRoleBadgeColor = (roleType: string): 'error' | 'primary' | 'success' | 'secondary' | 'warning' | 'info' => {
-    switch (roleType) {
-      case 'admin':
-        return 'error'
-      case 'program_manager':
-        return 'primary'
-      case 'project_manager':
-        return 'success'
-      case 'finance_manager':
-        return 'secondary'
-      case 'resource_manager':
-        return 'warning'
-      case 'viewer':
-        return 'info'
-      default:
-        return 'info'
-    }
-  }
+  const rows = useMemo(() => (activeOnly ? users.filter((u) => u.is_active) : users), [users, activeOnly])
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const columns: GridColDef<User>[] = [
+    {
+      field: 'username', headerName: 'Username', flex: 1, minWidth: 140,
+      renderCell: (p) => <Typography variant="body2" fontWeight="medium">{p.value}</Typography>,
+    },
+    { field: 'email', headerName: 'Email', flex: 1.4, minWidth: 180 },
+    {
+      field: 'roles', headerName: 'Roles', flex: 1.4, minWidth: 200, sortable: false, filterable: false,
+      valueGetter: (p) => (p.row.user_roles || []).filter((r) => r.is_active).map((r) => r.role_type).join(', '),
+      renderCell: (p) => {
+        const roles = (p.row.user_roles || []).filter((r) => r.is_active)
+        if (roles.length === 0) return <Typography variant="body2" color="text.secondary">No roles</Typography>
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'nowrap', overflow: 'hidden' }}>
+            {roles.map((role) => (
+              <Chip key={role.id} label={role.role_type.replace('_', ' ')} size="small" color={getRoleBadgeColor(role.role_type)} />
+            ))}
+          </Box>
+        )
+      },
+    },
+    {
+      field: 'is_active', headerName: 'Status', width: 100,
+      renderCell: (p) => <Chip label={p.value ? 'Active' : 'Inactive'} size="small" color={p.value ? 'success' : 'default'} />,
+    },
+    {
+      field: 'created_at', headerName: 'Created', width: 110,
+      valueFormatter: (p) => new Date(p.value as string).toLocaleDateString(),
+    },
+    {
+      field: 'actions', headerName: '', width: 140, sortable: false, filterable: false, align: 'right', headerAlign: 'right',
+      renderCell: (p) => (
+        <Box sx={{ display: 'flex' }}>
+          <Tooltip title="View Details"><IconButton size="small" sx={{ p: 0.25 }} onClick={() => navigate(`/admin/users/${p.row.id}`)}><ViewIcon fontSize="small" /></IconButton></Tooltip>
+          <Tooltip title="Edit User"><IconButton size="small" sx={{ p: 0.25 }} onClick={() => navigate(`/admin/users/${p.row.id}/edit`)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+          <Tooltip title="Manage Roles"><IconButton size="small" sx={{ p: 0.25 }} onClick={() => navigate(`/admin/users/${p.row.id}/roles`)}><SecurityIcon fontSize="small" /></IconButton></Tooltip>
+          <Tooltip title="Deactivate User"><span><IconButton size="small" sx={{ p: 0.25 }} onClick={() => handleDeleteUser(p.row.id)} disabled={!p.row.is_active}><DeleteIcon fontSize="small" /></IconButton></span></Tooltip>
+        </Box>
+      ),
+    },
+  ]
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="h5">User Management</Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/admin/users/create')}
-        >
-          Create User
-        </Button>
-      </Box>
+      <PageHeader
+        title="User Management"
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/admin/users/create')}>
+            Create User
+          </Button>
+        }
+      />
 
-      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1.5 }}>
-        <TextField
-          placeholder="Search users..."
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ flexGrow: 1 }}
-        />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
         <FormControlLabel
-          control={
-            <Switch
-              checked={activeOnly}
-              onChange={(e) => {
-                setActiveOnly(e.target.checked)
-                setPage(0)
-              }}
-            />
-          }
+          control={<Switch checked={activeOnly} onChange={(e) => setActiveOnly(e.target.checked)} />}
           label="Active only"
         />
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 1.5 }}>
-          {error}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Username</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Roles</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : filteredUsers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No users found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredUsers.map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {user.username}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {user.user_roles && user.user_roles.length > 0 ? (
-                        user.user_roles
-                          .filter((role) => role.is_active)
-                          .map((role) => (
-                            <Chip
-                              key={role.id}
-                              label={role.role_type.replace('_', ' ')}
-                              size="small"
-                              color={getRoleBadgeColor(role.role_type)}
-                            />
-                          ))
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          No roles
-                        </Typography>
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={user.is_active ? 'Active' : 'Inactive'}
-                      size="small"
-                      color={user.is_active ? 'success' : 'default'}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/admin/users/${user.id}`)}
-                      >
-                        <ViewIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit User">
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/admin/users/${user.id}/edit`)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Manage Roles">
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/admin/users/${user.id}/roles`)}
-                      >
-                        <SecurityIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Deactivate User">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteUser(user.id)}
-                        disabled={!user.is_active}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          component="div"
-          count={total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </TableContainer>
+      <DataTable rows={rows} columns={columns} loading={loading} getRowId={(r) => r.id} />
     </Box>
   )
 }
