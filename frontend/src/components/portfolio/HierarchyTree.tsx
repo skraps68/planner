@@ -19,7 +19,9 @@ export type HierarchyItemType = 'portfolio' | 'program' | 'project'
 // every other table header in the app; program rows get a faint slate wash;
 // project rows are plain.
 const DEPTH_STYLE = [
-  { bg: COLOR_HEADER_BG, color: COLOR_HEADER_FG, dim: 'rgba(238,242,247,0.55)', hover: 'rgba(255,255,255,0.10)' },
+  // Hover REPLACES the bg (it doesn't layer on it), so it must be a solid,
+  // slightly-lighter slate — a translucent white would render as ~white here.
+  { bg: COLOR_HEADER_BG, color: COLOR_HEADER_FG, dim: 'rgba(238,242,247,0.55)', hover: '#3a4757' },
   { bg: 'rgba(47,58,73,0.07)', color: 'text.primary', dim: 'text.disabled', hover: 'action.hover' },
   { bg: 'transparent', color: 'text.primary', dim: 'text.disabled', hover: 'action.hover' },
 ]
