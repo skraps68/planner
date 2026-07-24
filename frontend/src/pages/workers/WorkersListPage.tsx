@@ -1,32 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Typography,
-  MenuItem,
-  Select,
-  Checkbox,
-  ListItemText,
-  CircularProgress,
-  Alert,
-} from '@mui/material'
+import { Alert, Box, Button, IconButton, Typography } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { GridColDef, GridFilterModel } from '@mui/x-data-grid'
 import { workersApi, workerTypesApi } from '../../api/workers'
 import { Worker, WorkerType } from '../../types'
 import { usePermissions } from '../../hooks/usePermissions'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
-import { TABLE_ROW_HEIGHT } from '../../theme'
+import PageHeader from '../../components/common/PageHeader'
+import DataTable from '../../components/common/DataTable'
 
 const WorkersListPage = () => {
   const navigate = useNavigate()
@@ -36,14 +18,11 @@ const WorkersListPage = () => {
   const [workerTypes, setWorkerTypes] = useState<WorkerType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [search, setSearch] = useState('')
-  const [selectedWorkerTypes, setSelectedWorkerTypes] = useState<string[]>([])
+  // Controlled filter model so the quick-filter term can drive match highlighting
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [], quickFilterValues: [] })
 
-  // Load the full set once (all pages, since the API caps size at 100) and
-  // filter/paginate client-side so search is filter-as-you-type (instant, no
-  // round-trip) and matches can be highlighted.
+  // Load the full set once (all pages, since the API caps size at 100); the grid
+  // sorts/filters/paginates client-side.
   const fetchWorkers = async () => {
     try {
       setLoading(true)
@@ -64,27 +43,6 @@ const WorkersListPage = () => {
     }
   }
 
-  const workerTypeMap = new Map(workerTypes.map((type) => [type.id, type.type]))
-
-  // Filter by the worker-type dropdown and the search term (name + employee/
-  // external ID), then paginate the result client-side.
-  const filteredWorkers = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    return workers.filter((w) => {
-      if (selectedWorkerTypes.length && !selectedWorkerTypes.includes(w.worker_type_id)) return false
-      if (!term) return true
-      return (
-        w.name.toLowerCase().includes(term) ||
-        (w.external_id || '').toLowerCase().includes(term)
-      )
-    })
-  }, [workers, search, selectedWorkerTypes])
-
-  const pagedWorkers = useMemo(
-    () => filteredWorkers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [filteredWorkers, page, rowsPerPage]
-  )
-
   const fetchWorkerTypes = async () => {
     try {
       const data = await workerTypesApi.list()
@@ -99,20 +57,13 @@ const WorkersListPage = () => {
     fetchWorkers()
   }, [])
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage)
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
+  const workerTypeMap = useMemo(
+    () => new Map(workerTypes.map((type) => [type.id, type.type])),
+    [workerTypes]
+  )
 
   const handleDeleteWorker = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this worker?')) {
-      return
-    }
-
+    if (!window.confirm('Are you sure you want to delete this worker?')) return
     try {
       await workersApi.delete(id)
       fetchWorkers()
@@ -121,135 +72,76 @@ const WorkersListPage = () => {
     }
   }
 
+  // The quick-filter term, used to highlight matches in the Name / External ID cells
+  const term = (filterModel.quickFilterValues || []).join(' ')
+
+  const columns: GridColDef<Worker>[] = [
+    {
+      field: 'name', headerName: 'Name', flex: 1.2, minWidth: 160,
+      renderCell: (p) => (
+        <Typography variant="body2" fontWeight="medium">
+          <HighlightedLabel label={p.value} term={term} />
+        </Typography>
+      ),
+    },
+    {
+      field: 'external_id', headerName: 'External ID', width: 120,
+      renderCell: (p) => <HighlightedLabel label={p.value} term={term} />,
+    },
+    {
+      field: 'worker_type_id', headerName: 'Worker Type', width: 170,
+      valueGetter: (p) => workerTypeMap.get(p.value) || p.value,
+    },
+    {
+      field: 'cost_center_code', headerName: 'Cost Center', width: 120,
+      valueGetter: (p) => p.value || '—',
+    },
+    {
+      field: 'current_rate', headerName: 'Rate', width: 110, align: 'right', headerAlign: 'right',
+      valueFormatter: (p) => p.value
+        ? `$${Number(p.value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        : '—',
+    },
+    {
+      field: 'created_at', headerName: 'Created', width: 110,
+      valueFormatter: (p) => new Date(p.value as string).toLocaleDateString(),
+    },
+    {
+      field: 'actions', headerName: '', width: 60, sortable: false, filterable: false, align: 'right',
+      renderCell: (p) => (
+        <IconButton
+          size="small" sx={{ p: 0.25 }} aria-label="delete"
+          onClick={(e) => { e.stopPropagation(); handleDeleteWorker(p.row.id) }}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      ),
+    },
+  ]
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="h5">Workers</Typography>
-        {canEdit && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/workers/new')}
-          >
+      <PageHeader
+        title="Workers"
+        actions={canEdit ? (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/workers/new')}>
             Create Worker
           </Button>
-        )}
-      </Box>
+        ) : undefined}
+      />
 
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
-        <TextField
-          placeholder="Search name or employee ID..."
-          size="small"
-          value={search}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0) }}
-          sx={{ flex: '0 0 40%' }}
-        />
-      </Box>
+      {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 1.5 }}>
-          {error}
-        </Alert>
-      )}
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Paper>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ height: TABLE_ROW_HEIGHT }}>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>External ID</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>
-                    <Select
-                      multiple
-                      variant="standard"
-                      disableUnderline
-                      value={selectedWorkerTypes}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        setSelectedWorkerTypes(typeof val === 'string' ? val.split(',') : val)
-                        setPage(0)
-                      }}
-                      displayEmpty
-                      // Header label is fixed; the active filter shows via the checkboxes in the popup.
-                      renderValue={() => 'Worker Type'}
-                      sx={{ fontWeight: 'bold', fontSize: 'inherit', color: 'inherit' }}
-                      MenuProps={{
-                        anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                        transformOrigin: { vertical: 'top', horizontal: 'left' },
-                        MenuListProps: { dense: true, sx: { py: 0 } },
-                      }}
-                    >
-                      {workerTypes.map((type: WorkerType) => (
-                        <MenuItem key={type.id} value={type.id} sx={{ py: 0 }}>
-                          <Checkbox size="small" checked={selectedWorkerTypes.includes(type.id)} sx={{ p: 0.25, mr: 0.5 }} />
-                          <ListItemText primary={type.type} primaryTypographyProps={{ fontSize: '0.8rem' }} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Cost Center</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Rate</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Created</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredWorkers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      No workers found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  pagedWorkers.map((worker: Worker) => (
-                    <TableRow
-                      key={worker.id}
-                      hover
-                      onClick={() => navigate(`/workers/${worker.id}`)}
-                      sx={{ height: TABLE_ROW_HEIGHT, cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                    >
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="medium">
-                          <HighlightedLabel label={worker.name} term={search} />
-                        </Typography>
-                      </TableCell>
-                      <TableCell><HighlightedLabel label={worker.external_id} term={search} /></TableCell>
-                      <TableCell>{workerTypeMap.get(worker.worker_type_id) || worker.worker_type_id}</TableCell>
-                      <TableCell>{worker.cost_center_code || '—'}</TableCell>
-                      <TableCell>
-                        {worker.current_rate ? `$${Number(worker.current_rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(worker.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" sx={{ p: 0.5 }} onClick={(e) => { e.stopPropagation(); handleDeleteWorker(worker.id) }}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={filteredWorkers.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
-      )}
+      <DataTable
+        rows={workers}
+        columns={columns}
+        loading={loading}
+        getRowId={(r) => r.id}
+        filterModel={filterModel}
+        onFilterModelChange={setFilterModel}
+        onRowClick={(p) => navigate(`/workers/${p.row.id}`)}
+        sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+      />
     </Box>
   )
 }

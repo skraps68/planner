@@ -11,17 +11,9 @@ vi.mock('react-router-dom', async () => ({
   useNavigate: () => mockNavigate,
 }))
 
-// The page imports workersApi (for workers CRUD) and workerTypesApi (for worker types CRUD).
-// workerTypesApi.list() returns WorkerType[] directly (not paginated).
 vi.mock('../../api/workers', () => ({
-  workersApi: {
-    list: vi.fn(),
-    delete: vi.fn(),
-  },
-  workerTypesApi: {
-    list: vi.fn(),
-    delete: vi.fn(),
-  },
+  workersApi: { list: vi.fn(), delete: vi.fn() },
+  workerTypesApi: { list: vi.fn(), delete: vi.fn() },
 }))
 
 const worker = {
@@ -58,13 +50,7 @@ const workerType = {
 const adminStore = () =>
   createTestStore({
     auth: {
-      user: {
-        id: '1',
-        username: 'a',
-        email: 'a@e.c',
-        roles: ['ADMIN'],
-        permissions: [],
-      },
+      user: { id: '1', username: 'a', email: 'a@e.c', roles: ['ADMIN'], permissions: [] },
       token: 't',
       isAuthenticated: true,
     },
@@ -79,49 +65,38 @@ const viewerStore = () =>
     },
   })
 
-describe('WorkersListPage', () => {
+describe('WorkersListPage (grid)', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
     vi.mocked(workersApi.list).mockResolvedValue({
-      items: [worker],
-      total: 1,
-      page: 1,
-      size: 10,
-      pages: 1,
+      items: [worker, worker2], total: 2, page: 1, size: 100, pages: 1,
     } as any)
-    // workerTypesApi.list() returns WorkerType[] directly (not paginated)
     vi.mocked(workerTypesApi.list).mockResolvedValue([workerType] as any)
   })
 
   it('row click navigates to the worker detail', async () => {
     const user = userEvent.setup()
-    render(<WorkersListPage />, {
-      store: adminStore(),
-      queryClient: createTestQueryClient(),
-    })
+    render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
     await user.click(screen.getByText('Jane Doe'))
     expect(mockNavigate).toHaveBeenCalledWith('/workers/w1')
   })
 
-  it('delete icon on workers tab does not navigate', async () => {
+  it('delete icon does not navigate', async () => {
     window.confirm = () => false
     const user = userEvent.setup()
-    render(<WorkersListPage />, {
-      store: adminStore(),
-      queryClient: createTestQueryClient(),
-    })
+    render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
-    const del = screen.getAllByRole('button').find((b) => b.querySelector('[data-testid="DeleteIcon"]'))!
-    await user.click(del)
+    await user.click(screen.getAllByRole('button', { name: 'delete' })[0])
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
-  it('shows the Cost Center column and value', async () => {
+  it('shows the Cost Center column and the worker type name', async () => {
     render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
     expect(screen.getByText('Cost Center')).toBeInTheDocument()
     expect(screen.getByText('CC-1002')).toBeInTheDocument()
+    expect(screen.getAllByText('Engineer').length).toBeGreaterThan(0)
   })
 
   it('hides Create Worker for a user without manage_workers', async () => {
@@ -130,34 +105,28 @@ describe('WorkersListPage', () => {
     expect(screen.queryByRole('button', { name: /create worker/i })).toBeNull()
   })
 
-  it('filters as you type by name and highlights the match', async () => {
+  it('quick-filter narrows by name and highlights the match', async () => {
     const user = userEvent.setup()
-    vi.mocked(workersApi.list).mockResolvedValue({
-      items: [worker, worker2], total: 2, page: 1, size: 1000, pages: 1,
-    } as any)
     render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
 
-    await user.type(screen.getByPlaceholderText(/search name or employee id/i), 'Jane')
+    await user.type(screen.getByPlaceholderText('Search…'), 'Jane')
 
-    await waitFor(() => expect(screen.queryByText('Bob Smith')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('Bob Smith')).toBeNull(), { timeout: 3000 })
     const mark = document.querySelector('[data-highlight]')
     expect(mark).not.toBeNull()
     expect(mark!.textContent).toBe('Jane')
   })
 
-  it('searches by employee (external) ID', async () => {
+  it('quick-filter matches the employee (external) ID', async () => {
     const user = userEvent.setup()
-    vi.mocked(workersApi.list).mockResolvedValue({
-      items: [worker, worker2], total: 2, page: 1, size: 1000, pages: 1,
-    } as any)
     render(<WorkersListPage />, { store: adminStore(), queryClient: createTestQueryClient() })
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
 
-    await user.type(screen.getByPlaceholderText(/search name or employee id/i), 'EMP777')
+    await user.type(screen.getByPlaceholderText('Search…'), 'EMP777')
 
-    await waitFor(() => expect(screen.queryByText('Jane Doe')).toBeNull())
+    await waitFor(() => expect(screen.queryByText('Jane Doe')).toBeNull(), { timeout: 3000 })
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
 })

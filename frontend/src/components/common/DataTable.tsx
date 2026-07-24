@@ -24,7 +24,13 @@ const Toolbar = () => (
 
 const DataTable: React.FC<DataGridProps & { height?: number | string }> = ({ height = 'calc(100vh - 220px)', ...props }) => (
   <Paper sx={{ height, width: '100%' }}>
-    <DataGrid slots={{ toolbar: Toolbar }} disableRowSelectionOnClick {...props} />
+    <DataGrid
+      slots={{ toolbar: Toolbar }}
+      disableRowSelectionOnClick
+      // jsdom has no layout, so virtualization would hide off-screen columns/rows in tests
+      disableVirtualization={import.meta.env.MODE === 'test'}
+      {...props}
+    />
   </Paper>
 )
 

@@ -7,13 +7,6 @@ import {
   Chip,
   IconButton,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
   Typography,
   Alert,
   CircularProgress,
@@ -28,9 +21,12 @@ import {
   ArrowBack as ArrowBackIcon,
   Visibility as VisibilityIcon,
 } from '@mui/icons-material'
+import { GridColDef } from '@mui/x-data-grid'
 import { useNavigate, useParams } from 'react-router-dom'
 import { auditApi, AuditLog, UserActivitySummary } from '../../api/audit'
 import { usersApi } from '../../api/users'
+import PageHeader from '../../components/common/PageHeader'
+import DataTable from '../../components/common/DataTable'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -56,8 +52,6 @@ const UserAuditPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tabValue, setTabValue] = useState(0)
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
   const [detailsDialog, setDetailsDialog] = useState<{
     open: boolean
     log: AuditLog | null
@@ -90,15 +84,6 @@ const UserAuditPage: React.FC = () => {
     fetchData()
   }, [id])
 
-  const handleChangePage = (_event: unknown, newPage: number) => {
-    setPage(newPage)
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
-
   const handleViewDetails = (log: AuditLog) => {
     setDetailsDialog({ open: true, log })
   }
@@ -121,67 +106,33 @@ const UserAuditPage: React.FC = () => {
     }
   }
 
-  const renderAuditTable = (logs: AuditLog[]) => {
-    const paginatedLogs = logs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+  const auditColumns: GridColDef<AuditLog>[] = [
+    {
+      field: 'created_at', headerName: 'Timestamp', width: 180,
+      valueFormatter: (p) => new Date(p.value as string).toLocaleString(),
+    },
+    {
+      field: 'operation', headerName: 'Operation', width: 160,
+      renderCell: (p) => <Chip label={p.value} size="small" color={getOperationColor(p.value)} />,
+    },
+    { field: 'entity_type', headerName: 'Entity Type', flex: 1, minWidth: 140 },
+    {
+      field: 'username', headerName: 'Performed By', flex: 1, minWidth: 140,
+      valueGetter: (p) => p.row.username || 'Unknown',
+    },
+    {
+      field: 'actions', headerName: '', width: 60, sortable: false, filterable: false, align: 'right',
+      renderCell: (p) => (
+        <IconButton size="small" sx={{ p: 0.25 }} onClick={() => handleViewDetails(p.row)}>
+          <VisibilityIcon fontSize="small" />
+        </IconButton>
+      ),
+    },
+  ]
 
-    return (
-      <>
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Timestamp</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Operation</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Entity Type</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Performed By</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedLogs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    No audit logs found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedLogs.map((log) => (
-                  <TableRow key={log.id} hover>
-                    <TableCell>
-                      {new Date(log.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={log.operation}
-                        size="small"
-                        color={getOperationColor(log.operation)}
-                      />
-                    </TableCell>
-                    <TableCell>{log.entity_type}</TableCell>
-                    <TableCell>{log.username || 'Unknown'}</TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleViewDetails(log)}>
-                        <VisibilityIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 50, 100]}
-            component="div"
-            count={logs.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </TableContainer>
-      </>
-    )
-  }
+  const renderAuditTable = (logs: AuditLog[]) => (
+    <DataTable rows={logs} columns={auditColumns} getRowId={(r) => r.id} height={440} />
+  )
 
   if (loading) {
     return (
@@ -206,11 +157,13 @@ const UserAuditPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <IconButton onClick={() => navigate(`/admin/users/${id}`)}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <IconButton onClick={() => navigate(`/admin/users/${id}`)} sx={{ mb: 1.5 }}>
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h4">Audit Trail - {username}</Typography>
+        <Box sx={{ flex: 1 }}>
+          <PageHeader title={`Audit Trail — ${username}`} />
+        </Box>
       </Box>
 
       {summary && (
