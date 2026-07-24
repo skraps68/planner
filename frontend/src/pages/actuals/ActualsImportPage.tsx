@@ -479,7 +479,7 @@ const ActualsImportPage = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Import Actuals
       </Typography>
 

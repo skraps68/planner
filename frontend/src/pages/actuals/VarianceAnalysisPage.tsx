@@ -512,7 +512,7 @@ const VarianceAnalysisPage = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Variance Analysis
       </Typography>
 

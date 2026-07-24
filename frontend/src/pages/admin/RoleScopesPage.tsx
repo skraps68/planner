@@ -169,7 +169,7 @@ const RoleScopesPage: React.FC = () => {
         <IconButton onClick={() => navigate(`/admin/users/${userId}/roles`)}>
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h4">Manage Scope Assignments</Typography>
+        <Typography variant="h5">Manage Scope Assignments</Typography>
       </Box>
 
       <Card>

@@ -111,7 +111,7 @@ const UserDetailPage: React.FC = () => {
           <IconButton onClick={() => navigate('/admin/users')}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h4">User Details</Typography>
+          <Typography variant="h5">User Details</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button

@@ -146,7 +146,7 @@ const UserRolesPage: React.FC = () => {
         <IconButton onClick={() => navigate(`/admin/users/${id}`)}>
           <ArrowBackIcon />
         </IconButton>
-        <Typography variant="h4">Manage Roles - {user.username}</Typography>
+        <Typography variant="h5">Manage Roles - {user.username}</Typography>
       </Box>
 
       <Card>

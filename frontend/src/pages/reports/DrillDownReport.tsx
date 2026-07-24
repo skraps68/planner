@@ -212,7 +212,7 @@ const DrillDownReport: React.FC = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Drill-Down Report</Typography>
+        <Typography variant="h5">Drill-Down Report</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"

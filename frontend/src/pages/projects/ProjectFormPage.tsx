@@ -139,7 +139,7 @@ const ProjectFormPage: React.FC = () => {
         >
           Back
         </Button>
-        <Typography variant="h4">
+        <Typography variant="h5">
           {isEdit ? 'Edit Project' : 'Create Project'}
         </Typography>
       </Box>

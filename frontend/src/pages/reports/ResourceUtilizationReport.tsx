@@ -287,7 +287,7 @@ const ResourceUtilizationReport: React.FC = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Resource Utilization Report</Typography>
+        <Typography variant="h5">Resource Utilization Report</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"

@@ -8,7 +8,7 @@ import { Box, Typography } from '@mui/material'
  */
 const PageHeader: React.FC<{ title: string; actions?: React.ReactNode }> = ({ title, actions }) => (
   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, minHeight: 34 }}>
-    <Typography sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{title}</Typography>
+    <Typography variant="h5">{title}</Typography>
     {actions ? <Box sx={{ display: 'flex', gap: 1 }}>{actions}</Box> : null}
   </Box>
 )

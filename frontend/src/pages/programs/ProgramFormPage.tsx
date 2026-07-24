@@ -122,7 +122,7 @@ const ProgramFormPage: React.FC = () => {
         >
           Back
         </Button>
-        <Typography variant="h4">
+        <Typography variant="h5">
           {isEdit ? 'Edit Program' : 'Create Program'}
         </Typography>
       </Box>

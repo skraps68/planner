@@ -43,7 +43,7 @@ const theme = createTheme({
     h2: { fontSize: '1.5rem', fontWeight: 600 },
     h3: { fontSize: '1.25rem', fontWeight: 600 },
     h4: { fontSize: '1.1rem', fontWeight: 600 },
-    h5: { fontSize: '0.95rem', fontWeight: 600 },
+    h5: { fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.01em' }, // the page-title style (see PageHeader)
     h6: { fontSize: '0.875rem', fontWeight: 600 },
     body1: { fontSize: '0.875rem' },
     body2: { fontSize: '0.8rem' },

@@ -356,7 +356,7 @@ const BudgetVsActualDashboard: React.FC = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
-          <Typography variant="h4">Budget vs Forecast Dashboard</Typography>
+          <Typography variant="h5">Budget vs Forecast Dashboard</Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
             Forecast = Actuals to date + Projected costs for remaining period
           </Typography>

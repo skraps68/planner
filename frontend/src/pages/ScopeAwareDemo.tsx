@@ -1,7 +1,6 @@
 import React from 'react'
 import { Box, Typography, Paper, Grid, Divider } from '@mui/material'
 import { Add, Edit, Delete, Visibility } from '@mui/icons-material'
-import ScopeBreadcrumbs from '../components/common/ScopeBreadcrumbs'
 import ScopeFilterBanner from '../components/common/ScopeFilterBanner'
 import PermissionButton from '../components/common/PermissionButton'
 import PermissionGuard from '../components/common/PermissionGuard'
@@ -16,17 +15,7 @@ const ScopeAwareDemo: React.FC = () => {
 
   return (
     <Box>
-      {/* Breadcrumbs with scope indicator */}
-      <ScopeBreadcrumbs
-        items={[
-          { label: 'Home', path: '/dashboard' },
-          { label: 'Demo', path: '/demo' },
-          { label: 'Scope-Aware Features' },
-        ]}
-        showScopeIndicator={true}
-      />
-
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h5" gutterBottom>
         Scope-Aware UI Demo
       </Typography>
 

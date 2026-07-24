@@ -38,7 +38,7 @@ const DashboardPage: React.FC = () => {
   if (hasError) {
     return (
       <Box>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant="h5" gutterBottom>
           Dashboard
         </Typography>
         <Alert severity="error">

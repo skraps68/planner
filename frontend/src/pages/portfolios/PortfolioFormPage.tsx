@@ -120,7 +120,7 @@ const PortfolioFormPage: React.FC = () => {
         >
           Back
         </Button>
-        <Typography variant="h4">Create Portfolio</Typography>
+        <Typography variant="h5">Create Portfolio</Typography>
       </Box>
 
       <Paper sx={{ p: 2 }}>

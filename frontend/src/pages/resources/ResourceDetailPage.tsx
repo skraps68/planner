@@ -31,7 +31,7 @@ import { resourceRolesApi } from '../../api/resourceRoles'
 import { assignmentsApi, BulkAssignmentUpdate, BulkUpdateResult } from '../../api/assignments'
 import { Resource, ResourceAssignment, ResourceRole } from '../../types'
 import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
-import ScopeBreadcrumbs from '../../components/common/ScopeBreadcrumbs'
+import PageHeader from '../../components/common/PageHeader'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -711,13 +711,7 @@ const ResourceDetailPage: React.FC = () => {
   if (isNew) {
     return (
       <Box>
-        <ScopeBreadcrumbs
-          items={[
-            { label: 'Home', path: '/dashboard' },
-            { label: 'Resources', path: '/resources' },
-            { label: 'New Resource' },
-          ]}
-        />
+        <PageHeader title="New Resource" />
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Card>
           <CardContent>
