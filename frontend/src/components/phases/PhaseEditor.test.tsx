@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../test/test-utils'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '../../test/test-utils'
 import PhaseList from './PhaseList'
 import PhaseTimeline from './PhaseTimeline'
 import ValidationErrorDisplay from './ValidationErrorDisplay'
@@ -145,7 +145,7 @@ describe('PhaseTimeline Component', () => {
     ]
 
     it('renders resize handles when enableResize is true', () => {
-      const { container } = render(
+      render(
         <PhaseTimeline
           phases={threePhaseMock}
           projectStartDate="2024-01-01"
@@ -160,7 +160,7 @@ describe('PhaseTimeline Component', () => {
     })
 
     it('does not render resize handles when enableResize is false', () => {
-      const { container } = render(
+      render(
         <PhaseTimeline
           phases={threePhaseMock}
           projectStartDate="2024-01-01"
@@ -176,7 +176,7 @@ describe('PhaseTimeline Component', () => {
 
     it('calls onPhaseResize when phase boundary is dragged', async () => {
       const mockOnPhaseResize = vi.fn()
-      const { container } = render(
+      render(
         <PhaseTimeline
           phases={threePhaseMock}
           projectStartDate="2024-01-01"
@@ -229,7 +229,7 @@ describe('PhaseTimeline Component', () => {
     })
 
     it('does not render left resize handle for first phase', () => {
-      const { container } = render(
+      render(
         <PhaseTimeline
           phases={threePhaseMock}
           projectStartDate="2024-01-01"
@@ -244,7 +244,7 @@ describe('PhaseTimeline Component', () => {
     })
 
     it('does not render right resize handle for last phase', () => {
-      const { container } = render(
+      render(
         <PhaseTimeline
           phases={threePhaseMock}
           projectStartDate="2024-01-01"

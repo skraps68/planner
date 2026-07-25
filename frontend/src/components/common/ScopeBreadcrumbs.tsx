@@ -29,7 +29,7 @@ const ScopeBreadcrumbs: React.FC<ScopeBreadcrumbsProps> = ({ items, showScopeInd
   const user = useSelector((state: RootState) => state.auth.user)
   const scopeContext = getScopeContext(user)
 
-  const hasGlobalScope = user?.activeRole?.scopes.some((scope) => scope.scope_type === 'GLOBAL') || false
+  const hasGlobalScope = user?.roles.some((role) => role.toUpperCase() === 'ADMIN') || false
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>

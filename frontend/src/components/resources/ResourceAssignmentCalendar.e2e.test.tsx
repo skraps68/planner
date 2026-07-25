@@ -275,8 +275,6 @@ describe('ResourceAssignmentCalendar - End-to-End Integration', () => {
 
   describe('Error Recovery Scenarios', () => {
     it('should recover from network error during load', async () => {
-      const user = userEvent.setup()
-      
       // First call fails, second succeeds
       vi.mocked(assignmentsApi.getByProject)
         .mockRejectedValueOnce({ response: { data: { detail: 'Network error' } } })

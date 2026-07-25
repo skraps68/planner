@@ -35,7 +35,7 @@ const SAVE_DEBOUNCE_MS = 500 // Debounce saves to reduce sessionStorage writes
 export function usePersistedEdits(projectId: string) {
   const [editedCells, setEditedCells] = useState<Map<string, CellEdit>>(new Map())
   const [isInitialized, setIsInitialized] = useState(false)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Load edits from sessionStorage on mount
   useEffect(() => {

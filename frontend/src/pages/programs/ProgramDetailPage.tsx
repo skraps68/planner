@@ -22,7 +22,7 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material'
-import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { Edit, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { programsApi } from '../../api/programs'
 import { portfoliosApi } from '../../api/portfolios'
 import { projectsApi } from '../../api/projects'
@@ -196,15 +196,6 @@ const ProgramDetailPage: React.FC = () => {
     setSelectedPhaseId(null)
   }
 
-  // Calculate statistics
-  const totalProjects = projects.length
-  const now = new Date()
-  const activeProjects = projects.filter(project => {
-    const start = new Date(project.start_date)
-    const end = new Date(project.end_date)
-    return now >= start && now <= end
-  }).length
-
   // Calculate total budget from all project phases
   const totalBudget = projects.reduce((sum, project) => {
     const projectBudget = (project.phases || []).reduce((phaseSum, phase) => {
@@ -255,6 +246,7 @@ const ProgramDetailPage: React.FC = () => {
 
   const startDate = new Date(program.start_date)
   const endDate = new Date(program.end_date)
+  const now = new Date()
 
   let status = 'Active'
   let statusColor: 'success' | 'warning' | 'default' = 'success'
@@ -503,10 +495,11 @@ const ProgramDetailPage: React.FC = () => {
           // Reload the program data
           refetch()
           // Pre-fill form with attempted changes and new version
-          setEditValues({
+          setEditValues((previous) => ({
+            ...previous,
             ...conflictState.attemptedChanges,
-            version: conflictState.currentState.version,
-          })
+            version: Number(conflictState.currentState.version),
+          }))
           clearConflict()
         }}
         onCancel={() => {

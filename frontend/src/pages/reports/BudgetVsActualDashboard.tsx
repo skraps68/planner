@@ -37,7 +37,7 @@ import {
   Pie,
   Cell
 } from 'recharts'
-import { reportsApi, ProjectFinancialSummary, ProgramFinancialSummary } from '../../api/reports'
+import { reportsApi, ProjectFinancialSummary } from '../../api/reports'
 import { projectsApi } from '../../api/projects'
 import { programsApi } from '../../api/programs'
 
@@ -134,8 +134,6 @@ const BudgetVsActualDashboard: React.FC = () => {
     const actual = summary.actual || {}
     const forecast = summary.forecast || {}
     const variance = summary.variance || {}
-    const analysis = summary.analysis || {}
-    
     const totalBudget = budget.total_budget || budget.total || 0
     const capitalBudget = budget.capital_budget || budget.capital || 0
     const expenseBudget = budget.expense_budget || budget.expense || 0

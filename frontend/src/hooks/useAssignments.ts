@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { assignmentsApi, ResourceAssignmentCreateInput, ResourceAssignmentUpdateInput, BulkAssignmentUpdate } from '../api/assignments'
-import { ResourceAssignment } from '../types'
 
 // Query keys for assignments
 export const assignmentKeys = {
@@ -116,7 +115,7 @@ export function useBulkUpdateAssignments() {
 
   return useMutation({
     mutationFn: (updates: BulkAssignmentUpdate[]) => assignmentsApi.bulkUpdate(updates),
-    onSuccess: (result) => {
+    onSuccess: () => {
       // Invalidate all assignment queries since we don't know which ones were affected
       queryClient.invalidateQueries({ queryKey: assignmentKeys.all })
     },
@@ -132,7 +131,7 @@ export function useDeleteAssignment() {
 
   return useMutation({
     mutationFn: (id: string) => assignmentsApi.delete(id),
-    onSuccess: (_, deletedId) => {
+    onSuccess: () => {
       // Invalidate all assignment queries
       queryClient.invalidateQueries({ queryKey: assignmentKeys.all })
     },

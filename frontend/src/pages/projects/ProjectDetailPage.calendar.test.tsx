@@ -1,4 +1,3 @@
-import React from 'react'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient } from '@tanstack/react-query'
@@ -50,6 +49,7 @@ const mockProject = {
   capital_budget: 100000,
   expense_budget: 50000,
   total_budget: 150000,
+  version: 1,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
   phases: [],
@@ -58,7 +58,15 @@ const mockProject = {
 const mockProgram = {
   id: 'program-1',
   name: 'Test Program',
+  business_sponsor: 'Test Sponsor',
+  program_manager: 'Test Manager',
+  technical_lead: 'Test Lead',
   portfolio_id: 'portfolio-1',
+  start_date: '2024-01-01',
+  end_date: '2024-12-31',
+  version: 1,
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
 }
 
 const mockAssignments = [

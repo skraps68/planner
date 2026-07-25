@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { usePortfolioListState } from './usePortfolioListState'
+import {
+  LIST_SCROLL_KEY,
+  resetPortfolioHierarchyState,
+  usePortfolioListState,
+} from './usePortfolioListState'
 
 describe('usePortfolioListState', () => {
   beforeEach(() => sessionStorage.clear())
@@ -64,5 +68,21 @@ describe('usePortfolioListState', () => {
     )
     const { result } = renderHook(() => usePortfolioListState())
     expect(result.current.idMode).toBe(true)
+  })
+
+  it('resets saved hierarchy and scroll state for a fresh login landing', () => {
+    sessionStorage.setItem(
+      'portfoliosListState',
+      JSON.stringify({ search: 'crm', portfolios: ['pf1'], programs: ['pg1'], idMode: true })
+    )
+    sessionStorage.setItem(LIST_SCROLL_KEY, '480')
+
+    resetPortfolioHierarchyState()
+
+    const { result } = renderHook(() => usePortfolioListState())
+    expect(result.current.search).toBe('')
+    expect(result.current.expandedPortfolios.size).toBe(0)
+    expect(result.current.expandedPrograms.size).toBe(0)
+    expect(sessionStorage.getItem(LIST_SCROLL_KEY)).toBeNull()
   })
 })

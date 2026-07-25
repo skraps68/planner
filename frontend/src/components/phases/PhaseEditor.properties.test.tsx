@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-import { render, screen } from '../../test/test-utils'
+import { render } from '../../test/test-utils'
 import PhaseList from './PhaseList'
 import ValidationErrorDisplay from './ValidationErrorDisplay'
 import { validatePhases } from '../../utils/phaseValidation'
@@ -460,4 +460,3 @@ describe('Phase Editor - Property-Based Tests', () => {
       { numRuns: 50 } // Reduced from 100 to speed up test
     )
   })
-

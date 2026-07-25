@@ -185,13 +185,10 @@ const VarianceAnalysisPage = () => {
     if (!varianceData) return null
 
     const summary = varianceData.summary
-    const varianceByType = summary.variance_by_type || {}
-
-    // Extract counts from variance_by_type dictionary
-    const allocationOver = varianceByType.allocation_over || 0
-    const allocationUnder = varianceByType.allocation_under || 0
-    const unplannedWork = varianceByType.unplanned_work || 0
-    const unworkedAssignment = varianceByType.unworked_assignment || 0
+    const allocationOver = summary.allocation_over || 0
+    const allocationUnder = summary.allocation_under || 0
+    const unplannedWork = summary.unplanned_work || 0
+    const unworkedAssignment = summary.unworked_assignment || 0
 
     return (
       <Grid container spacing={3} sx={{ mb: 2 }}>
@@ -263,12 +260,10 @@ const VarianceAnalysisPage = () => {
     if (!varianceData) return null
 
     const summary = varianceData.summary
-    const varianceByType = summary.variance_by_type || {}
-    
-    const allocationOver = varianceByType.allocation_over || 0
-    const allocationUnder = varianceByType.allocation_under || 0
-    const unplannedWork = varianceByType.unplanned_work || 0
-    const unworkedAssignment = varianceByType.unworked_assignment || 0
+    const allocationOver = summary.allocation_over || 0
+    const allocationUnder = summary.allocation_under || 0
+    const unplannedWork = summary.unplanned_work || 0
+    const unworkedAssignment = summary.unworked_assignment || 0
 
     const chartData = [
       { name: 'Over Allocated', value: allocationOver, color: '#f44336' },
@@ -417,7 +412,7 @@ const VarianceAnalysisPage = () => {
                               Variance Percentage:
                             </Typography>
                             <Typography variant="body1">
-                              {variance.allocation_variance_percentage?.toFixed(2) || '0.00'}%
+                              {variance.variance_percentage?.toFixed(2) || '0.00'}%
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -492,7 +487,7 @@ const VarianceAnalysisPage = () => {
                       {exception.allocation_variance}%
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">{exception.allocation_variance_percentage?.toFixed(2) || '0.00'}%</TableCell>
+                  <TableCell align="right">{exception.variance_percentage?.toFixed(2) || '0.00'}%</TableCell>
                   <TableCell>
                     <Chip
                       icon={<WarningIcon />}

@@ -35,7 +35,7 @@ describe('Phase Reordering - Property-Based Tests', () => {
           projectEnd.setDate(projectEnd.getDate() + projectDuration)
 
           const phases: Partial<ProjectPhase>[] = []
-          let currentDate = new Date(projectStart.getTime())
+          const currentDate = new Date(projectStart.getTime())
 
           // Calculate total duration of non-last phases
           const nonLastDuration = durations.reduce((sum, d) => sum + d, 0)
@@ -230,17 +230,11 @@ describe('Phase Reordering - Property-Based Tests', () => {
           const fromIndex = fromIndexRaw % phases.length
           const toIndex = toIndexRaw % phases.length
 
-          // Calculate durations before reordering
-          const durationsBefore = phases.map((phase) => calculatePhaseDuration(phase))
-
           // Perform reordering
           const reordered = reorderPhases(phases, fromIndex, toIndex)
 
           // Recalculate dates
           const recalculated = recalculatePhaseDates(reordered, projectStart, projectEnd)
-
-          // Calculate durations after reordering
-          const durationsAfter = recalculated.map((phase) => calculatePhaseDuration(phase))
 
           // All durations should be preserved except the last phase
           // The last phase may be adjusted to fit project boundaries

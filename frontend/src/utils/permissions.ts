@@ -141,7 +141,7 @@ export const hasPermission = (user: User | null, permission: Permission): Permis
  * Check if user has access to a specific program
  * Note: Simplified version - assumes ADMIN has global access, others need backend validation
  */
-export const canAccessProgram = (user: User | null, programId: string): PermissionCheck => {
+export const canAccessProgram = (user: User | null, _programId: string): PermissionCheck => {
   if (!user) {
     return { hasPermission: false, reason: 'User not authenticated' }
   }
@@ -164,7 +164,7 @@ export const canAccessProgram = (user: User | null, programId: string): Permissi
  * Check if user has access to a specific project
  * Note: Simplified version - assumes ADMIN has global access, others need backend validation
  */
-export const canAccessProject = (user: User | null, projectId: string, programId?: string): PermissionCheck => {
+export const canAccessProject = (user: User | null, _projectId: string, _programId?: string): PermissionCheck => {
   if (!user) {
     return { hasPermission: false, reason: 'User not authenticated' }
   }
@@ -250,4 +250,3 @@ export const getActiveRoleType = (user: User | null): string | null => {
   if (!user) return null
   return user.roles?.[0] || null
 }
-

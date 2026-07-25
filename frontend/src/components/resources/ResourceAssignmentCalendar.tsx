@@ -637,7 +637,7 @@ const ResourceAssignmentCalendar = ({
             id: existingAssignment.id,
             capital_percentage: capitalPercentage,
             expense_percentage: expensePercentage,
-            version: existingAssignment.version,
+            version: existingAssignment.version ?? 1,
           })
         } else {
           // Create new assignment

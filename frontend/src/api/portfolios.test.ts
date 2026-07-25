@@ -146,6 +146,7 @@ describe('Portfolios API Client', () => {
       const updateData: PortfolioUpdate = {
         name: 'Updated Portfolio',
         description: 'Updated Description',
+        version: 1,
       }
 
       const mockUpdatedPortfolio: Portfolio = {
@@ -176,6 +177,7 @@ describe('Portfolios API Client', () => {
     it('should update portfolio with partial data', async () => {
       const updateData: PortfolioUpdate = {
         owner: 'New Owner',
+        version: 1,
       }
 
       const mockUpdatedPortfolio: Portfolio = {

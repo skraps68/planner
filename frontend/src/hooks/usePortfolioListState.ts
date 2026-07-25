@@ -4,6 +4,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 // returns from a detail page (browser back button, home link, or ✕ close).
 // Shared by the rich table (State 1) and the slim tree (State 2).
 const LIST_STATE_KEY = 'portfoliosListState'
+export const LIST_SCROLL_KEY = 'portfoliosListScroll'
+
+/**
+ * A successful sign-in starts a fresh hierarchy workspace. In particular,
+ * clearing the saved search is required because search mode force-expands all
+ * matching branches even when the saved expansion sets are empty.
+ */
+export const resetPortfolioHierarchyState = () => {
+  sessionStorage.removeItem(LIST_STATE_KEY)
+  sessionStorage.removeItem(LIST_SCROLL_KEY)
+}
 
 interface SavedListState {
   search: string

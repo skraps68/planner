@@ -153,11 +153,8 @@ describe('PortfoliosListPage', () => {
     await user.type(searchInput, 'Digital')
 
     await waitFor(() => {
-      // While filtering, the matched substring is wrapped in a highlight span,
-      // so match on the cell's full text content rather than a single text node
-      expect(
-        screen.getByText((_, el) => el?.tagName === 'TD' && el.textContent === 'Digital Transformation')
-      ).toBeInTheDocument()
+      const highlightedName = document.querySelector('[data-highlight]')?.parentElement
+      expect(highlightedName).toHaveTextContent('Digital Transformation')
       expect(screen.queryByText('Infrastructure Modernization')).not.toBeInTheDocument()
     })
   })
@@ -207,10 +204,22 @@ describe('PortfoliosListPage', () => {
       expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
     })
 
-    // Column headers are rendered by DataGrid
-    // In test environment, DataGrid may not fully render headers
-    // So we verify the component rendered successfully
-    expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Start Date' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'End Date' })).toBeInTheDocument()
+    expect(screen.queryByText('Reporting Start')).not.toBeInTheDocument()
+    expect(screen.queryByText('Reporting End')).not.toBeInTheDocument()
+  })
+
+  it('renders portfolio descriptions in an ellipsized single-line label', async () => {
+    render(<PortfoliosListPage />, { store, queryClient })
+
+    const description = await screen.findByText('Digital transformation initiatives')
+    expect(description).toHaveAttribute('title', 'Digital transformation initiatives')
+    expect(description).toHaveStyle({
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    })
   })
 
   it('should display owner names', async () => {

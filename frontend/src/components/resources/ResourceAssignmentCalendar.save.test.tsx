@@ -16,6 +16,7 @@ describe('ResourceAssignmentCalendar - Save Flow Integration Tests', () => {
     id: 'user-1',
     username: 'testuser',
     email: 'test@example.com',
+    isActive: true,
     roles: ['ADMIN'],
     scopes: [{ scope_type: 'global', scope_id: null }],
   }
@@ -44,6 +45,8 @@ describe('ResourceAssignmentCalendar - Save Flow Integration Tests', () => {
       login: vi.fn(),
       logout: vi.fn(),
       isAuthenticated: true,
+      isLoading: false,
+      switchRole: vi.fn(),
     })
 
     // Mock assignmentsApi
@@ -461,6 +464,8 @@ describe('ResourceAssignmentCalendar - Save Flow Integration Tests', () => {
       login: vi.fn(),
       logout: vi.fn(),
       isAuthenticated: true,
+      isLoading: false,
+      switchRole: vi.fn(),
     })
 
     render(
@@ -482,8 +487,6 @@ describe('ResourceAssignmentCalendar - Save Flow Integration Tests', () => {
   })
 
   it('should not include allocation_percentage in create API calls', async () => {
-    const user = userEvent.setup()
-
     // Mock empty assignments to trigger create flow
     vi.mocked(assignmentsApi.getByProject).mockResolvedValue([])
 
@@ -629,4 +632,3 @@ describe('ResourceAssignmentCalendar - Save Flow Integration Tests', () => {
     expect(Object.keys(payload)).not.toContain('allocation_percentage')
   })
 })
-

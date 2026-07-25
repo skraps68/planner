@@ -11,7 +11,7 @@ class ResizeObserverStub {
   unobserve() {}
   disconnect() {}
 }
-;(globalThis as any).ResizeObserver = (globalThis as any).ResizeObserver || ResizeObserverStub
+globalThis.ResizeObserver ||= ResizeObserverStub as unknown as typeof ResizeObserver
 
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual<any>('react-router-dom')),

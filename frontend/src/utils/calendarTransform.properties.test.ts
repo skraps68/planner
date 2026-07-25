@@ -10,7 +10,6 @@ import {
   transformToGrid,
   getCellValue,
   getCellKey,
-  type ResourceAssignment
 } from './calendarTransform'
 
 describe('Calendar Transform Properties', () => {
@@ -230,13 +229,13 @@ describe('Calendar Transform Properties', () => {
               const capitalValue = getCellValue(
                 grid,
                 assignment.resource_id,
-                assignment.assignment_date, // Use string directly
+                new Date(assignment.assignment_date),
                 'capital'
               )
               const expenseValue = getCellValue(
                 grid,
                 assignment.resource_id,
-                assignment.assignment_date, // Use string directly
+                new Date(assignment.assignment_date),
                 'expense'
               )
               

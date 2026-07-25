@@ -5,6 +5,7 @@ import { setCredentials, logout as logoutAction, setUser, setLoading } from '../
 import { authApi, LoginRequest } from '../api/auth'
 import { RootState } from '../store'
 import { User } from '../store/slices/authSlice'
+import { resetPortfolioHierarchyState } from '../hooks/usePortfolioListState'
 
 interface AuthContextType {
   user: User | null
@@ -72,7 +73,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         roles: response.active_roles,
         permissions: [],
       }
-      
+
+      resetPortfolioHierarchyState()
       dispatch(
         setCredentials({
           user: user,

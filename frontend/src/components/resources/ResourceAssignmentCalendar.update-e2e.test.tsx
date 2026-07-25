@@ -444,8 +444,9 @@ describe('E2E: Update Assignment Flow (Task 15.2)', () => {
     await user.click(screen.getByRole('button', { name: /enable edit mode/i }))
 
     // Make changes
-    const inputs = screen.getAllByRole('spinbutton', { name: /allocation percentage/i })
-    const originalValue = inputs[0].value
+    const inputs = screen.getAllByRole<HTMLInputElement>('spinbutton', {
+      name: /allocation percentage/i,
+    })
     
     await user.clear(inputs[0])
     await user.type(inputs[0], '75')

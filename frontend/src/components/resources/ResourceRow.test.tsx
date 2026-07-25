@@ -1,4 +1,3 @@
-import React from 'react'
 import { render, screen } from '../../test/test-utils'
 import ResourceRow from './ResourceRow'
 import { GridData, ResourceInfo } from '../../utils/calendarTransform'

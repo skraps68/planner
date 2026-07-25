@@ -339,7 +339,7 @@ const ResourceAllocationCalendar: React.FC<{
           id: existing.id,
           capital_percentage: Math.round(edits.capital ?? cell?.capital ?? 0),
           expense_percentage: Math.round(edits.expense ?? cell?.expense ?? 0),
-          version: existing.version,
+          version: existing.version ?? 1,
         })
       }
 

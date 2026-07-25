@@ -72,12 +72,18 @@ describe('validateCellEdit', () => {
   it('should query all assignments for resource and date across all projects', async () => {
     const mockAssignments = [
       {
+        id: 'assignment-1',
+        resource_id: 'resource-1',
         project_id: 'project-1',
+        assignment_date: '2024-01-15',
         capital_percentage: 30,
         expense_percentage: 20
       },
       {
+        id: 'assignment-2',
+        resource_id: 'resource-1',
         project_id: 'project-2',
+        assignment_date: '2024-01-15',
         capital_percentage: 25,
         expense_percentage: 15
       }

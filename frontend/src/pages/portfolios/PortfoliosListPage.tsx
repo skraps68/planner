@@ -31,7 +31,7 @@ import PermissionButton from '../../components/common/PermissionButton'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
 import { LAST_DETAIL_KEY } from '../../components/layout/PortfolioShell'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
-import { usePortfolioListState } from '../../hooks/usePortfolioListState'
+import { LIST_SCROLL_KEY, usePortfolioListState } from '../../hooks/usePortfolioListState'
 
 const formatDate = (value: string) => format(new Date(value), 'MMM dd, yyyy')
 
@@ -56,7 +56,12 @@ const clickableRowSx = {
   '&:hover': { backgroundColor: 'action.hover' },
 }
 
-const headerCellSx = { fontWeight: 'bold', whiteSpace: 'nowrap' }
+const headerCellSx = {
+  fontWeight: 'bold',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
 
 // Width of the expand-arrow column; child blocks indent by this amount so a
 // child's text always starts to the RIGHT of its parent's text
@@ -67,7 +72,7 @@ const ARROW_COL_WIDTH = 34
 // share the same right edge), so these columns line up vertically:
 //   PERSON_A: Owner / Business Sponsor / Project Manager
 //   PERSON_B: (blank) / Program Manager / Cost Center
-//   DATE:     Reporting Start|End / Start|End Date / Start|End Date
+//   DATE:     Start|End Date
 const COL = {
   personA: 160,
   personB: 150,
@@ -103,10 +108,6 @@ const projectsGroupSx = {
   backgroundColor: 'rgba(40,94,130,0.02)',
   overflow: 'hidden',
 }
-
-// Session-scoped persistence for scroll position so the list looks the same
-// when the user returns from a detail page (browser back button or breadcrumbs)
-const LIST_SCROLL_KEY = 'portfoliosListScroll'
 
 /**
  * Consolidated Portfolios / Programs / Projects list.
@@ -480,8 +481,8 @@ const PortfoliosListPage: React.FC = () => {
                 <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Owner</TableCell>
                 {/* Filler keeps the shared column grid: programs/projects use this slot */}
                 <TableCell sx={{ ...headerCellSx, width: COL.personB }} />
-                <TableCell sx={{ ...headerCellSx, width: COL.date }}>Reporting Start</TableCell>
-                <TableCell sx={{ ...headerCellSx, width: COL.date }}>Reporting End</TableCell>
+                <TableCell sx={{ ...headerCellSx, width: COL.date }}>Start Date</TableCell>
+                <TableCell sx={{ ...headerCellSx, width: COL.date }}>End Date</TableCell>
                 <TableCell sx={{ ...headerCellSx, width: COL.status }} />
               </TableRow>
             </TableHead>
@@ -524,7 +525,30 @@ const PortfoliosListPage: React.FC = () => {
                         )}
                       </IconButton>
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}><HighlightedLabel label={displayName(portfolio.business_id, portfolio.name)} term={search} /></TableCell>
+                    <TableCell sx={{ minWidth: 0, overflow: 'hidden' }}>
+                      <Typography
+                        component="div"
+                        variant="body2"
+                        noWrap
+                        sx={{ fontWeight: 600 }}
+                      >
+                        <HighlightedLabel
+                          label={displayName(portfolio.business_id, portfolio.name)}
+                          term={search}
+                        />
+                      </Typography>
+                      {portfolio.description && (
+                        <Typography
+                          component="div"
+                          variant="caption"
+                          color="text.secondary"
+                          noWrap
+                          title={portfolio.description}
+                        >
+                          <HighlightedLabel label={portfolio.description} term={search} />
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell><HighlightedLabel label={portfolio.owner} term={search} /></TableCell>
                     <TableCell />
                     <TableCell>{formatDate(portfolio.reporting_start_date)}</TableCell>

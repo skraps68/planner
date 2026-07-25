@@ -16,7 +16,7 @@ import {
   FormHelperText,
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
-import { programsApi, ProgramCreateRequest } from '../../api/programs'
+import { programsApi, ProgramCreateRequest, ProgramUpdateRequest } from '../../api/programs'
 import { portfoliosApi } from '../../api/portfolios'
 import { format } from 'date-fns'
 
@@ -35,10 +35,11 @@ const ProgramFormPage: React.FC = () => {
     end_date: format(new Date(), 'yyyy-MM-dd'),
     portfolio_id: '',
   })
+  const [version, setVersion] = useState(1)
   const [error, setError] = useState('')
   const [portfolioError, setPortfolioError] = useState('')
 
-  const { data: program, isLoading } = useQuery({
+  const { data: program } = useQuery({
     queryKey: ['program', id],
     queryFn: () => programsApi.get(id!),
     enabled: isEdit,
@@ -60,6 +61,7 @@ const ProgramFormPage: React.FC = () => {
         end_date: program.end_date,
         portfolio_id: program.portfolio_id,
       })
+      setVersion(program.version)
     }
   }, [program])
 
@@ -75,7 +77,7 @@ const ProgramFormPage: React.FC = () => {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: ProgramCreateRequest) => programsApi.update(id!, data),
+    mutationFn: (data: ProgramUpdateRequest) => programsApi.update(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['programs'] })
       queryClient.invalidateQueries({ queryKey: ['program', id] })
@@ -102,7 +104,7 @@ const ProgramFormPage: React.FC = () => {
     }
 
     if (isEdit) {
-      updateMutation.mutate(formData)
+      updateMutation.mutate({ ...formData, version })
     } else {
       createMutation.mutate(formData)
     }

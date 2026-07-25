@@ -20,15 +20,13 @@ import {
   SwapHoriz,
   Notifications as NotificationsIcon,
 } from '@mui/icons-material'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import RoleSwitcher from '../auth/RoleSwitcher'
 import UserProfile from '../auth/UserProfile'
 import ChangePassword from '../auth/ChangePassword'
-import WaffleLauncher from './WaffleLauncher'
+import NavTabs from './NavTabs'
 
 const Header: React.FC = () => {
-  const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false)
@@ -89,16 +87,8 @@ const Header: React.FC = () => {
       }}
     >
       <Toolbar>
-        <WaffleLauncher />
-
-        <Typography
-          variant="h6"
-          component="div"
-          onClick={() => navigate('/portfolios')}
-          sx={{ flexGrow: 1, color: 'primary.main', cursor: 'pointer', userSelect: 'none' }}
-        >
-          Program &amp; Project Management
-        </Typography>
+        <NavTabs />
+        <Box sx={{ flexGrow: 1 }} />
 
         <IconButton color="inherit" sx={{ mr: 2 }}>
           <NotificationsIcon />

@@ -12,7 +12,7 @@ import {
   MenuItem,
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
-import { projectsApi, ProjectCreateRequest } from '../../api/projects'
+import { projectsApi, ProjectCreateRequest, ProjectUpdateRequest } from '../../api/projects'
 import { programsApi } from '../../api/programs'
 import { format } from 'date-fns'
 
@@ -36,6 +36,7 @@ const ProjectFormPage: React.FC = () => {
       expense_budget: 0,
     },
   })
+  const [version, setVersion] = useState(1)
   const [error, setError] = useState('')
 
   // Fetch programs for dropdown
@@ -52,6 +53,12 @@ const ProjectFormPage: React.FC = () => {
 
   useEffect(() => {
     if (project) {
+      const executionPhase = project.phases?.find((phase) =>
+        phase.name.toLowerCase().includes('execution')
+      )
+      const planningPhase = project.phases?.find((phase) =>
+        phase.name.toLowerCase().includes('planning')
+      )
       setFormData({
         program_id: project.program_id || '',
         name: project.name,
@@ -62,14 +69,15 @@ const ProjectFormPage: React.FC = () => {
         end_date: project.end_date,
         cost_center_code: project.cost_center_code,
         execution_phase: {
-          capital_budget: project.capital_budget || 0,
-          expense_budget: project.expense_budget || 0,
+          capital_budget: executionPhase?.capital_budget || 0,
+          expense_budget: executionPhase?.expense_budget || 0,
         },
         planning_phase: {
-          capital_budget: 0,
-          expense_budget: 0,
+          capital_budget: planningPhase?.capital_budget || 0,
+          expense_budget: planningPhase?.expense_budget || 0,
         },
       })
+      setVersion(project.version)
     }
   }, [project])
 
@@ -85,7 +93,7 @@ const ProjectFormPage: React.FC = () => {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<ProjectCreateRequest>) => projectsApi.update(id!, data),
+    mutationFn: (data: ProjectUpdateRequest) => projectsApi.update(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project', id] })
@@ -106,8 +114,19 @@ const ProjectFormPage: React.FC = () => {
     }
 
     if (isEdit) {
-      // For update, exclude program_id
-      const { program_id, ...updateData } = formData
+      const updateData: ProjectUpdateRequest = {
+        name: formData.name,
+        business_sponsor: formData.business_sponsor,
+        project_manager: formData.project_manager,
+        technical_lead: formData.technical_lead,
+        description: formData.description,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+        cost_center_code: formData.cost_center_code,
+        execution_phase: formData.execution_phase,
+        planning_phase: formData.planning_phase,
+        version,
+      }
       updateMutation.mutate(updateData)
     } else {
       createMutation.mutate(formData)

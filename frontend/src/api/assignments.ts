@@ -31,7 +31,7 @@ export interface BulkUpdateFailure {
   id: string
   error: string
   message: string
-  current_state?: ResourceAssignment
+  current_state?: Partial<ResourceAssignment> & Pick<ResourceAssignment, 'id' | 'version'>
 }
 
 export interface BulkUpdateResult {

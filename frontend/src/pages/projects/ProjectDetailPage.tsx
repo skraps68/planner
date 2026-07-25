@@ -17,7 +17,7 @@ import {
   Switch,
   FormControlLabel,
 } from '@mui/material'
-import { Edit, ArrowBack, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { Edit, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
 import { programsApi } from '../../api/programs'
 import { phasesApi } from '../../api/phases'
@@ -92,7 +92,7 @@ const ProjectDetailPage: React.FC = () => {
   // Labor / Non-Labor toggle state for the financial panel
   const [toggle, setToggle] = useState<LaborToggle>({ laborOn: true, nonlaborOn: true })
 
-  const { data: project, isLoading, refetch, isFetching } = useQuery({
+  const { data: project, isLoading, refetch } = useQuery({
     queryKey: ['project', id],
     queryFn: () => projectsApi.get(id!),
     enabled: !!id,
@@ -127,19 +127,6 @@ const ProjectDetailPage: React.FC = () => {
     if (!rawForecastData) return null
     return transformForecastData(rawForecastData, toggle)
   }, [rawForecastData, toggle])
-
-  // Calculate budget statistics from phases
-  const totalBudget = (project?.phases || []).reduce((sum, phase) => {
-    return sum + Number(phase.total_budget || 0)
-  }, 0)
-
-  const capitalBudget = (project?.phases || []).reduce((sum, phase) => {
-    return sum + Number(phase.capital_budget || 0)
-  }, 0)
-
-  const expenseBudget = (project?.phases || []).reduce((sum, phase) => {
-    return sum + Number(phase.expense_budget || 0)
-  }, 0)
 
   // Handle tab change: reflect the tab in the URL (replace, not push, so
   // switching tabs doesn't stack history entries)
@@ -438,10 +425,11 @@ const ProjectDetailPage: React.FC = () => {
           // Reload the project data
           refetch()
           // Pre-fill form with attempted changes and new version
-          setEditValues({
+          setEditValues((previous) => ({
+            ...previous,
             ...conflictState.attemptedChanges,
-            version: conflictState.currentState.version,
-          })
+            version: Number(conflictState.currentState.version),
+          }))
           clearConflict()
         }}
         onCancel={() => {

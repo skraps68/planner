@@ -217,8 +217,6 @@ describe('Resource Assignment Refactor Validation Properties', () => {
           // Use a new project ID to test cross-project validation
           const currentProjectId = 'new-project-id'
           
-          // Calculate what the new total would be
-          const newProjectTotal = newValue + (costTreatment === 'capital' ? 0 : 0)
           const newGrandTotal = existingTotal + newValue
           
           const { validateCellEdit } = await import('./cellValidation')

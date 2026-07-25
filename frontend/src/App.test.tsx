@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { render, createTestStore } from './test/test-utils'
 import App from './App'
 

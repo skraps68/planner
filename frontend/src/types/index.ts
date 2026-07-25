@@ -45,17 +45,17 @@ export interface ProjectPhase {
   start_date: string
   end_date: string
   description?: string
-  labor_capital_budget: number
-  labor_expense_budget: number
-  nonlabor_capital_budget: number
-  nonlabor_expense_budget: number
+  labor_capital_budget?: number
+  labor_expense_budget?: number
+  nonlabor_capital_budget?: number
+  nonlabor_expense_budget?: number
   total_budget: number
   // Derived, read-only fields returned by ProjectPhaseResponse (project.phases);
   // not present/settable on the phases-list/batch API. Kept optional so
   // ProjectDetailPage's budget-stat calculations keep compiling.
   capital_budget?: number
   expense_budget?: number
-  version: number
+  version?: number
   created_at: string
   updated_at: string
   assignment_count?: number
@@ -137,13 +137,13 @@ export interface ResourceAssignment {
   resource_id: string
   resource_name?: string
   project_id: string
-  project_phase_id: string
+  project_phase_id?: string
   assignment_date: string
   capital_percentage: number
   expense_percentage: number
-  version: number
-  created_at: string
-  updated_at: string
+  version?: number
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Actual {

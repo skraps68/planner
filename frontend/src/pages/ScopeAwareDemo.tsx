@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Typography, Paper, Grid, Divider } from '@mui/material'
-import { Add, Edit, Delete, Visibility } from '@mui/icons-material'
+import { Add, Edit, Delete } from '@mui/icons-material'
 import ScopeFilterBanner from '../components/common/ScopeFilterBanner'
 import PermissionButton from '../components/common/PermissionButton'
 import PermissionGuard from '../components/common/PermissionGuard'
