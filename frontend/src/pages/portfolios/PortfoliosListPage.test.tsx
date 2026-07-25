@@ -204,8 +204,20 @@ describe('PortfoliosListPage', () => {
       expect(screen.getByText('Digital Transformation')).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('columnheader', { name: 'Start Date' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'End Date' })).toBeInTheDocument()
+    const startDateHeader = screen.getByRole('columnheader', { name: 'Start Date' })
+    const endDateHeader = screen.getByRole('columnheader', { name: 'End Date' })
+    expect(startDateHeader).toBeInTheDocument()
+    expect(endDateHeader).toBeInTheDocument()
+    expect(startDateHeader).toHaveStyle({
+      minWidth: '132px',
+      overflow: 'visible',
+      textOverflow: 'clip',
+    })
+    expect(endDateHeader).toHaveStyle({
+      minWidth: '132px',
+      overflow: 'visible',
+      textOverflow: 'clip',
+    })
     expect(screen.queryByText('Reporting Start')).not.toBeInTheDocument()
     expect(screen.queryByText('Reporting End')).not.toBeInTheDocument()
   })

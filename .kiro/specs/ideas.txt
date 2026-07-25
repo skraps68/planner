@@ -10,8 +10,7 @@
 
 - if we want to capture BAU as a project, then will we assign all resources to BAU? do we need to support the concept of a "plug" to make it easier and less labor intensive? 
 => could allow creation of a temp/fake resource with a custom rate
-=> how about having an automated calculation of left over resources and then provide an approval list to a project manager to approve aligning excess resource capacity with BAU, either resource by resource or multi-pick/bulk approval
-
+. 
 - what about the concept of auto-adjusting BAU based on a resource's other assignments? e.g. if a resource is assigned <100%, then automaticlaly offer up a BAU assignment for the remainder, and ask the user to confirm? if we do this, then BAU is indeed a special project, OR, do we create a feature whereby you can choose a "slop" or "remainder" project to auto-assign remaining percentages to (after confirmation).
 => see comments on auto-calc above. probably shoud enable as feature that can be turned on/off (auto or explicit approval after system provides opportunites for BAU)
 
@@ -109,6 +108,8 @@
 - merge assignments and actuals into the same table? keep an actuals screen for import?
 
 - in the users screen, add a view to group users by role instead of listing users one-by-one.
+
+- add density settings and column setting to a stored user profile
 
 -------------------------------
 

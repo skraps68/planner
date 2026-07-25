@@ -74,11 +74,27 @@ const ARROW_COL_WIDTH = 34
 //   PERSON_B: (blank) / Program Manager / Cost Center
 //   DATE:     Start|End Date
 const COL = {
-  personA: 160,
-  personB: 150,
-  date: 112,
+  personA: 180,
+  personB: 180,
+  date: 132,
   status: 92,
 }
+
+// Fixed-column labels are short enough to always show in full. Give them
+// narrower horizontal padding than ordinary cells and never apply the generic
+// header ellipsis; the flexible name/description column yields the extra width.
+const nonTruncatingHeaderCellSx = (width: number) => ({
+  ...headerCellSx,
+  width,
+  minWidth: width,
+  px: 1,
+  overflow: 'visible',
+  textOverflow: 'clip',
+})
+
+const personAHeaderCellSx = nonTruncatingHeaderCellSx(COL.personA)
+const personBHeaderCellSx = nonTruncatingHeaderCellSx(COL.personB)
+const dateHeaderCellSx = nonTruncatingHeaderCellSx(COL.date)
 
 // Nested group containers: indented under the parent's text, tinted and framed
 // with a colored left accent so it's obvious where each group begins and ends.
@@ -270,10 +286,10 @@ const PortfoliosListPage: React.FC = () => {
           <TableHead>
             <TableRow>
               <TableCell sx={headerCellSx}>Project Name</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Project Manager</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.personB }}>Cost Center</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.date }}>Start Date</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.date }}>End Date</TableCell>
+              <TableCell sx={personAHeaderCellSx}>Project Manager</TableCell>
+              <TableCell sx={personBHeaderCellSx}>Cost Center</TableCell>
+              <TableCell sx={dateHeaderCellSx}>Start Date</TableCell>
+              <TableCell sx={dateHeaderCellSx}>End Date</TableCell>
               <TableCell sx={{ ...headerCellSx, width: COL.status }}>Status</TableCell>
             </TableRow>
           </TableHead>
@@ -316,10 +332,10 @@ const PortfoliosListPage: React.FC = () => {
             <TableRow>
               <TableCell sx={{ ...headerCellSx, width: ARROW_COL_WIDTH, px: 0.5 }} />
               <TableCell sx={headerCellSx}>Program Name</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Business Sponsor</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.personB }}>Program Manager</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.date }}>Start Date</TableCell>
-              <TableCell sx={{ ...headerCellSx, width: COL.date }}>End Date</TableCell>
+              <TableCell sx={personAHeaderCellSx}>Business Sponsor</TableCell>
+              <TableCell sx={personBHeaderCellSx}>Program Manager</TableCell>
+              <TableCell sx={dateHeaderCellSx}>Start Date</TableCell>
+              <TableCell sx={dateHeaderCellSx}>End Date</TableCell>
               <TableCell sx={{ ...headerCellSx, width: COL.status }}>Status</TableCell>
             </TableRow>
           </TableHead>
@@ -478,11 +494,11 @@ const PortfoliosListPage: React.FC = () => {
               <TableRow>
                 <TableCell sx={{ ...headerCellSx, width: ARROW_COL_WIDTH, px: 0.5 }} />
                 <TableCell sx={headerCellSx}>Portfolio Name</TableCell>
-                <TableCell sx={{ ...headerCellSx, width: COL.personA }}>Owner</TableCell>
+                <TableCell sx={personAHeaderCellSx}>Owner</TableCell>
                 {/* Filler keeps the shared column grid: programs/projects use this slot */}
-                <TableCell sx={{ ...headerCellSx, width: COL.personB }} />
-                <TableCell sx={{ ...headerCellSx, width: COL.date }}>Start Date</TableCell>
-                <TableCell sx={{ ...headerCellSx, width: COL.date }}>End Date</TableCell>
+                <TableCell sx={personBHeaderCellSx} />
+                <TableCell sx={dateHeaderCellSx}>Start Date</TableCell>
+                <TableCell sx={dateHeaderCellSx}>End Date</TableCell>
                 <TableCell sx={{ ...headerCellSx, width: COL.status }} />
               </TableRow>
             </TableHead>
