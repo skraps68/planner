@@ -29,8 +29,20 @@ import {
   AssignmentsGrid,
   AssignmentPercentageCell,
   AssignmentsGridCell as TableCell,
+  ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_TYPE_WIDTH,
+  ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
+  ASSIGNMENTS_GRID_WEEKEND_BG,
+  getAssignmentsGridPeriodSx,
+  getAssignmentsGridPeriodWidth,
 } from './AssignmentsGrid'
+import {
+  averageAssignmentPeriod,
+  buildAssignmentPeriods,
+  formatAssignmentAverage,
+  type AssignmentViewMode,
+} from './assignmentPeriods'
 
 // Memoized cell wrapper to prevent unnecessary re-renders
 interface CellWrapperProps {
@@ -143,6 +155,7 @@ const ResourceAssignmentCalendar = ({
   const { editedCells, setEditedCells, clearEdits } = usePersistedEdits(projectId)
   
   const [isEditMode, setIsEditMode] = useState(false)
+  const [viewMode, setViewMode] = useState<AssignmentViewMode>('daily')
   const [isSaving, setIsSaving] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -170,6 +183,7 @@ const ResourceAssignmentCalendar = ({
   // Auto-restore edit mode if there are persisted edits
   useEffect(() => {
     if (editedCells.size > 0 && !isEditMode && canEdit) {
+      setViewMode('daily')
       setIsEditMode(true)
     }
   }, [editedCells.size, isEditMode, canEdit])
@@ -182,6 +196,7 @@ const ResourceAssignmentCalendar = ({
     const scrollLeft = scrollContainerRef.current?.scrollLeft || 0
     const scrollTop = scrollContainerRef.current?.scrollTop || 0
     
+    setViewMode('daily')
     setIsEditMode(true)
     
     // Restore scroll position after state update
@@ -491,6 +506,34 @@ const ResourceAssignmentCalendar = ({
     }
   }, [assignments, projectStartDate, projectEndDate])
 
+  const periods = useMemo(
+    () => buildAssignmentPeriods(gridData?.dates ?? [], viewMode),
+    [gridData?.dates, viewMode],
+  )
+
+  const handleViewModeChange = useCallback((nextMode: AssignmentViewMode) => {
+    if (isEditMode || nextMode === viewMode || !gridData) return
+
+    const currentWidth = getAssignmentsGridPeriodWidth(viewMode)
+    const visibleIndex = Math.max(
+      0,
+      Math.floor((scrollContainerRef.current?.scrollLeft ?? 0) / currentWidth),
+    )
+    const anchorDate = periods[Math.min(visibleIndex, periods.length - 1)]?.dates[0]
+
+    setViewMode(nextMode)
+
+    requestAnimationFrame(() => {
+      if (!scrollContainerRef.current || !anchorDate) return
+      const nextPeriods = buildAssignmentPeriods(gridData.dates, nextMode)
+      const nextIndex = nextPeriods.findIndex((period) =>
+        period.dates.some((date) => date.getTime() === anchorDate.getTime()),
+      )
+      scrollContainerRef.current.scrollLeft =
+        Math.max(0, nextIndex) * getAssignmentsGridPeriodWidth(nextMode)
+    })
+  }, [gridData, isEditMode, periods, viewMode])
+
   // Memoized to prevent recreation on every render
   const handleCellChange = useCallback((
     resourceId: string,
@@ -585,15 +628,6 @@ const ResourceAssignmentCalendar = ({
     const value = getCellValue(gridData!, resourceId, date, costTreatment)
     return Math.round(value)
   }
-
-  // Format date for column headers
-  // Memoized to prevent recreation on every render
-  const formatDate = useCallback((date: Date): string => {
-    // Use UTC methods to avoid timezone issues - format as M/D
-    const month = date.getUTCMonth() + 1 // getUTCMonth() returns 0-11
-    const day = date.getUTCDate()
-    return `${month}/${day}`
-  }, [])
 
   // Loading state
   if (isLoading) {
@@ -749,10 +783,16 @@ const ResourceAssignmentCalendar = ({
       <Paper>
         <AssignmentsGrid
           ariaLabel="Resource assignment calendar"
-          dates={gridData.dates}
+          periods={periods}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
           primaryHeader="Resource"
           primaryHeaderAriaLabel="Resource name"
-          formatDate={formatDate}
+          typeColumnWidth={
+            viewMode === 'daily'
+              ? ASSIGNMENTS_GRID_TYPE_WIDTH
+              : ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH
+          }
           scrollContainerRef={scrollContainerRef}
           isEditMode={isEditMode}
         >
@@ -767,6 +807,7 @@ const ResourceAssignmentCalendar = ({
                   zIndex: 2,
                   borderRight: '1px solid',
                   borderColor: 'divider',
+                  textAlign: 'left !important',
                 }}
                 role="rowheader"
               >
@@ -781,27 +822,31 @@ const ResourceAssignmentCalendar = ({
                   zIndex: 2,
                   borderRight: '1px solid',
                   borderColor: 'divider',
+                  textAlign: 'left !important',
                 }}
               >
-                Heads
+                {viewMode === 'daily' ? 'Heads' : 'Heads/Day'}
               </TableCell>
-              {gridData.dates.map((date, dateIndex) => {
-                const total = gridData.resources.reduce((sum, resource) => {
-                  return sum + getDisplayValue(resource.resourceId, date, 'capital') + getDisplayValue(resource.resourceId, date, 'expense')
-                }, 0)
-                const isSaturday = date.getUTCDay() === 6
+              {periods.map((period) => {
+                const total = averageAssignmentPeriod(period, (date) =>
+                  gridData.resources.reduce((sum, resource) => (
+                    sum
+                    + getDisplayValue(resource.resourceId, date, 'capital')
+                    + getDisplayValue(resource.resourceId, date, 'expense')
+                  ), 0) / 100,
+                )
                 return (
                   <TableCell
-                    key={dateIndex}
+                    key={period.key}
                     align="center"
                     sx={{
-                      backgroundColor: '#e8f5e9',
+                      backgroundColor: period.isWeekend ? ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG : '#e8f5e9',
                       fontWeight: 'bold',
-                      ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
+                      ...getAssignmentsGridPeriodSx(period),
                     }}
                     role="gridcell"
                   >
-                    {total > 0 ? (total / 100).toFixed(1) : ''}
+                    {total > 0 ? total.toFixed(1) : ''}
                   </TableCell>
                 )
               })}
@@ -822,6 +867,7 @@ const ResourceAssignmentCalendar = ({
                       borderRight: '1px solid',
                       borderColor: 'divider',
                       verticalAlign: 'middle',
+                      textAlign: 'left !important',
                     }}
                     role="rowheader"
                     aria-label={`${resource.resourceName} - Capital and Expense allocations`}
@@ -853,6 +899,7 @@ const ResourceAssignmentCalendar = ({
                       zIndex: 2,
                       borderRight: '1px solid',
                       borderColor: 'divider',
+                      textAlign: 'left !important',
                     }}
                     role="rowheader"
                     aria-label="Capital"
@@ -861,35 +908,40 @@ const ResourceAssignmentCalendar = ({
                       Cap %
                     </Typography>
                   </TableCell>
-                  {gridData.dates.map((date, dateIndex) => {
-                    const isSaturday = date.getUTCDay() === 6
-                    const value = getDisplayValue(resource.resourceId, date, 'capital')
+                  {periods.map((period) => {
+                    const value = averageAssignmentPeriod(
+                      period,
+                      (date) => getDisplayValue(resource.resourceId, date, 'capital'),
+                    )
+                    const date = period.dates[0]
                     
                     return (
                       <TableCell
-                        key={dateIndex}
+                        key={period.key}
                         align="center"
                         sx={{
-                          backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
-                          ...(isSaturday && {
-                            borderRight: '2px solid #bdbdbd',
-                          }),
+                          backgroundColor: period.isWeekend
+                            ? ASSIGNMENTS_GRID_WEEKEND_BG
+                            : value > 0 ? 'action.hover' : 'background.paper',
+                          ...getAssignmentsGridPeriodSx(period),
                         }}
                         role="gridcell"
-                        aria-label={`${resource.resourceName} capital allocation on ${formatDate(date)}: ${value}%`}
+                        aria-label={`${resource.resourceName} capital allocation for ${period.ariaLabel}: ${formatAssignmentAverage(value)}%`}
                       >
-                        <CellWrapper
-                          resourceId={resource.resourceId}
-                          resourceName={resource.resourceName}
-                          date={date}
-                          costTreatment="capital"
-                          isEditMode={isEditMode}
-                          gridData={gridData}
-                          editedCells={editedCells}
-                          validationErrors={validationErrors}
-                          onCellChange={handleCellChange}
-                          onCellBlur={handleCellBlur}
-                        />
+                        {viewMode === 'daily' ? (
+                          <CellWrapper
+                            resourceId={resource.resourceId}
+                            resourceName={resource.resourceName}
+                            date={date}
+                            costTreatment="capital"
+                            isEditMode={isEditMode}
+                            gridData={gridData}
+                            editedCells={editedCells}
+                            validationErrors={validationErrors}
+                            onCellChange={handleCellChange}
+                            onCellBlur={handleCellBlur}
+                          />
+                        ) : formatAssignmentAverage(value)}
                       </TableCell>
                     )
                   })}
@@ -907,6 +959,7 @@ const ResourceAssignmentCalendar = ({
                       zIndex: 2,
                       borderRight: '1px solid',
                       borderColor: 'divider',
+                      textAlign: 'left !important',
                     }}
                     role="rowheader"
                     aria-label="Expense"
@@ -915,36 +968,41 @@ const ResourceAssignmentCalendar = ({
                       Exp %
                     </Typography>
                   </TableCell>
-                  {gridData.dates.map((date, dateIndex) => {
-                    const isSaturday = date.getUTCDay() === 6
-                    const value = getDisplayValue(resource.resourceId, date, 'expense')
+                  {periods.map((period) => {
+                    const value = averageAssignmentPeriod(
+                      period,
+                      (date) => getDisplayValue(resource.resourceId, date, 'expense'),
+                    )
+                    const date = period.dates[0]
                     
                     return (
                       <TableCell
-                        key={dateIndex}
+                        key={period.key}
                         align="center"
                         sx={{
-                          backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
+                          backgroundColor: period.isWeekend
+                            ? ASSIGNMENTS_GRID_WEEKEND_BG
+                            : value > 0 ? 'action.hover' : 'background.paper',
                           borderColor: 'divider',
-                          ...(isSaturday && {
-                            borderRight: '2px solid #bdbdbd',
-                          }),
+                          ...getAssignmentsGridPeriodSx(period),
                         }}
                         role="gridcell"
-                        aria-label={`${resource.resourceName} expense allocation on ${formatDate(date)}: ${value}%`}
+                        aria-label={`${resource.resourceName} expense allocation for ${period.ariaLabel}: ${formatAssignmentAverage(value)}%`}
                       >
-                        <CellWrapper
-                          resourceId={resource.resourceId}
-                          resourceName={resource.resourceName}
-                          date={date}
-                          costTreatment="expense"
-                          isEditMode={isEditMode}
-                          gridData={gridData}
-                          editedCells={editedCells}
-                          validationErrors={validationErrors}
-                          onCellChange={handleCellChange}
-                          onCellBlur={handleCellBlur}
-                        />
+                        {viewMode === 'daily' ? (
+                          <CellWrapper
+                            resourceId={resource.resourceId}
+                            resourceName={resource.resourceName}
+                            date={date}
+                            costTreatment="expense"
+                            isEditMode={isEditMode}
+                            gridData={gridData}
+                            editedCells={editedCells}
+                            validationErrors={validationErrors}
+                            onCellChange={handleCellChange}
+                            onCellBlur={handleCellBlur}
+                          />
+                        ) : formatAssignmentAverage(value)}
                       </TableCell>
                     )
                   })}

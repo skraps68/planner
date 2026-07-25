@@ -41,7 +41,17 @@ import {
   AssignmentPercentageCell,
   AssignmentsGridCell as TableCell,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
+  ASSIGNMENTS_GRID_WEEKEND_BG,
+  getAssignmentsGridPeriodSx,
+  getAssignmentsGridPeriodWidth,
 } from '../../components/resources/AssignmentsGrid'
+import {
+  averageAssignmentPeriod,
+  buildAssignmentPeriods,
+  formatAssignmentAverage,
+  type AssignmentViewMode,
+} from '../../components/resources/assignmentPeriods'
 import { assignmentKeys, useResourceAssignments } from '../../hooks/useAssignments'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
@@ -57,16 +67,13 @@ interface ProjectRow {
 function buildDateRange(assignments: ResourceAssignment[]): Date[] {
   const dateSet = new Set<string>()
   assignments.forEach((a) => dateSet.add(a.assignment_date))
-  return Array.from(dateSet)
+  const sourceDates = Array.from(dateSet)
     .sort()
     .map((d) => {
       const [y, m, day] = d.split('-').map(Number)
       return new Date(Date.UTC(y, m - 1, day))
     })
-}
-
-function formatColDate(date: Date): string {
-  return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`
+  return buildAssignmentPeriods(sourceDates, 'daily').map((period) => period.dates[0])
 }
 
 function dateKey(date: Date): string {
@@ -96,6 +103,8 @@ const ResourceAllocationCalendar: React.FC<{
   const { data: assignments = [], isLoading, error } = useResourceAssignments(resourceId)
 
   const [isEditMode, setIsEditMode] = useState(false)
+  const [viewMode, setViewMode] = useState<AssignmentViewMode>('daily')
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null)
   const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
     'resource',
     resourceId,
@@ -136,6 +145,34 @@ const ResourceAllocationCalendar: React.FC<{
     return { dates, projects, cellMap }
   }, [assignments])
 
+  const periods = useMemo(
+    () => buildAssignmentPeriods(dates, viewMode),
+    [dates, viewMode],
+  )
+
+  const handleViewModeChange = useCallback((nextMode: AssignmentViewMode) => {
+    if (isEditMode || nextMode === viewMode) return
+
+    const currentWidth = getAssignmentsGridPeriodWidth(viewMode)
+    const visibleIndex = Math.max(
+      0,
+      Math.floor((scrollContainerRef.current?.scrollLeft ?? 0) / currentWidth),
+    )
+    const anchorDate = periods[Math.min(visibleIndex, periods.length - 1)]?.dates[0]
+
+    setViewMode(nextMode)
+
+    requestAnimationFrame(() => {
+      if (!scrollContainerRef.current || !anchorDate) return
+      const nextPeriods = buildAssignmentPeriods(dates, nextMode)
+      const nextIndex = nextPeriods.findIndex((period) =>
+        period.dates.some((date) => date.getTime() === anchorDate.getTime()),
+      )
+      scrollContainerRef.current.scrollLeft =
+        Math.max(0, nextIndex) * getAssignmentsGridPeriodWidth(nextMode)
+    })
+  }, [dates, isEditMode, periods, viewMode])
+
   const getStored = (projectId: string, date: Date, type: 'capital' | 'expense'): number => {
     const cell = cellMap.get(`${projectId}::${dateKey(date)}`)
     return cell ? cell[type] : 0
@@ -145,6 +182,11 @@ const ResourceAllocationCalendar: React.FC<{
     const key = ck(projectId, dateKey(date), type)
     return editedCells.has(key) ? editedCells.get(key)! : getStored(projectId, date, type)
   }
+
+  const handleEditAssignments = useCallback(() => {
+    setViewMode('daily')
+    setIsEditMode(true)
+  }, [])
 
   const handleCellChange = useCallback((projectId: string, dateStr: string, type: 'capital' | 'expense', value: number) => {
     const key = ck(projectId, dateStr, type)
@@ -303,7 +345,7 @@ const ResourceAllocationCalendar: React.FC<{
               variant="contained"
               size="small"
               startIcon={<EditIcon />}
-              onClick={() => setIsEditMode(true)}
+              onClick={handleEditAssignments}
             >
               Edit
             </Button>
@@ -327,33 +369,43 @@ const ResourceAllocationCalendar: React.FC<{
 
       <AssignmentsGrid
         ariaLabel="Resource assignment calendar"
-        dates={dates}
+        periods={periods}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
         primaryHeader="Project"
         primaryHeaderAriaLabel="Project name"
-        formatDate={formatColDate}
+        scrollContainerRef={scrollContainerRef}
         isEditMode={effectiveEditMode}
+        disableViewModeChange={isEditMode}
       >
               {/* Total Allocation row */}
               <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider' }}>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider', textAlign: 'left !important' }}>
                   Total Allocation
                 </TableCell>
-                <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider' }}>
-                  %
+                <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider', textAlign: 'center !important' }}>
+                  {viewMode === 'daily' ? '%' : 'Avg %'}
                 </TableCell>
-                {dates.map((date, i) => {
-                  const total = projects.reduce(
-                    (sum, p) => sum + getCell(p.projectId, date, 'capital') + getCell(p.projectId, date, 'expense'),
-                    0
+                {periods.map((period) => {
+                  const total = averageAssignmentPeriod(
+                    period,
+                    (date) => projects.reduce(
+                      (sum, project) =>
+                        sum
+                        + getCell(project.projectId, date, 'capital')
+                        + getCell(project.projectId, date, 'expense'),
+                      0,
+                    ),
                   )
-                  const rounded = Math.round(total)
-                  const color = rounded >= 100 ? '#d32f2f' : rounded > 0 ? '#2e7d32' : undefined
+                  const formatted = formatAssignmentAverage(total)
+                  const color = total > 100 ? '#d32f2f' : total > 0 ? '#2e7d32' : undefined
                   return (
-                    <TableCell key={i} align="center" sx={{
-                      backgroundColor: '#e8f5e9', fontWeight: 'bold',
-                      ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                    <TableCell key={period.key} align="center" sx={{
+                      backgroundColor: period.isWeekend ? ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG : '#e8f5e9',
+                      fontWeight: 'bold',
+                      ...getAssignmentsGridPeriodSx(period),
                     }}>
-                      {rounded > 0 && <span style={{ fontSize: '0.875rem', color }}>{rounded}</span>}
+                      {formatted && <span style={{ fontSize: '0.875rem', color }}>{formatted}</span>}
                     </TableCell>
                   )
                 })}
@@ -368,6 +420,7 @@ const ResourceAllocationCalendar: React.FC<{
                       backgroundColor: 'background.paper', fontWeight: 'medium',
                       borderRight: '1px solid', borderColor: 'divider',
                       verticalAlign: 'middle',
+                      textAlign: 'left !important',
                     }}>
                       <Typography variant="body2" fontWeight="medium" component="a"
                         onClick={() => navigate(`/projects/${project.projectId}?tab=1`, {
@@ -378,52 +431,68 @@ const ResourceAllocationCalendar: React.FC<{
                         {project.projectName}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider' }}>
+                    <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider', textAlign: 'left !important' }}>
                       <Typography variant="caption" color="primary">Cap %</Typography>
                     </TableCell>
-                    {dates.map((date, i) => {
+                    {periods.map((period) => {
+                      const date = period.dates[0]
                       const dStr = dateKey(date)
-                      const val = getCell(project.projectId, date, 'capital')
+                      const val = averageAssignmentPeriod(
+                        period,
+                        (periodDate) => getCell(project.projectId, periodDate, 'capital'),
+                      )
                       const key = ck(project.projectId, dStr, 'capital')
                       return (
-                        <TableCell key={i} align="center" sx={{
-                          backgroundColor: val > 0 ? 'action.hover' : 'background.paper',
-                          ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                        <TableCell key={period.key} align="center" sx={{
+                          backgroundColor: period.isWeekend
+                            ? ASSIGNMENTS_GRID_WEEKEND_BG
+                            : val > 0 ? 'action.hover' : 'background.paper',
+                          ...getAssignmentsGridPeriodSx(period),
                         }}>
-                          <AssignmentPercentageCell
-                            value={val}
-                            isEditMode={effectiveEditMode}
-                            isEdited={editedCells.has(key)}
-                            hasError={validationErrors.has(key)}
-                            errorMessage={validationErrors.get(key)}
-                            onChange={(v) => handleCellChange(project.projectId, dStr, 'capital', v)}
-                          />
+                          {viewMode === 'daily' ? (
+                            <AssignmentPercentageCell
+                              value={val}
+                              isEditMode={effectiveEditMode}
+                              isEdited={editedCells.has(key)}
+                              hasError={validationErrors.has(key)}
+                              errorMessage={validationErrors.get(key)}
+                              onChange={(v) => handleCellChange(project.projectId, dStr, 'capital', v)}
+                            />
+                          ) : formatAssignmentAverage(val)}
                         </TableCell>
                       )
                     })}
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider' }}>
+                    <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider', textAlign: 'left !important' }}>
                       <Typography variant="caption" color="secondary">Exp %</Typography>
                     </TableCell>
-                    {dates.map((date, i) => {
+                    {periods.map((period) => {
+                      const date = period.dates[0]
                       const dStr = dateKey(date)
-                      const val = getCell(project.projectId, date, 'expense')
+                      const val = averageAssignmentPeriod(
+                        period,
+                        (periodDate) => getCell(project.projectId, periodDate, 'expense'),
+                      )
                       const key = ck(project.projectId, dStr, 'expense')
                       return (
-                        <TableCell key={i} align="center" sx={{
-                          backgroundColor: val > 0 ? 'action.hover' : 'background.paper',
+                        <TableCell key={period.key} align="center" sx={{
+                          backgroundColor: period.isWeekend
+                            ? ASSIGNMENTS_GRID_WEEKEND_BG
+                            : val > 0 ? 'action.hover' : 'background.paper',
                           borderColor: 'divider',
-                          ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
+                          ...getAssignmentsGridPeriodSx(period),
                         }}>
-                          <AssignmentPercentageCell
-                            value={val}
-                            isEditMode={effectiveEditMode}
-                            isEdited={editedCells.has(key)}
-                            hasError={validationErrors.has(key)}
-                            errorMessage={validationErrors.get(key)}
-                            onChange={(v) => handleCellChange(project.projectId, dStr, 'expense', v)}
-                          />
+                          {viewMode === 'daily' ? (
+                            <AssignmentPercentageCell
+                              value={val}
+                              isEditMode={effectiveEditMode}
+                              isEdited={editedCells.has(key)}
+                              hasError={validationErrors.has(key)}
+                              errorMessage={validationErrors.get(key)}
+                              onChange={(v) => handleCellChange(project.projectId, dStr, 'expense', v)}
+                            />
+                          ) : formatAssignmentAverage(val)}
                         </TableCell>
                       )
                     })}

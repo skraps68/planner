@@ -121,11 +121,14 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
   it('uses the standard table-header colors for assignment dates', async () => {
     render(<ResourceDetailPage />, { store, queryClient })
 
-    const dateHeader = await screen.findByRole('columnheader', { name: 'Date: 1/15' })
+    const dateHeader = await screen.findByRole('columnheader', { name: 'Date: January 15, 2024' })
     expect(dateHeader).toHaveStyle({
       backgroundColor: COLOR_HEADER_BG,
       color: COLOR_HEADER_FG,
     })
+    const percentCell = screen.getByText('%').closest('td')
+    expect(percentCell).not.toBeNull()
+    expect(getComputedStyle(percentCell as HTMLElement).textAlign).toBe('center')
   })
 
   it('places a filled Edit button above the assignment grid', async () => {
@@ -145,6 +148,60 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     const saveButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Save Changes' })
     expect(cancelButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(saveButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows calendar-day averages in Monthly view and returns to Daily for editing', async () => {
+    const user = userEvent.setup()
+    render(<ResourceDetailPage />, { store, queryClient })
+
+    const grid = await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    await user.click(screen.getByRole('button', { name: 'Monthly view' }))
+
+    expect(screen.getByRole('columnheader', { name: 'Month: January 2024' })).toHaveTextContent("1 '24")
+    const totalRow = screen.getByText('Total Allocation').closest('tr')
+    expect(totalRow).not.toBeNull()
+    // 80% on one day averaged across all 31 days in January.
+    expect(within(totalRow as HTMLElement).getByText('2.6')).toBeInTheDocument()
+
+    const assignmentCard = grid.closest('.MuiPaper-root')
+    const editButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Edit' })
+    await user.click(editButton)
+
+    expect(screen.getByRole('button', { name: 'Daily view' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Weekly view' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Monthly view' })).toBeDisabled()
+  })
+
+  it('colors a weekly average over 100 percent red', async () => {
+    const user = userEvent.setup()
+    const dates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(Date.UTC(2024, 0, 14 + index))
+      return date.toISOString().slice(0, 10)
+    })
+    const overallocatedAssignments = dates.flatMap((assignmentDate, index) => ([
+      {
+        ...initialAssignments[0],
+        id: `assignment-a-${index}`,
+        assignment_date: assignmentDate,
+        capital_percentage: 60,
+      },
+      {
+        ...initialAssignments[1],
+        id: `assignment-b-${index}`,
+        assignment_date: assignmentDate,
+        capital_percentage: 50,
+      },
+    ]))
+    vi.mocked(assignmentsApi.getByResource).mockReset()
+    vi.mocked(assignmentsApi.getByResource).mockResolvedValue(overallocatedAssignments as any)
+
+    render(<ResourceDetailPage />, { store, queryClient })
+    await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    await user.click(screen.getByRole('button', { name: 'Weekly view' }))
+
+    const totalRow = screen.getByText('Total Allocation').closest('tr')
+    const total = within(totalRow as HTMLElement).getByText('110')
+    expect(total).toHaveStyle({ color: '#d32f2f' })
   })
 
   it('keeps the conflicting cell in edit mode and preserves it after a partial bulk-update failure', async () => {

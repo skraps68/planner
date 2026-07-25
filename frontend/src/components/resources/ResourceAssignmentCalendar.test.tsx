@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, cleanup, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { ResourceAssignment } from '../../types'
 import { useAuth } from '../../contexts/AuthContext'
 import { User } from '../../store/slices/authSlice'
 import theme, { COLOR_HEADER_BG, COLOR_HEADER_FG } from '../../theme'
+import { ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH } from './AssignmentsGrid'
 
 // Mock the assignments API
 vi.mock('../../api/assignments', () => ({
@@ -236,10 +237,56 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
 
       // The calendar date row should use the same high-contrast colors as the
       // rest of the app's table headers.
-      expect(screen.getByRole('columnheader', { name: 'Date: 1/1' })).toHaveStyle({
+      expect(screen.getByRole('columnheader', { name: 'Date: January 1, 2024' })).toHaveStyle({
         backgroundColor: COLOR_HEADER_BG,
         color: COLOR_HEADER_FG,
       })
+    })
+
+    it('averages all seven calendar days in the Sunday-through-Saturday Weekly view', async () => {
+      const user = userEvent.setup()
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      vi.mocked(assignmentsApi.getByProject).mockResolvedValue([
+        {
+          ...mockAssignments[0],
+          assignment_date: '2024-01-14',
+          capital_percentage: 70,
+          expense_percentage: 0,
+        },
+      ])
+
+      render(
+        <MemoryRouter>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider theme={theme}>
+              <ResourceAssignmentCalendar
+                projectId={mockProjectId}
+                projectStartDate="2024-01-14"
+                projectEndDate="2024-01-20"
+              />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
+      )
+
+      await screen.findByRole('grid')
+      await user.click(screen.getByRole('button', { name: 'Weekly view' }))
+
+      expect(screen.getByRole('columnheader', {
+        name: 'Week: January 14, 2024 through January 20, 2024',
+      })).toHaveTextContent('1/14-1/20')
+      expect(screen.getByText('Heads/Day')).toBeInTheDocument()
+      expect(getComputedStyle(screen.getByRole('columnheader', {
+        name: 'Cost treatment type',
+      })).width).toBe(`${ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH}px`)
+
+      const totalRow = screen.getByText('Labor Totals').closest('tr')
+      expect(totalRow).not.toBeNull()
+      // 0.7 heads on one day averaged across the full seven-day week.
+      expect(within(totalRow as HTMLElement).getByText('0.1')).toBeInTheDocument()
+      expect(screen.getByText('10')).toBeInTheDocument()
     })
 
     it('displays resources with Capital and Expense rows', async () => {

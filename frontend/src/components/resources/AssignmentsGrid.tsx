@@ -16,6 +16,9 @@ import {
   TableHead,
   TableRow,
   Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
+  SvgIcon,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
 import {
@@ -25,14 +28,34 @@ import {
   COLOR_LINE,
 } from '../../theme'
 import { validatePercentage } from '../../utils/cellValidation'
+import type { AssignmentPeriod, AssignmentViewMode } from './assignmentPeriods'
 
 export const ASSIGNMENTS_GRID_PRIMARY_WIDTH = 180
 export const ASSIGNMENTS_GRID_TYPE_WIDTH = 52
+export const ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH = 76
 export const ASSIGNMENTS_GRID_DATE_WIDTH = 42
+export const ASSIGNMENTS_GRID_WEEK_WIDTH = 70
+export const ASSIGNMENTS_GRID_MONTH_WIDTH = 50
 export const ASSIGNMENTS_GRID_ROW_HEIGHT = 24
 export const ASSIGNMENTS_GRID_HEADER_HEIGHT = 26
+export const ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT = 34
 export const ASSIGNMENTS_GRID_CELL_PADDING = '1px 4px'
 export const ASSIGNMENTS_GRID_MAX_HEIGHT = 'calc(100vh - 300px)'
+export const ASSIGNMENTS_GRID_WEEKEND_BG = '#edf1f5'
+export const ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG = '#dfeae3'
+export const ASSIGNMENTS_GRID_BOUNDARY_COLOR = '#66778b'
+
+export const getAssignmentsGridPeriodWidth = (viewMode: AssignmentViewMode): number => {
+  if (viewMode === 'weekly') return ASSIGNMENTS_GRID_WEEK_WIDTH
+  if (viewMode === 'monthly') return ASSIGNMENTS_GRID_MONTH_WIDTH
+  return ASSIGNMENTS_GRID_DATE_WIDTH
+}
+
+export const getAssignmentsGridPeriodSx = (period: AssignmentPeriod) => ({
+  ...(period.endsMajorPeriod && {
+    borderRight: `2px solid ${ASSIGNMENTS_GRID_BOUNDARY_COLOR} !important`,
+  }),
+})
 
 export const AssignmentsGridCell = styled(TableCell)({
   height: ASSIGNMENTS_GRID_ROW_HEIGHT,
@@ -43,19 +66,57 @@ export const AssignmentsGridCell = styled(TableCell)({
   '&:last-of-type': {
     borderRight: 0,
   },
+  '&.MuiTableCell-head': {
+    height: `${ASSIGNMENTS_GRID_HEADER_HEIGHT}px !important`,
+  },
 })
 
 interface AssignmentsGridProps {
   ariaLabel: string
-  dates: Date[]
+  periods: AssignmentPeriod[]
+  viewMode: AssignmentViewMode
+  onViewModeChange: (viewMode: AssignmentViewMode) => void
   primaryHeader: string
   primaryHeaderAriaLabel: string
-  formatDate: (date: Date) => string
+  typeColumnWidth?: number
   children: ReactNode
   scrollContainerRef?: Ref<HTMLDivElement>
   maxHeight?: string | number
   isEditMode?: boolean
+  disableViewModeChange?: boolean
 }
+
+const DailyViewIcon = () => (
+  <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: 17 }}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M4 8h16" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    <text x="12" y="17" textAnchor="middle" fontSize="9" fontWeight="700" fill="currentColor">1</text>
+  </SvgIcon>
+)
+
+const WeeklyViewIcon = () => (
+  <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: 17 }}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M4 8h16M6 9v11M8.5 9v11M11 9v11M13.5 9v11M16 9v11M18.5 9v11" fill="none" stroke="currentColor" strokeWidth="1" />
+  </SvgIcon>
+)
+
+const MonthlyViewIcon = () => (
+  <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: 17 }}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+    <path d="M4 8h16M8 9.5v10M12 9.5v10M16 9.5v10M4.5 13h15M4.5 16.5h15" fill="none" stroke="currentColor" strokeWidth=".9" />
+  </SvgIcon>
+)
+
+const VIEW_OPTIONS: Array<{
+  mode: AssignmentViewMode
+  label: string
+  icon: ReactNode
+}> = [
+  { mode: 'daily', label: 'Daily view', icon: <DailyViewIcon /> },
+  { mode: 'weekly', label: 'Weekly view', icon: <WeeklyViewIcon /> },
+  { mode: 'monthly', label: 'Monthly view', icon: <MonthlyViewIcon /> },
+]
 
 /**
  * Domain-neutral assignment grid structure. Each perspective supplies its
@@ -63,133 +124,213 @@ interface AssignmentsGridProps {
  */
 export const AssignmentsGrid = ({
   ariaLabel,
-  dates,
+  periods,
+  viewMode,
+  onViewModeChange,
   primaryHeader,
   primaryHeaderAriaLabel,
-  formatDate,
+  typeColumnWidth = ASSIGNMENTS_GRID_TYPE_WIDTH,
   children,
   scrollContainerRef,
   maxHeight = ASSIGNMENTS_GRID_MAX_HEIGHT,
   isEditMode = false,
-}: AssignmentsGridProps) => (
-  <TableContainer
-    ref={scrollContainerRef}
-    sx={{
-      width: '100%',
-      maxHeight,
-      overflow: 'auto',
-      border: `1px solid ${isEditMode ? COLOR_ACCENT : COLOR_LINE}`,
-      borderRadius: 0,
-    }}
-  >
-    {isEditMode && (
-      <Box
-        role="status"
-        aria-live="polite"
-        sx={{
-          position: 'sticky',
-          left: 0,
-          zIndex: 5,
-          display: 'flex',
-          alignItems: 'center',
-          minHeight: 22,
-          px: 0.75,
-          borderBottom: `1px solid ${COLOR_ACCENT}`,
-          backgroundColor: 'rgba(40, 94, 130, 0.08)',
-          color: 'primary.dark',
-          fontSize: '0.68rem',
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-        }}
-      >
-        EDITING ASSIGNMENTS · TYPE TO REPLACE A VALUE · TAB MOVES BETWEEN CELLS
-      </Box>
-    )}
-    <Table
-      aria-label={ariaLabel}
-      role="grid"
-      size="small"
-      padding="none"
-      stickyHeader
+  disableViewModeChange = isEditMode,
+}: AssignmentsGridProps) => {
+  const periodWidth = getAssignmentsGridPeriodWidth(viewMode)
+  const tableWidth =
+    ASSIGNMENTS_GRID_PRIMARY_WIDTH
+    + typeColumnWidth
+    + periods.length * periodWidth
+
+  return (
+    <TableContainer
+      ref={scrollContainerRef}
       sx={{
         width: '100%',
-        tableLayout: 'auto',
-        '& .MuiTableCell-root': {
-          height: `${ASSIGNMENTS_GRID_ROW_HEIGHT}px !important`,
-          padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
-          borderRight: `1px solid ${COLOR_LINE}`,
-          lineHeight: 1.15,
-          whiteSpace: 'nowrap',
-        },
-        '& .MuiTableCell-root:last-of-type': {
-          borderRight: 0,
-        },
-        '& .MuiTableCell-head': {
-          height: `${ASSIGNMENTS_GRID_HEADER_HEIGHT}px !important`,
-          padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
-        },
+        maxHeight,
+        overflow: 'auto',
+        border: `1px solid ${isEditMode ? COLOR_ACCENT : COLOR_LINE}`,
+        borderRadius: 0,
       }}
     >
-      <TableHead>
-        <TableRow role="row">
-          <AssignmentsGridCell
-            aria-label={primaryHeaderAriaLabel}
-            role="columnheader"
-            sx={{
-              position: 'sticky',
-              left: 0,
-              zIndex: 4,
-              height: ASSIGNMENTS_GRID_HEADER_HEIGHT,
-              minWidth: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
-              backgroundColor: COLOR_HEADER_BG,
-              color: COLOR_HEADER_FG,
-            }}
-          >
-            {primaryHeader}
-          </AssignmentsGridCell>
-          <AssignmentsGridCell
-            aria-label="Cost treatment type"
-            role="columnheader"
-            sx={{
-              position: 'sticky',
-              left: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
-              zIndex: 4,
-              height: ASSIGNMENTS_GRID_HEADER_HEIGHT,
-              minWidth: ASSIGNMENTS_GRID_TYPE_WIDTH,
-              backgroundColor: COLOR_HEADER_BG,
-              color: COLOR_HEADER_FG,
-            }}
-          >
-            Type
-          </AssignmentsGridCell>
-          {dates.map((date) => {
-            const label = formatDate(date)
+      {isEditMode && (
+        <Box
+          role="status"
+          aria-live="polite"
+          sx={{
+            position: 'sticky',
+            left: 0,
+            zIndex: 5,
+            display: 'flex',
+            alignItems: 'center',
+            minHeight: 22,
+            px: 0.75,
+            borderBottom: `1px solid ${COLOR_ACCENT}`,
+            backgroundColor: 'rgba(40, 94, 130, 0.08)',
+            color: 'primary.dark',
+            fontSize: '0.68rem',
+            fontWeight: 600,
+            letterSpacing: '0.04em',
+          }}
+        >
+          EDITING ASSIGNMENTS · TYPE TO REPLACE A VALUE · TAB MOVES BETWEEN CELLS
+        </Box>
+      )}
+      <Box
+        role="toolbar"
+        aria-label="Assignment calendar view"
+        sx={{
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          zIndex: 6,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: ASSIGNMENTS_GRID_PRIMARY_WIDTH + typeColumnWidth,
+          height: ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+          borderRight: `1px solid ${COLOR_LINE}`,
+          borderBottom: `1px solid ${COLOR_LINE}`,
+          backgroundColor: 'background.paper',
+        }}
+      >
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={viewMode}
+          onChange={(_event, nextMode: AssignmentViewMode | null) => {
+            if (nextMode) onViewModeChange(nextMode)
+          }}
+          aria-label="Assignment calendar period"
+          sx={{
+            height: 27,
+            '& .MuiToggleButton-root': {
+              width: 35,
+              minWidth: 35,
+              height: 27,
+              p: 0,
+              color: 'text.secondary',
+              borderColor: '#b8c1cb',
+              '&.Mui-selected': {
+                backgroundColor: COLOR_ACCENT,
+                color: '#fff',
+                '&:hover': { backgroundColor: COLOR_ACCENT },
+              },
+            },
+          }}
+        >
+          {VIEW_OPTIONS.map((option) => {
+            const disabled = disableViewModeChange && option.mode !== 'daily'
             return (
-              <AssignmentsGridCell
-                key={date.toISOString()}
-                align="center"
-                aria-label={`Date: ${label}`}
-                role="columnheader"
-                sx={{
-                  height: ASSIGNMENTS_GRID_HEADER_HEIGHT,
-                  minWidth: ASSIGNMENTS_GRID_DATE_WIDTH,
-                  backgroundColor: COLOR_HEADER_BG,
-                  color: COLOR_HEADER_FG,
-                  ...(date.getUTCDay() === 6 && {
-                    borderRight: '2px solid #bdbdbd',
-                  }),
-                }}
-              >
-                {label}
-              </AssignmentsGridCell>
+              <Tooltip key={option.mode} title={option.label} arrow>
+                <span>
+                  <ToggleButton
+                    value={option.mode}
+                    aria-label={option.label}
+                    disabled={disabled}
+                  >
+                    {option.icon}
+                  </ToggleButton>
+                </span>
+              </Tooltip>
             )
           })}
-        </TableRow>
-      </TableHead>
-      <TableBody>{children}</TableBody>
-    </Table>
-  </TableContainer>
-)
+        </ToggleButtonGroup>
+      </Box>
+      <Table
+        aria-label={ariaLabel}
+        role="grid"
+        size="small"
+        padding="none"
+        stickyHeader
+        sx={{
+          width: tableWidth,
+          minWidth: tableWidth,
+          tableLayout: 'fixed',
+          '& .MuiTableCell-root': {
+            height: `${ASSIGNMENTS_GRID_ROW_HEIGHT}px !important`,
+            padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
+            borderRight: `1px solid ${COLOR_LINE}`,
+            lineHeight: 1.15,
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+          },
+          '& .MuiTableCell-root:last-of-type': {
+            borderRight: 0,
+          },
+          '& .MuiTableCell-head': {
+            top: ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+            height: `${ASSIGNMENTS_GRID_HEADER_HEIGHT}px !important`,
+            padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
+          },
+        }}
+      >
+        <TableHead>
+          <TableRow role="row">
+            <AssignmentsGridCell
+              aria-label={primaryHeaderAriaLabel}
+              role="columnheader"
+              sx={{
+                position: 'sticky',
+                left: 0,
+                zIndex: 4,
+                width: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+                minWidth: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+                maxWidth: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+                textAlign: 'left !important',
+                backgroundColor: COLOR_HEADER_BG,
+                color: COLOR_HEADER_FG,
+              }}
+            >
+              {primaryHeader}
+            </AssignmentsGridCell>
+            <AssignmentsGridCell
+              aria-label="Cost treatment type"
+              role="columnheader"
+              sx={{
+                position: 'sticky',
+                left: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+                zIndex: 4,
+                width: typeColumnWidth,
+                minWidth: typeColumnWidth,
+                maxWidth: typeColumnWidth,
+                textAlign: 'left !important',
+                backgroundColor: COLOR_HEADER_BG,
+                color: COLOR_HEADER_FG,
+              }}
+            >
+              Type
+            </AssignmentsGridCell>
+            {periods.map((period) => (
+              <AssignmentsGridCell
+                key={period.key}
+                align="center"
+                aria-label={period.ariaLabel}
+                role="columnheader"
+                sx={{
+                  width: periodWidth,
+                  minWidth: periodWidth,
+                  maxWidth: periodWidth,
+                  overflow: 'hidden',
+                  textOverflow: 'clip',
+                  fontSize: '0.62rem',
+                  letterSpacing: 0,
+                  textTransform: 'none',
+                  backgroundColor: period.isWeekend ? '#3d4959' : COLOR_HEADER_BG,
+                  color: COLOR_HEADER_FG,
+                  ...getAssignmentsGridPeriodSx(period),
+                }}
+              >
+                {period.label}
+              </AssignmentsGridCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>{children}</TableBody>
+      </Table>
+    </TableContainer>
+  )
+}
 
 interface AssignmentPercentageCellProps {
   value: number
