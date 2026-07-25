@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react'
 import { Paper } from '@mui/material'
 import {
-  DataGrid, DataGridProps, GridToolbarContainer, GridToolbarQuickFilter,
+  DataGridProps, GridToolbarContainer, GridToolbarQuickFilter,
   GridToolbarColumnsButton, GridToolbarFilterButton, GridToolbarDensitySelector, GridToolbarExport,
   GridColDef, GridValidRowModel,
 } from '@mui/x-data-grid'
+import PersistentDataGrid from './PersistentDataGrid'
 
 const DESCRIPTION_MIN_WIDTH = 96
 const DESCRIPTION_FLEX = 1
@@ -158,8 +159,14 @@ const Toolbar = () => (
   </GridToolbarContainer>
 )
 
-const DataTable: React.FC<DataGridProps & { height?: number | string }> = ({
+type DataTableProps = DataGridProps & {
+  height?: number | string
+  persistenceKey: string
+}
+
+const DataTable: React.FC<DataTableProps> = ({
   height = 'calc(100vh - 220px)',
+  persistenceKey,
   columns,
   rows,
   ...props
@@ -171,7 +178,8 @@ const DataTable: React.FC<DataGridProps & { height?: number | string }> = ({
 
   return (
     <Paper sx={{ height, width: '100%' }}>
-      <DataGrid
+      <PersistentDataGrid
+        persistenceKey={persistenceKey}
         slots={{ toolbar: Toolbar }}
         disableRowSelectionOnClick
         // jsdom has no layout, so virtualization would hide off-screen columns/rows in tests

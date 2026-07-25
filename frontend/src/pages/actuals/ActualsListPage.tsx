@@ -12,7 +12,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
-import { DataGrid, GridColDef, GridPaginationModel, GridValueFormatterParams, GridValueGetterParams } from '@mui/x-data-grid'
+import { GridColDef, GridPaginationModel, GridValueFormatterParams, GridValueGetterParams } from '@mui/x-data-grid'
 import { Add as AddIcon, Upload as UploadIcon } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
@@ -23,6 +23,7 @@ import { projectsApi } from '../../api/projects'
 import { Actual, Project } from '../../types'
 import { format } from 'date-fns'
 import { prioritizeGridColumns } from '../../components/common/DataTable'
+import PersistentDataGrid from '../../components/common/PersistentDataGrid'
 
 const ActualsListPage = () => {
   const navigate = useNavigate()
@@ -255,7 +256,8 @@ const ActualsListPage = () => {
       )}
 
       <Paper sx={{ height: 'calc(100vh - 300px)', width: '100%' }}>
-        <DataGrid
+        <PersistentDataGrid
+          persistenceKey="actuals"
           rows={actuals}
           columns={columns}
           paginationModel={paginationModel}

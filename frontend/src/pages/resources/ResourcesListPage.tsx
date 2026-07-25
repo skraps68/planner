@@ -69,6 +69,7 @@ const ResourceTab: React.FC<{
 
   return (
     <DataTable
+      persistenceKey={`resources-${resourceType.toLowerCase()}`}
       rows={rows}
       columns={columns}
       loading={isLoading}

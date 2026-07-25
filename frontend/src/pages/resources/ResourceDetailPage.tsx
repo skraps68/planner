@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { truncateAtLoop } from '../../utils/breadcrumbs'
 import {
@@ -13,13 +13,7 @@ import {
   Grid,
   Paper,
   Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TableRow,
-  Tooltip,
   FormControl,
   InputLabel,
   Select,
@@ -34,7 +28,7 @@ import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAut
 import PageHeader from '../../components/common/PageHeader'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { hasPermission } from '../../utils/permissions'
 import { validatePercentage } from '../../utils/cellValidation'
@@ -42,6 +36,13 @@ import { usePresence } from '../../realtime/usePresence'
 import { PresenceBadge } from '../../realtime/PresenceBadge'
 import { useEntityLock } from '../../realtime/useEntityLock'
 import { LockBanner } from '../../realtime/LockBanner'
+import {
+  AssignmentsGrid,
+  AssignmentPercentageCell,
+  AssignmentsGridCell as TableCell,
+  ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+} from '../../components/resources/AssignmentsGrid'
+import { assignmentKeys, useResourceAssignments } from '../../hooks/useAssignments'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
 
@@ -81,103 +82,6 @@ interface BreadcrumbItem {
   state?: any
 }
 
-// ─── Inline editable cell ────────────────────────────────────────────────────
-
-// Shared fixed dimensions for all three cell states — never changes
-const CELL_STYLE: React.CSSProperties = {
-  display: 'inline-block',
-  width: 46,
-  boxSizing: 'border-box',
-  textAlign: 'center',
-  fontSize: '0.875rem',
-  padding: '2px 4px',
-  border: '1px solid transparent',
-  borderRadius: '4px',
-}
-
-const AllocationCell: React.FC<{
-  value: number
-  isEditMode: boolean
-  isEdited: boolean
-  hasError: boolean
-  errorMessage?: string
-  onChange: (v: number) => void
-}> = ({ value, isEditMode, isEdited, hasError, errorMessage, onChange }) => {
-  const [focused, setFocused] = useState(false)
-  const [inputValue, setInputValue] = useState(value.toString())
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (!focused) setInputValue(value.toString())
-  }, [value, focused])
-
-  const commit = () => {
-    const num = parseFloat(inputValue)
-    if (!isNaN(num)) {
-      const r = validatePercentage(num)
-      if (r.isValid) onChange(num)
-    } else if (inputValue.trim() === '') {
-      onChange(0)
-    }
-  }
-
-  const formatted = value === 0 ? '' : `${Math.round(value)}`
-  const bg = isEdited ? 'rgba(255,182,193,0.3)' : 'transparent'
-  const borderColor = hasError ? '#d32f2f' : '#e0e0e0'
-
-  if (!isEditMode) {
-    return <span style={CELL_STYLE}>{formatted}</span>
-  }
-
-  if (focused) {
-    return (
-      <input
-        ref={inputRef}
-        value={inputValue}
-        autoFocus
-        onChange={(e) => setInputValue(e.target.value)}
-        onBlur={() => { commit(); setFocused(false) }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === 'Tab') { commit(); setFocused(false) }
-          if (e.key === 'Escape') { setInputValue(value.toString()); setFocused(false) }
-        }}
-        style={{
-          ...CELL_STYLE,
-          border: `1px solid ${hasError ? '#d32f2f' : '#1976d2'}`,
-          outline: 'none',
-          backgroundColor: bg,
-        }}
-      />
-    )
-  }
-
-  const span = (
-    <Box
-      component="span"
-      tabIndex={0}
-      onClick={() => { setInputValue(value === 0 ? '' : String(Math.round(value))); setFocused(true) }}
-      onKeyDown={(e) => {
-        if (e.key === 'Tab') return
-        if (e.key.length === 1 || e.key === 'Backspace') {
-          setInputValue(e.key.length === 1 ? e.key : '')
-          setFocused(true)
-        }
-      }}
-      sx={{
-        ...CELL_STYLE,
-        border: `1px solid ${borderColor}`,
-        cursor: 'text',
-        backgroundColor: bg,
-        '&:focus': { outline: '2px solid #1976d2', outlineOffset: '1px' },
-      }}
-    >
-      {formatted}
-    </Box>
-  )
-
-  return hasError && errorMessage ? <Tooltip title={errorMessage} arrow>{span}</Tooltip> : span
-}
-
 // ─── Resource Allocation Calendar ────────────────────────────────────────────
 
 const ResourceAllocationCalendar: React.FC<{
@@ -189,11 +93,7 @@ const ResourceAllocationCalendar: React.FC<{
   const { user } = useAuth()
   const canEdit = useMemo(() => hasPermission(user, 'manage_resources').hasPermission, [user])
 
-  const { data: assignments = [], isLoading, error } = useQuery({
-    queryKey: ['assignments', 'resource', resourceId],
-    queryFn: () => assignmentsApi.getByResource(resourceId),
-    staleTime: 5 * 60 * 1000,
-  })
+  const { data: assignments = [], isLoading, error } = useResourceAssignments(resourceId)
 
   const [isEditMode, setIsEditMode] = useState(false)
   const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
@@ -350,7 +250,7 @@ const ResourceAllocationCalendar: React.FC<{
 
       // Refresh so any successful updates (and up-to-date versions for
       // conflicting ones) are reflected before we decide what to keep.
-      await queryClient.invalidateQueries({ queryKey: ['assignments', 'resource', resourceId] })
+      await queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(resourceId) })
 
       if (bulkResult.failed.length > 0) {
         // Partial failure: keep only the conflicting cells in edit mode so
@@ -395,35 +295,50 @@ const ResourceAllocationCalendar: React.FC<{
   const hasEdits = editedCells.size > 0
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Box sx={{ overflowX: 'auto', width: '100%' }}>
-        <TableContainer>
-          <Table size="small" stickyHeader sx={{ tableLayout: 'auto' }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, backgroundColor: 'background.paper', fontWeight: 'bold', minWidth: 200 }}>
-                  Project
-                </TableCell>
-                <TableCell sx={{ position: 'sticky', left: 200, zIndex: 4, backgroundColor: 'background.paper', fontWeight: 'bold', minWidth: 60 }}>
-                  Type
-                </TableCell>
-                {dates.map((date, i) => (
-                  <TableCell key={i} align="center" sx={{
-                    backgroundColor: 'background.paper', fontWeight: 'bold', minWidth: 50, padding: '6px 4px',
-                    ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
-                  }}>
-                    {formatColDate(date)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
+    <Paper sx={{ p: 1 }}>
+      {(canEdit || isEditMode) && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 1 }}>
+          {!isEditMode ? (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<EditIcon />}
+              onClick={() => setIsEditMode(true)}
+            >
+              Edit
+            </Button>
+          ) : lockState === 'blocked' ? (
+            <Button variant="outlined" size="small" onClick={handleCancel}>
+              Close
+            </Button>
+          ) : (
+            <>
+              <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button variant="contained" size="small" startIcon={isSaving ? <CircularProgress size={14} /> : <SaveIcon />}
+                onClick={handleSave} disabled={isSaving || !hasEdits}>
+                Save Changes
+              </Button>
+            </>
+          )}
+        </Box>
+      )}
+
+      <AssignmentsGrid
+        ariaLabel="Resource assignment calendar"
+        dates={dates}
+        primaryHeader="Project"
+        primaryHeaderAriaLabel="Project name"
+        formatDate={formatColDate}
+        isEditMode={effectiveEditMode}
+      >
               {/* Total Allocation row */}
               <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '2px solid', borderColor: 'divider' }}>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider' }}>
                   Total Allocation
                 </TableCell>
-                <TableCell sx={{ position: 'sticky', left: 200, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '2px solid', borderColor: 'divider' }}>
+                <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider' }}>
                   %
                 </TableCell>
                 {dates.map((date, i) => {
@@ -435,7 +350,7 @@ const ResourceAllocationCalendar: React.FC<{
                   const color = rounded >= 100 ? '#d32f2f' : rounded > 0 ? '#2e7d32' : undefined
                   return (
                     <TableCell key={i} align="center" sx={{
-                      backgroundColor: '#e8f5e9', fontWeight: 'bold', padding: '6px 4px',
+                      backgroundColor: '#e8f5e9', fontWeight: 'bold',
                       ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
                     }}>
                       {rounded > 0 && <span style={{ fontSize: '0.875rem', color }}>{rounded}</span>}
@@ -451,8 +366,8 @@ const ResourceAllocationCalendar: React.FC<{
                     <TableCell rowSpan={2} sx={{
                       position: 'sticky', left: 0, zIndex: 2,
                       backgroundColor: 'background.paper', fontWeight: 'medium',
-                      borderRight: '2px solid', borderColor: 'divider',
-                      borderBottom: '2px solid', verticalAlign: 'middle',
+                      borderRight: '1px solid', borderColor: 'divider',
+                      verticalAlign: 'middle',
                     }}>
                       <Typography variant="body2" fontWeight="medium" component="a"
                         onClick={() => navigate(`/projects/${project.projectId}?tab=1`, {
@@ -463,7 +378,7 @@ const ResourceAllocationCalendar: React.FC<{
                         {project.projectName}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ position: 'sticky', left: 200, zIndex: 2, backgroundColor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', minWidth: 60, padding: '6px 8px' }}>
+                    <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider' }}>
                       <Typography variant="caption" color="primary">Cap %</Typography>
                     </TableCell>
                     {dates.map((date, i) => {
@@ -472,10 +387,10 @@ const ResourceAllocationCalendar: React.FC<{
                       const key = ck(project.projectId, dStr, 'capital')
                       return (
                         <TableCell key={i} align="center" sx={{
-                          backgroundColor: val > 0 ? 'action.hover' : 'background.paper', padding: '6px 4px',
+                          backgroundColor: val > 0 ? 'action.hover' : 'background.paper',
                           ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
                         }}>
-                          <AllocationCell
+                          <AssignmentPercentageCell
                             value={val}
                             isEditMode={effectiveEditMode}
                             isEdited={editedCells.has(key)}
@@ -488,7 +403,7 @@ const ResourceAllocationCalendar: React.FC<{
                     })}
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ position: 'sticky', left: 200, zIndex: 2, backgroundColor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', borderBottom: '2px solid', minWidth: 60, padding: '6px 8px' }}>
+                    <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider' }}>
                       <Typography variant="caption" color="secondary">Exp %</Typography>
                     </TableCell>
                     {dates.map((date, i) => {
@@ -498,10 +413,10 @@ const ResourceAllocationCalendar: React.FC<{
                       return (
                         <TableCell key={i} align="center" sx={{
                           backgroundColor: val > 0 ? 'action.hover' : 'background.paper',
-                          borderBottom: '2px solid', borderColor: 'divider', padding: '6px 4px',
+                          borderColor: 'divider',
                           ...(date.getUTCDay() === 6 && { borderRight: '2px solid #bdbdbd' }),
                         }}>
-                          <AllocationCell
+                          <AssignmentPercentageCell
                             value={val}
                             isEditMode={effectiveEditMode}
                             isEdited={editedCells.has(key)}
@@ -515,37 +430,9 @@ const ResourceAllocationCalendar: React.FC<{
                   </TableRow>
                 </React.Fragment>
               ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
+      </AssignmentsGrid>
 
       <LockBanner holder={lockHolder} state={lockState} onTakeOver={takeOverLock} />
-
-      {/* Controls */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-        {!isEditMode ? (
-          canEdit && (
-            <Button variant="outlined" size="small" startIcon={<EditIcon />} onClick={() => setIsEditMode(true)}>
-              Edit
-            </Button>
-          )
-        ) : lockState === 'blocked' ? (
-          <Button variant="outlined" size="small" onClick={handleCancel}>
-            Close
-          </Button>
-        ) : (
-          <>
-            <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button variant="contained" size="small" startIcon={isSaving ? <CircularProgress size={14} /> : <SaveIcon />}
-              onClick={handleSave} disabled={isSaving || !hasEdits}>
-              Save Changes
-            </Button>
-          </>
-        )}
-      </Box>
 
       {saveError && <Alert severity="error" sx={{ mt: 1 }} onClose={() => setSaveError(null)}>{saveError}</Alert>}
       <Snackbar open={saveSuccess} autoHideDuration={3000} onClose={() => setSaveSuccess(false)}

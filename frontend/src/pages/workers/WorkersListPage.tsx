@@ -133,6 +133,7 @@ const WorkersListPage = () => {
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
 
       <DataTable
+        persistenceKey="workers"
         rows={workers}
         columns={columns}
         loading={loading}

@@ -23,6 +23,7 @@ const renderPage = () =>
 
 describe('ResourcesListPage tab persistence', () => {
   beforeEach(() => {
+    sessionStorage.clear()
     vi.mocked(resourcesApi.list).mockResolvedValue({
       items: [], total: 0, page: 1, size: 25, pages: 0,
     } as any)
@@ -51,5 +52,30 @@ describe('ResourcesListPage tab persistence', () => {
     await user.click(screen.getByRole('tab', { name: 'Labor' }))
     // tab 0 is the default, so the param is dropped rather than set to 0
     await waitFor(() => expect(window.location.search).toBe(''))
+  })
+
+  it('restores density and visible columns after leaving and returning to a tab', async () => {
+    window.history.pushState({}, '', '/resources')
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /density/i }))
+    await user.click(screen.getByRole('menuitem', { name: /comfortable/i }))
+
+    await user.click(screen.getByRole('button', { name: /columns/i }))
+    await user.click(await screen.findByRole('checkbox', { name: 'Description' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('columnheader', { name: 'Description' })).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('tab', { name: 'Non-Labor' }))
+    await user.click(screen.getByRole('tab', { name: 'Labor' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('columnheader', { name: 'Description' })).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /density/i }))
+    expect(screen.getByRole('menuitem', { name: /comfortable/i })).toHaveClass('Mui-selected')
   })
 })

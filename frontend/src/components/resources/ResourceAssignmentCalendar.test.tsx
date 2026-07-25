@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { ThemeProvider } from '@mui/material/styles'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ResourceAssignmentCalendar from './ResourceAssignmentCalendar'
 import { assignmentsApi } from '../../api/assignments'
 import { ResourceAssignment } from '../../types'
 import { useAuth } from '../../contexts/AuthContext'
 import { User } from '../../store/slices/authSlice'
+import theme, { COLOR_HEADER_BG, COLOR_HEADER_FG } from '../../theme'
 
 // Mock the assignments API
 vi.mock('../../api/assignments', () => ({
@@ -193,12 +197,22 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
     })
 
     it('renders calendar table with correct structure', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+
       render(
-        <ResourceAssignmentCalendar
-          projectId={mockProjectId}
-          projectStartDate={mockStartDate}
-          projectEndDate={mockEndDate}
-        />
+        <MemoryRouter>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider theme={theme}>
+              <ResourceAssignmentCalendar
+                projectId={mockProjectId}
+                projectStartDate={mockStartDate}
+                projectEndDate={mockEndDate}
+              />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
       )
 
       await waitFor(() => {
@@ -219,6 +233,13 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       expect(headerCells).toHaveLength(7)
       expect(headerCells?.[0].textContent).toBe('Resource')
       expect(headerCells?.[1].textContent).toBe('Type')
+
+      // The calendar date row should use the same high-contrast colors as the
+      // rest of the app's table headers.
+      expect(screen.getByRole('columnheader', { name: 'Date: 1/1' })).toHaveStyle({
+        backgroundColor: COLOR_HEADER_BG,
+        color: COLOR_HEADER_FG,
+      })
     })
 
     it('displays resources with Capital and Expense rows', async () => {

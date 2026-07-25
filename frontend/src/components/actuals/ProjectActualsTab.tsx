@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Paper } from '@mui/material'
-import { DataGrid, GridColDef, GridPaginationModel, GridValueFormatterParams } from '@mui/x-data-grid'
+import { GridColDef, GridPaginationModel, GridValueFormatterParams } from '@mui/x-data-grid'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { actualsApi } from '../../api/actuals'
 import { prioritizeGridColumns } from '../common/DataTable'
+import PersistentDataGrid from '../common/PersistentDataGrid'
 
 interface ProjectActualsTabProps {
   projectId: string
@@ -73,7 +74,8 @@ const ProjectActualsTab: React.FC<ProjectActualsTabProps> = ({ projectId }) => {
 
   return (
     <Paper sx={{ height: 'calc(100vh - 260px)', width: '100%' }}>
-      <DataGrid
+      <PersistentDataGrid
+        persistenceKey="project-actuals"
         rows={data?.items || []}
         columns={columns}
         paginationModel={paginationModel}

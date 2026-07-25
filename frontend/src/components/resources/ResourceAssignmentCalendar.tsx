@@ -7,14 +7,7 @@ import {
   CircularProgress,
   Alert,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
   TableRow,
-  TextField,
-  Tooltip,
   Button,
   Stack,
   Snackbar,
@@ -32,16 +25,12 @@ import { hasPermission } from '../../utils/permissions'
 import BulkConflictDialog from './BulkConflictDialog'
 import { useProjectAssignments, useInvalidateAssignments } from '../../hooks/useAssignments'
 import { usePersistedEdits } from '../../hooks/usePersistedEdits'
-
-interface EditableCellProps {
-  value: number
-  isEditMode: boolean
-  hasError: boolean
-  errorMessage?: string
-  isEdited: boolean
-  onChange: (newValue: number) => void
-  onBlur: () => void
-}
+import {
+  AssignmentsGrid,
+  AssignmentPercentageCell,
+  AssignmentsGridCell as TableCell,
+  ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+} from './AssignmentsGrid'
 
 // Memoized cell wrapper to prevent unnecessary re-renders
 interface CellWrapperProps {
@@ -76,7 +65,7 @@ const CellWrapper: React.FC<CellWrapperProps> = React.memo(({
   const isEdited = editedCells.has(key)
 
   return (
-    <EditableCell
+    <AssignmentPercentageCell
       value={value}
       isEditMode={isEditMode}
       hasError={hasError}
@@ -110,296 +99,6 @@ const CellWrapper: React.FC<CellWrapperProps> = React.memo(({
   if (prevValue !== nextValue) return false
   
   return true // Props are equal, skip re-render
-})
-
-const EditableCell: React.FC<EditableCellProps> = React.memo(({
-  value,
-  isEditMode,
-  hasError,
-  errorMessage,
-  isEdited,
-  onChange,
-  onBlur,
-}) => {
-  const [inputValue, setInputValue] = useState(value.toString())
-  const [localError, setLocalError] = useState<string | undefined>()
-  const [isFocused, setIsFocused] = useState(false)
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const spanRef = React.useRef<HTMLSpanElement>(null)
-  const capturedKeyRef = React.useRef<string | null>(null)
-
-  useEffect(() => {
-    setInputValue(value.toString())
-  }, [value])
-
-  // Handle captured key when TextField becomes focused
-  useEffect(() => {
-    if (isFocused && inputRef.current) {
-      if (capturedKeyRef.current) {
-        // Position cursor at the end after the captured key
-        // Use setTimeout to ensure the input value has been updated
-        setTimeout(() => {
-          if (inputRef.current) {
-            const length = inputRef.current.value.length
-            inputRef.current.setSelectionRange(length, length)
-          }
-        }, 0)
-        capturedKeyRef.current = null // Clear captured key after handling
-      } else {
-        // If no captured key (clicked or non-printable key), select all text
-        inputRef.current.select()
-      }
-    }
-  }, [isFocused]) // Only run when isFocused changes, not on every inputValue change
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value
-    setInputValue(newValue)
-    setLocalError(undefined)
-    // Don't validate on every keystroke - wait for blur for instant typing
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      // Commit the value before blurring
-      commitValue()
-      setIsFocused(false)
-      onBlur()
-    } else if (e.key === 'Escape') {
-      // Escape key reverts to original value and exits edit
-      e.preventDefault()
-      setInputValue(value.toString())
-      setLocalError(undefined)
-      setIsFocused(false)
-      onBlur()
-    }
-    // Tab key will naturally trigger blur and move to next cell
-  }
-
-  const commitValue = () => {
-    // Early exit if value hasn't changed - skip all validation
-    if (inputValue === value.toString()) {
-      setLocalError(undefined)
-      return
-    }
-
-    const numericValue = parseFloat(inputValue)
-    if (!isNaN(numericValue)) {
-      const validation = validatePercentage(numericValue)
-      if (validation.isValid) {
-        // Only call onChange if the value actually changed
-        if (numericValue !== value) {
-          onChange(numericValue)
-        }
-        setLocalError(undefined)
-      } else {
-        setLocalError(validation.errorMessage)
-      }
-    } else if (inputValue === '') {
-      // Only call onChange if the value actually changed
-      if (value !== 0) {
-        onChange(0)
-      }
-      setLocalError(undefined)
-    } else {
-      setLocalError('Value must be a number')
-    }
-  }
-
-  const handleBlur = () => {
-    // Commit immediately - no setTimeout to avoid queuing delays during rapid tabbing
-    commitValue()
-    setIsFocused(false)
-    onBlur()
-  }
-
-  const handleFocus = () => {
-    // Do NOT automatically show TextField on focus
-    // This allows instant tab navigation without re-render blocking
-    // TextField will only show when user clicks or starts typing
-    // Keep this empty to avoid any state updates during rapid tabbing
-  }
-
-  const handleClick = () => {
-    if (isEditMode && !isFocused) {
-      // Show TextField on click
-      capturedKeyRef.current = null // Clear any captured key - clicking should select all
-      setIsFocused(true)
-    }
-  }
-
-  const handleSpanKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
-    // When user presses any key on the span, activate edit mode
-    if (isEditMode && !isFocused) {
-      // Don't handle Tab - let it move to next cell naturally
-      if (e.key === 'Tab') {
-        return
-      }
-      
-      // For any other key, show the TextField and pass the key to it
-      e.preventDefault()
-      
-      // If it's a printable character, capture it to replace the current value
-      if (e.key.length === 1) {
-        capturedKeyRef.current = e.key
-        setInputValue(e.key)
-      } else {
-        // For non-printable keys (Backspace, Delete, etc.), just focus without replacing
-        capturedKeyRef.current = null
-      }
-      
-      setIsFocused(true)
-    }
-  }
-
-  const formatPercentage = (val: number): string => {
-    if (val === 0) return ''
-    // Round to whole number and display without % symbol
-    return `${Math.round(val)}`
-  }
-
-  const displayError = hasError || !!localError
-  const displayErrorMessage = errorMessage || localError
-
-  // Not in edit mode: show plain text with consistent border styling
-  if (!isEditMode) {
-    return (
-      <span
-        style={{
-          display: 'inline-block',
-          width: '50px',
-          textAlign: 'center',
-          padding: '2px 4px',
-          fontSize: '0.875rem',
-          border: '1px solid transparent',
-          backgroundColor: 'transparent',
-          borderRadius: '4px',
-          boxShadow: '0 0 0 1px transparent inset',
-        }}
-      >
-        {formatPercentage(value)}
-      </span>
-    )
-  }
-
-  // In edit mode but not focused: show as clickable/tabbable span
-  // This prevents rendering thousands of input/TextField components at once
-  if (!isFocused) {
-    const cellContent = (
-      <Box
-        component="span"
-        ref={spanRef}
-        tabIndex={0}
-        role="button"
-        onClick={handleClick}
-        onKeyDown={handleSpanKeyDown}
-        onFocus={handleFocus}
-        sx={{
-          display: 'inline-block',
-          width: '50px',
-          textAlign: 'center',
-          padding: '2px 4px',
-          fontSize: '0.875rem',
-          border: displayError ? '1px solid #d32f2f' : '1px solid #e0e0e0',
-          backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.3)' : 'transparent',
-          cursor: 'text',
-          borderRadius: '4px',
-          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05) inset',
-          // Focus styling - visible outline when tabbing
-          '&:focus': {
-            outline: '2px solid #1976d2',
-            outlineOffset: '1px',
-            boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.2)',
-            backgroundColor: '#1976d2',
-            color: '#ffffff',
-          },
-        }}
-        aria-label="Allocation percentage"
-        aria-invalid={displayError}
-        aria-describedby={displayError ? 'cell-error' : undefined}
-      >
-        {formatPercentage(value)}
-      </Box>
-    )
-
-    if (displayError && displayErrorMessage) {
-      return (
-        <Tooltip title={displayErrorMessage} arrow>
-          {cellContent}
-        </Tooltip>
-      )
-    }
-
-    return cellContent
-  }
-
-  // When focused, show full TextField
-  const cellContent = (
-    <TextField
-      inputRef={inputRef}
-      value={inputValue}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      autoFocus
-      size="small"
-      type="text"
-      inputProps={{
-        inputMode: 'numeric',
-        pattern: '[0-9]*',
-        'aria-label': 'Allocation percentage',
-        'aria-invalid': displayError,
-        'aria-describedby': displayError ? 'cell-error' : undefined,
-      }}
-      error={displayError}
-      sx={{
-        width: '50px',
-        '& .MuiInputBase-root': {
-          backgroundColor: isEdited ? 'rgba(255, 182, 193, 0.3)' : 'transparent',
-        },
-        '& .MuiInputBase-input': {
-          textAlign: 'center',
-          padding: '2px 4px',
-          fontSize: '0.875rem',
-        },
-        // Remove spinner arrows
-        '& input[type=number]': {
-          MozAppearance: 'textfield',
-        },
-        '& input[type=number]::-webkit-outer-spin-button': {
-          WebkitAppearance: 'none',
-          margin: 0,
-        },
-        '& input[type=number]::-webkit-inner-spin-button': {
-          WebkitAppearance: 'none',
-          margin: 0,
-        },
-      }}
-    />
-  )
-
-  if (displayError && displayErrorMessage) {
-    return (
-      <Tooltip title={displayErrorMessage} arrow>
-        {cellContent}
-      </Tooltip>
-    )
-  }
-
-  return cellContent
-}, (prevProps, nextProps) => {
-  // Custom comparison function for React.memo
-  // Return true if props are equal (skip re-render), false if different (re-render)
-  return (
-    prevProps.value === nextProps.value &&
-    prevProps.isEditMode === nextProps.isEditMode &&
-    prevProps.hasError === nextProps.hasError &&
-    prevProps.errorMessage === nextProps.errorMessage &&
-    prevProps.isEdited === nextProps.isEdited
-    // Note: We intentionally don't compare onChange and onBlur functions
-    // as they are recreated on every render but their behavior is the same
-  )
 })
 
 interface BreadcrumbItem {
@@ -993,7 +692,7 @@ const ResourceAssignmentCalendar = ({
       {/* Edit Controls */}
       {canEdit && (
         <Box 
-          sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}
+          sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}
           role="toolbar"
           aria-label="Calendar edit controls"
         >
@@ -1007,7 +706,7 @@ const ResourceAssignmentCalendar = ({
               Edit
             </Button>
           ) : (
-            <Stack direction="row" spacing={2}>
+            <Stack direction="row" spacing={1}>
               <Button 
                 variant="outlined" 
                 color="secondary" 
@@ -1047,72 +746,16 @@ const ResourceAssignmentCalendar = ({
         virtualization using react-window or react-virtualized to render only visible columns.
         Current implementation handles up to ~365 days efficiently with memoization.
       */}
-      <Box ref={scrollContainerRef} sx={{ overflowX: 'auto', width: '100%', maxHeight: 'calc(100vh - 300px)' }}>
-        <TableContainer component={Paper} sx={{ maxHeight: 'calc(100vh - 300px)' }}>
-        <Table 
-          sx={{ width: '100%', tableLayout: 'auto' }} 
-          size="small"
-          stickyHeader
-          aria-label="Resource assignment calendar"
-          role="grid"
+      <Paper>
+        <AssignmentsGrid
+          ariaLabel="Resource assignment calendar"
+          dates={gridData.dates}
+          primaryHeader="Resource"
+          primaryHeaderAriaLabel="Resource name"
+          formatDate={formatDate}
+          scrollContainerRef={scrollContainerRef}
+          isEditMode={isEditMode}
         >
-          <TableHead>
-            <TableRow role="row">
-              <TableCell
-                sx={{
-                  position: 'sticky',
-                  left: 0,
-                  backgroundColor: '#eef1f5',
-                  fontWeight: 'bold',
-                  zIndex: 4,
-                  minWidth: 200,
-                }}
-                role="columnheader"
-                aria-label="Resource name"
-              >
-                Resource
-              </TableCell>
-              <TableCell
-                sx={{
-                  position: 'sticky',
-                  left: 200, // Adjust based on resource name column width
-                  backgroundColor: '#eef1f5',
-                  fontWeight: 'bold',
-                  zIndex: 4,
-                  minWidth: 60,
-                }}
-                role="columnheader"
-                aria-label="Cost treatment type"
-              >
-                Type
-              </TableCell>
-              {gridData.dates.map((date, index) => {
-                // Check if this is Saturday (day 6) to add week boundary border
-                const isSaturday = date.getUTCDay() === 6
-                
-                return (
-                  <TableCell
-                    key={index}
-                    align="center"
-                    sx={{
-                      backgroundColor: '#eef1f5',
-                      fontWeight: 'bold',
-                      minWidth: 50,
-                      padding: '6px 4px',
-                      ...(isSaturday && {
-                        borderRight: '2px solid #bdbdbd',
-                      }),
-                    }}
-                    role="columnheader"
-                    aria-label={`Date: ${formatDate(date)}`}
-                  >
-                    {formatDate(date)}
-                  </TableCell>
-                )
-              })}
-            </TableRow>
-          </TableHead>
-          <TableBody>
             {/* Labor Totals Row */}
             <TableRow role="row">
               <TableCell
@@ -1122,7 +765,7 @@ const ResourceAssignmentCalendar = ({
                   backgroundColor: '#e8f5e9',
                   fontWeight: 'bold',
                   zIndex: 2,
-                  borderRight: '2px solid',
+                  borderRight: '1px solid',
                   borderColor: 'divider',
                 }}
                 role="rowheader"
@@ -1132,11 +775,11 @@ const ResourceAssignmentCalendar = ({
               <TableCell
                 sx={{
                   position: 'sticky',
-                  left: 200,
+                  left: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
                   backgroundColor: '#e8f5e9',
                   fontWeight: 'bold',
                   zIndex: 2,
-                  borderRight: '2px solid',
+                  borderRight: '1px solid',
                   borderColor: 'divider',
                 }}
               >
@@ -1154,7 +797,6 @@ const ResourceAssignmentCalendar = ({
                     sx={{
                       backgroundColor: '#e8f5e9',
                       fontWeight: 'bold',
-                      padding: '6px 4px',
                       ...(isSaturday && { borderRight: '2px solid #bdbdbd' }),
                     }}
                     role="gridcell"
@@ -1177,9 +819,8 @@ const ResourceAssignmentCalendar = ({
                       backgroundColor: 'background.paper',
                       fontWeight: 'medium',
                       zIndex: 2,
-                      borderRight: '2px solid',
+                      borderRight: '1px solid',
                       borderColor: 'divider',
-                      borderBottom: '2px solid',
                       verticalAlign: 'middle',
                     }}
                     role="rowheader"
@@ -1206,14 +847,12 @@ const ResourceAssignmentCalendar = ({
                   <TableCell
                     sx={{
                       position: 'sticky',
-                      left: 200, // Adjust based on resource name column width
+                      left: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
                       backgroundColor: 'background.paper',
                       fontWeight: 'medium',
                       zIndex: 2,
-                      borderRight: '2px solid',
+                      borderRight: '1px solid',
                       borderColor: 'divider',
-                      minWidth: 60,
-                      padding: '6px 8px',
                     }}
                     role="rowheader"
                     aria-label="Capital"
@@ -1223,9 +862,7 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
-                    const key = getCellKey(resource.resourceId, date, 'capital')
                     const isSaturday = date.getUTCDay() === 6
-                    const isEdited = editedCells.has(key)
                     const value = getDisplayValue(resource.resourceId, date, 'capital')
                     
                     return (
@@ -1233,12 +870,7 @@ const ResourceAssignmentCalendar = ({
                         key={dateIndex}
                         align="center"
                         sx={{
-                          backgroundColor: isEdited 
-                            ? 'rgba(255, 182, 193, 0.3)' 
-                            : value > 0 
-                              ? 'action.hover' 
-                              : 'background.paper',
-                          padding: '6px 4px',
+                          backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
                           ...(isSaturday && {
                             borderRight: '2px solid #bdbdbd',
                           }),
@@ -1269,15 +901,12 @@ const ResourceAssignmentCalendar = ({
                   <TableCell
                     sx={{
                       position: 'sticky',
-                      left: 200, // Adjust based on resource name column width
+                      left: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
                       backgroundColor: 'background.paper',
                       fontWeight: 'medium',
                       zIndex: 2,
-                      borderRight: '2px solid',
+                      borderRight: '1px solid',
                       borderColor: 'divider',
-                      borderBottom: '2px solid',
-                      minWidth: 60,
-                      padding: '6px 8px',
                     }}
                     role="rowheader"
                     aria-label="Expense"
@@ -1287,9 +916,7 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {gridData.dates.map((date, dateIndex) => {
-                    const key = getCellKey(resource.resourceId, date, 'expense')
                     const isSaturday = date.getUTCDay() === 6
-                    const isEdited = editedCells.has(key)
                     const value = getDisplayValue(resource.resourceId, date, 'expense')
                     
                     return (
@@ -1297,14 +924,8 @@ const ResourceAssignmentCalendar = ({
                         key={dateIndex}
                         align="center"
                         sx={{
-                          backgroundColor: isEdited 
-                            ? 'rgba(255, 182, 193, 0.3)' 
-                            : value > 0 
-                              ? 'action.hover' 
-                              : 'background.paper',
-                          borderBottom: '2px solid',
+                          backgroundColor: value > 0 ? 'action.hover' : 'background.paper',
                           borderColor: 'divider',
-                          padding: '6px 4px',
                           ...(isSaturday && {
                             borderRight: '2px solid #bdbdbd',
                           }),
@@ -1330,10 +951,8 @@ const ResourceAssignmentCalendar = ({
                 </TableRow>
               </React.Fragment>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      </Box>
+        </AssignmentsGrid>
+      </Paper>
     </Box>
   )
 }

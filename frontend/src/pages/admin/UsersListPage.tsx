@@ -119,7 +119,7 @@ const UsersListPage: React.FC = () => {
 
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
 
-      <DataTable rows={rows} columns={columns} loading={loading} getRowId={(r) => r.id} />
+      <DataTable persistenceKey="admin-users" rows={rows} columns={columns} loading={loading} getRowId={(r) => r.id} />
     </Box>
   )
 }

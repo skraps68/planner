@@ -130,8 +130,8 @@ const UserAuditPage: React.FC = () => {
     },
   ]
 
-  const renderAuditTable = (logs: AuditLog[]) => (
-    <DataTable rows={logs} columns={auditColumns} getRowId={(r) => r.id} height={440} />
+  const renderAuditTable = (logs: AuditLog[], persistenceKey: string) => (
+    <DataTable persistenceKey={persistenceKey} rows={logs} columns={auditColumns} getRowId={(r) => r.id} height={440} />
   )
 
   if (loading) {
@@ -223,11 +223,11 @@ const UserAuditPage: React.FC = () => {
           </Tabs>
 
           <TabPanel value={tabValue} index={0}>
-            {renderAuditTable(allActivity)}
+            {renderAuditTable(allActivity, 'admin-user-audit-all')}
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>
-            {renderAuditTable(permissionChanges)}
+            {renderAuditTable(permissionChanges, 'admin-user-audit-permissions')}
           </TabPanel>
         </CardContent>
       </Card>

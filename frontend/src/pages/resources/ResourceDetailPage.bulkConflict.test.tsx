@@ -17,7 +17,7 @@
  * since this page's tests would otherwise hit the same provider-drift issue
  * documented in the test-repair backlog.
  */
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient } from '@tanstack/react-query'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
@@ -25,6 +25,7 @@ import { render, createTestStore } from '../../test/test-utils'
 import ResourceDetailPage from './ResourceDetailPage'
 import { resourcesApi } from '../../api/resources'
 import { assignmentsApi } from '../../api/assignments'
+import { COLOR_HEADER_BG, COLOR_HEADER_FG } from '../../theme'
 
 vi.mock('../../api/resources')
 vi.mock('../../api/assignments')
@@ -117,6 +118,35 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
       .mockResolvedValue(refreshedAssignments as any)
   })
 
+  it('uses the standard table-header colors for assignment dates', async () => {
+    render(<ResourceDetailPage />, { store, queryClient })
+
+    const dateHeader = await screen.findByRole('columnheader', { name: 'Date: 1/15' })
+    expect(dateHeader).toHaveStyle({
+      backgroundColor: COLOR_HEADER_BG,
+      color: COLOR_HEADER_FG,
+    })
+  })
+
+  it('places a filled Edit button above the assignment grid', async () => {
+    const user = userEvent.setup()
+    render(<ResourceDetailPage />, { store, queryClient })
+
+    const grid = await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    const assignmentCard = grid.closest('.MuiPaper-root')
+    expect(assignmentCard).not.toBeNull()
+
+    const editButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Edit' })
+    expect(editButton).toHaveClass('MuiButton-contained')
+    expect(editButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await user.click(editButton)
+    const cancelButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Cancel' })
+    const saveButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Save Changes' })
+    expect(cancelButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(saveButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('keeps the conflicting cell in edit mode and preserves it after a partial bulk-update failure', async () => {
     const user = userEvent.setup()
 
@@ -174,7 +204,7 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     // error border driven by validationErrors having an entry for its key.
     await user.click(editedBetaCell)
     const reopenedInput = screen.getByDisplayValue('40')
-    expect(reopenedInput.style.border).toContain('211, 47, 47') // #d32f2f
+    expect(reopenedInput).toHaveAttribute('aria-invalid', 'true')
 
     // The query was invalidated (refetch triggered) so versions refresh
     await waitFor(() => {
