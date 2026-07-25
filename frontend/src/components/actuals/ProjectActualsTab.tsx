@@ -4,12 +4,13 @@ import { DataGrid, GridColDef, GridPaginationModel, GridValueFormatterParams } f
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { actualsApi } from '../../api/actuals'
+import { prioritizeGridColumns } from '../common/DataTable'
 
 interface ProjectActualsTabProps {
   projectId: string
 }
 
-const columns: GridColDef[] = [
+const columns: GridColDef[] = prioritizeGridColumns([
   {
     field: 'actual_date',
     headerName: 'Date',
@@ -51,7 +52,7 @@ const columns: GridColDef[] = [
     headerAlign: 'right',
     valueFormatter: (params: GridValueFormatterParams) => `$${Number(params.value).toLocaleString()}`,
   },
-]
+])
 
 /** Actuals recorded against a single project — the contextual Actuals tab. */
 const ProjectActualsTab: React.FC<ProjectActualsTabProps> = ({ projectId }) => {

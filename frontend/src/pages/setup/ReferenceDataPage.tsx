@@ -19,6 +19,9 @@ type Severity = 'success' | 'error'
 type Notify = (message: string, severity: Severity) => void
 
 const DEFAULT_ROLE_NAME = 'Default'
+const descriptionHeaderSx = { fontWeight: 'bold', width: '100%' }
+const descriptionCellSx = { width: '100%', maxWidth: 0 }
+const contentCellSx = { whiteSpace: 'nowrap' }
 
 const formatRate = (rate?: string | number | null) =>
   rate !== undefined && rate !== null && rate !== '' ? `$${rate}` : '—'
@@ -75,11 +78,11 @@ const WorkerTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
       ) : (
         <TableContainer>
-          <Table size="small">
+          <Table size="small" sx={{ tableLayout: 'auto' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', ...contentCellSx }}>Type</TableCell>
+                <TableCell sx={descriptionHeaderSx}>Description</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Workers</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
               </TableRow>
@@ -92,8 +95,12 @@ const WorkerTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
                   const inUse = (wt.worker_count ?? 0) > 0
                   return (
                     <TableRow key={wt.id} hover>
-                      <TableCell><Typography variant="body2" fontWeight="medium">{wt.type}</Typography></TableCell>
-                      <TableCell>{wt.description}</TableCell>
+                      <TableCell sx={contentCellSx}><Typography variant="body2" fontWeight="medium">{wt.type}</Typography></TableCell>
+                      <TableCell sx={descriptionCellSx}>
+                        <Typography variant="body2" noWrap title={wt.description}>
+                          {wt.description}
+                        </Typography>
+                      </TableCell>
                       <TableCell>{wt.worker_count ?? 0}</TableCell>
                       <TableCell align="right">
                         <IconButton size="small" aria-label={`Edit ${wt.type}`} onClick={() => openEdit(wt)}>
@@ -327,11 +334,11 @@ const ResourceRolesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
       ) : (
         <TableContainer>
-          <Table size="small">
+          <Table size="small" sx={{ tableLayout: 'auto' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', ...contentCellSx }}>Name</TableCell>
+                <TableCell sx={descriptionHeaderSx}>Description</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Resources</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
               </TableRow>
@@ -351,8 +358,12 @@ const ResourceRolesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
                       : ''
                   return (
                     <TableRow key={role.id} hover>
-                      <TableCell><Typography variant="body2" fontWeight="medium">{role.name}</Typography></TableCell>
-                      <TableCell>{role.description}</TableCell>
+                      <TableCell sx={contentCellSx}><Typography variant="body2" fontWeight="medium">{role.name}</Typography></TableCell>
+                      <TableCell sx={descriptionCellSx}>
+                        <Typography variant="body2" noWrap title={role.description}>
+                          {role.description}
+                        </Typography>
+                      </TableCell>
                       <TableCell>{role.resource_count ?? 0}</TableCell>
                       <TableCell align="right">
                         <IconButton size="small" aria-label={`Edit ${role.name}`} onClick={() => openEdit(role)}>

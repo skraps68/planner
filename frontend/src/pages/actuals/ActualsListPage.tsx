@@ -22,6 +22,7 @@ import { actualsApi } from '../../api/actuals'
 import { projectsApi } from '../../api/projects'
 import { Actual, Project } from '../../types'
 import { format } from 'date-fns'
+import { prioritizeGridColumns } from '../../components/common/DataTable'
 
 const ActualsListPage = () => {
   const navigate = useNavigate()
@@ -102,7 +103,7 @@ const ActualsListPage = () => {
     setPaginationModel({ ...paginationModel, page: 0 })
   }
 
-  const columns: GridColDef[] = [
+  const columns: GridColDef[] = prioritizeGridColumns([
     {
       field: 'actual_date',
       headerName: 'Date',
@@ -160,7 +161,7 @@ const ActualsListPage = () => {
       headerAlign: 'right',
       valueFormatter: (params: GridValueFormatterParams) => `$${Number(params.value).toLocaleString()}`,
     },
-  ]
+  ])
 
   return (
     <Box>
