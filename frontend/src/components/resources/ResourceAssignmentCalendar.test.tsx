@@ -241,6 +241,11 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
         backgroundColor: COLOR_HEADER_BG,
         color: COLOR_HEADER_FG,
       })
+      expect(screen.getByRole('img', {
+        name: 'Labor usage over time: Assigned labor heads',
+      })).toBeInTheDocument()
+      expect(screen.queryByText('Available capacity')).not.toBeInTheDocument()
+      expect(screen.queryByText('Capacity limit')).not.toBeInTheDocument()
     })
 
     it('averages all seven calendar days in the Sunday-through-Saturday Weekly view', async () => {

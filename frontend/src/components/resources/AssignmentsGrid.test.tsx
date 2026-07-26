@@ -100,6 +100,67 @@ describe('AssignmentsGrid', () => {
     expect(onViewModeChange).toHaveBeenCalledWith('monthly')
   })
 
+  it('aligns a shared usage chart with the grid and toggles it from the outer toolbar', async () => {
+    const user = userEvent.setup()
+    const periods = buildAssignmentPeriods([
+      new Date(Date.UTC(2026, 0, 4)),
+      new Date(Date.UTC(2026, 0, 10)),
+    ], 'daily')
+
+    render(
+      <AssignmentsGrid
+        ariaLabel="Chart assignments"
+        periods={periods}
+        viewMode="daily"
+        onViewModeChange={vi.fn()}
+        primaryHeader="Project"
+        primaryHeaderAriaLabel="Project name"
+        chartConfig={{
+          title: 'Allocation over time',
+          subtitle: 'Total Allocation %',
+          seriesLabel: 'Total allocation',
+          values: [70, 80, 90, 110, 105, 85, 60],
+          capacityLimit: 100,
+          availableCapacityLabel: 'Available capacity',
+        }}
+        toolbarActions={<button type="button">Edit</button>}
+      >
+        <TableRow>
+          <AssignmentsGridCell>Totals</AssignmentsGridCell>
+          <AssignmentsGridCell>%</AssignmentsGridCell>
+          {periods.map((period) => (
+            <AssignmentsGridCell key={period.key}>50</AssignmentsGridCell>
+          ))}
+        </TableRow>
+      </AssignmentsGrid>
+    )
+
+    const toolbar = screen.getByRole('toolbar', { name: 'Assignment calendar controls' })
+    expect(toolbar).toContainElement(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByRole('img', {
+      name: 'Allocation over time: Total Allocation %',
+    })).toBeInTheDocument()
+    expect(screen.getByText('Available capacity')).toBeInTheDocument()
+    expect(screen.getByText('Capacity limit')).toBeInTheDocument()
+    expect(screen.getByText('Total allocation').parentElement).toHaveStyle({
+      left: '10px',
+      top: '61px',
+    })
+    expect(screen.getByText('Available capacity').parentElement).toHaveStyle({
+      left: '10px',
+      top: '82px',
+    })
+    expect(screen.getByText('Capacity limit').parentElement).toHaveStyle({
+      left: '10px',
+      top: '103px',
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Hide allocation chart' }))
+
+    expect(screen.queryByTestId('assignment-usage-chart')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show allocation chart' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('provides shared tabbing, type-to-edit, and dirty highlighting mechanics', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

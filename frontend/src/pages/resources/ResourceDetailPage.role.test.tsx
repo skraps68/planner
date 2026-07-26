@@ -91,7 +91,7 @@ describe('ResourceDetailPage resource role', () => {
     await waitFor(() => expect(select).toHaveTextContent('Default'))
   })
 
-  it('read mode: shows Role, and Worker Type + Rate on one line for a labor resource', async () => {
+  it('read mode: orders Worker, Description, and Resource Role on one line', async () => {
     mockParams = { id: 'resource-1' }
     vi.mocked(resourcesApi.get).mockResolvedValue(laborResource as any)
     render(<ResourceDetailPage />)
@@ -100,6 +100,18 @@ describe('ResourceDetailPage resource role', () => {
 
     expect(screen.getByText('Engineer')).toBeInTheDocument()
     expect(screen.getByText('Worker Type: Employee, Rate: $1,500.00')).toBeInTheDocument()
+
+    const workerCell = screen.getByText('Worker').closest('.MuiGrid-item')
+    const descriptionCell = screen.getByText('Description').closest('.MuiGrid-item')
+    const roleCell = screen.getByText('Resource Role').closest('.MuiGrid-item')
+
+    expect(workerCell?.parentElement).toBe(descriptionCell?.parentElement)
+    expect(descriptionCell?.parentElement).toBe(roleCell?.parentElement)
+    expect(workerCell).toHaveClass('MuiGrid-grid-sm-3')
+    expect(descriptionCell).toHaveClass('MuiGrid-grid-sm-4')
+    expect(roleCell).toHaveClass('MuiGrid-grid-sm-3')
+    expect(workerCell!.compareDocumentPosition(descriptionCell!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(descriptionCell!.compareDocumentPosition(roleCell!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('edit mode: keeps Worker Type/Rate in place (read-only) and turns Resource Role into a select', async () => {

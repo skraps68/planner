@@ -129,6 +129,11 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     const percentCell = screen.getByText('%').closest('td')
     expect(percentCell).not.toBeNull()
     expect(getComputedStyle(percentCell as HTMLElement).textAlign).toBe('center')
+    expect(screen.getByRole('img', {
+      name: 'Allocation over time: Total Allocation %',
+    })).toBeInTheDocument()
+    expect(screen.getByText('Available capacity')).toBeInTheDocument()
+    expect(screen.getByText('Capacity limit')).toBeInTheDocument()
   })
 
   it('places a filled Edit button above the assignment grid', async () => {
@@ -202,6 +207,36 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     const totalRow = screen.getByText('Total Allocation').closest('tr')
     const total = within(totalRow as HTMLElement).getByText('110')
     expect(total).toHaveStyle({ color: '#d32f2f' })
+  })
+
+  it('colors an exact 100 percent total black', async () => {
+    const dates = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(Date.UTC(2024, 0, 14 + index))
+      return date.toISOString().slice(0, 10)
+    })
+    const fullyAllocatedAssignments = dates.flatMap((assignmentDate, index) => ([
+      {
+        ...initialAssignments[0],
+        id: `assignment-a-${index}`,
+        assignment_date: assignmentDate,
+        capital_percentage: 60,
+      },
+      {
+        ...initialAssignments[1],
+        id: `assignment-b-${index}`,
+        assignment_date: assignmentDate,
+        capital_percentage: 40,
+      },
+    ]))
+    vi.mocked(assignmentsApi.getByResource).mockReset()
+    vi.mocked(assignmentsApi.getByResource).mockResolvedValue(fullyAllocatedAssignments as any)
+
+    render(<ResourceDetailPage />, { store, queryClient })
+    await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+
+    const totalRow = screen.getByText('Total Allocation').closest('tr')
+    const total = within(totalRow as HTMLElement).getAllByText('100')[0]
+    expect(total).toHaveStyle({ color: '#000000' })
   })
 
   it('keeps the conflicting cell in edit mode and preserves it after a partial bulk-update failure', async () => {

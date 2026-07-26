@@ -672,6 +672,16 @@ const ResourceAssignmentCalendar = ({
     )
   }
 
+  const laborChartValues = periods.map((period) =>
+    averageAssignmentPeriod(period, (date) =>
+      gridData.resources.reduce((sum, resource) => (
+        sum
+        + getDisplayValue(resource.resourceId, date, 'capital')
+        + getDisplayValue(resource.resourceId, date, 'expense')
+      ), 0) / 100,
+    ),
+  )
+
   return (
     <Box sx={{ width: '100%', overflow: 'hidden' }}>
       {/* Bulk Conflict Dialog */}
@@ -723,64 +733,13 @@ const ResourceAssignmentCalendar = ({
         </Alert>
       </Snackbar>
       
-      {/* Edit Controls */}
-      {canEdit && (
-        <Box 
-          sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}
-          role="toolbar"
-          aria-label="Calendar edit controls"
-        >
-          {!isEditMode ? (
-            <Button 
-              variant="contained" 
-              color="primary" 
-              onClick={handleEditClick}
-              aria-label="Enable edit mode for resource assignments"
-            >
-              Edit
-            </Button>
-          ) : (
-            <Stack direction="row" spacing={1}>
-              <Button 
-                variant="outlined" 
-                color="secondary" 
-                onClick={handleCancelClick}
-                disabled={isSaving}
-                aria-label="Cancel editing and discard changes"
-                type="button"
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="contained" 
-                color="primary" 
-                onClick={handleSaveClick}
-                disabled={isSaving}
-                aria-label="Save all changes to resource assignments"
-                aria-busy={isSaving}
-                type="button"
-              >
-                {isSaving ? (
-                  <>
-                    <CircularProgress size={20} sx={{ mr: 1 }} aria-hidden="true" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
-            </Stack>
-          )}
-        </Box>
-      )}
-
       {/* Calendar Table */}
       {/* 
         Performance Note: For very large date ranges (>365 days), consider implementing
         virtualization using react-window or react-virtualized to render only visible columns.
         Current implementation handles up to ~365 days efficiently with memoization.
       */}
-      <Paper>
+      <Paper sx={{ p: 1 }}>
         <AssignmentsGrid
           ariaLabel="Resource assignment calendar"
           periods={periods}
@@ -795,6 +754,60 @@ const ResourceAssignmentCalendar = ({
           }
           scrollContainerRef={scrollContainerRef}
           isEditMode={isEditMode}
+          chartConfig={{
+            title: 'Labor usage over time',
+            subtitle: viewMode === 'daily' ? 'Assigned labor heads' : 'Average Heads/Day',
+            seriesLabel: 'Assigned labor',
+            values: laborChartValues,
+            valueFormatter: (value) =>
+              `${value.toFixed(1)} ${viewMode === 'daily' ? 'heads' : 'heads/day'}`,
+          }}
+          toolbarActions={canEdit ? (
+            !isEditMode ? (
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                onClick={handleEditClick}
+                aria-label="Enable edit mode for resource assignments"
+              >
+                Edit
+              </Button>
+            ) : (
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  size="small"
+                  onClick={handleCancelClick}
+                  disabled={isSaving}
+                  aria-label="Cancel editing and discard changes"
+                  type="button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={handleSaveClick}
+                  disabled={isSaving}
+                  aria-label="Save all changes to resource assignments"
+                  aria-busy={isSaving}
+                  type="button"
+                >
+                  {isSaving ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} aria-hidden="true" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              </Stack>
+            )
+          ) : undefined}
         >
             {/* Labor Totals Row */}
             <TableRow role="row">
@@ -827,14 +840,8 @@ const ResourceAssignmentCalendar = ({
               >
                 {viewMode === 'daily' ? 'Heads' : 'Heads/Day'}
               </TableCell>
-              {periods.map((period) => {
-                const total = averageAssignmentPeriod(period, (date) =>
-                  gridData.resources.reduce((sum, resource) => (
-                    sum
-                    + getDisplayValue(resource.resourceId, date, 'capital')
-                    + getDisplayValue(resource.resourceId, date, 'expense')
-                  ), 0) / 100,
-                )
+              {periods.map((period, index) => {
+                const total = laborChartValues[index]
                 return (
                   <TableCell
                     key={period.key}

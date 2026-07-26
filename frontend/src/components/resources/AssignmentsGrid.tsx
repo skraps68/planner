@@ -19,6 +19,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   SvgIcon,
+  Typography,
 } from '@mui/material'
 import { styled } from '@mui/material/styles'
 import {
@@ -29,21 +30,40 @@ import {
 } from '../../theme'
 import { validatePercentage } from '../../utils/cellValidation'
 import type { AssignmentPeriod, AssignmentViewMode } from './assignmentPeriods'
+import {
+  AssignmentUsageChart,
+  type AssignmentUsageChartConfig,
+} from './AssignmentUsageChart'
+import {
+  ASSIGNMENTS_GRID_BOUNDARY_COLOR,
+  ASSIGNMENTS_GRID_CELL_PADDING,
+  ASSIGNMENTS_GRID_DATE_WIDTH,
+  ASSIGNMENTS_GRID_HEADER_HEIGHT,
+  ASSIGNMENTS_GRID_MAX_HEIGHT,
+  ASSIGNMENTS_GRID_MONTH_WIDTH,
+  ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_ROW_HEIGHT,
+  ASSIGNMENTS_GRID_TYPE_WIDTH,
+  ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+  ASSIGNMENTS_GRID_WEEK_WIDTH,
+} from './assignmentGridConstants'
 
-export const ASSIGNMENTS_GRID_PRIMARY_WIDTH = 180
-export const ASSIGNMENTS_GRID_TYPE_WIDTH = 52
-export const ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH = 76
-export const ASSIGNMENTS_GRID_DATE_WIDTH = 42
-export const ASSIGNMENTS_GRID_WEEK_WIDTH = 70
-export const ASSIGNMENTS_GRID_MONTH_WIDTH = 50
-export const ASSIGNMENTS_GRID_ROW_HEIGHT = 24
-export const ASSIGNMENTS_GRID_HEADER_HEIGHT = 26
-export const ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT = 34
-export const ASSIGNMENTS_GRID_CELL_PADDING = '1px 4px'
-export const ASSIGNMENTS_GRID_MAX_HEIGHT = 'calc(100vh - 300px)'
-export const ASSIGNMENTS_GRID_WEEKEND_BG = '#edf1f5'
-export const ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG = '#dfeae3'
-export const ASSIGNMENTS_GRID_BOUNDARY_COLOR = '#66778b'
+export {
+  ASSIGNMENTS_GRID_AGGREGATE_TYPE_WIDTH,
+  ASSIGNMENTS_GRID_BOUNDARY_COLOR,
+  ASSIGNMENTS_GRID_CELL_PADDING,
+  ASSIGNMENTS_GRID_DATE_WIDTH,
+  ASSIGNMENTS_GRID_HEADER_HEIGHT,
+  ASSIGNMENTS_GRID_MAX_HEIGHT,
+  ASSIGNMENTS_GRID_MONTH_WIDTH,
+  ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_ROW_HEIGHT,
+  ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
+  ASSIGNMENTS_GRID_TYPE_WIDTH,
+  ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+  ASSIGNMENTS_GRID_WEEKEND_BG,
+  ASSIGNMENTS_GRID_WEEK_WIDTH,
+} from './assignmentGridConstants'
 
 export const getAssignmentsGridPeriodWidth = (viewMode: AssignmentViewMode): number => {
   if (viewMode === 'weekly') return ASSIGNMENTS_GRID_WEEK_WIDTH
@@ -84,6 +104,8 @@ interface AssignmentsGridProps {
   maxHeight?: string | number
   isEditMode?: boolean
   disableViewModeChange?: boolean
+  chartConfig?: AssignmentUsageChartConfig
+  toolbarActions?: ReactNode
 }
 
 const DailyViewIcon = () => (
@@ -108,6 +130,14 @@ const MonthlyViewIcon = () => (
   </SvgIcon>
 )
 
+const ChartViewIcon = () => (
+  <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: 17 }}>
+    <path d="M4 19.5V5M4 19.5h16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M5.5 16.5l4-4 3 2 6-7v10h-13z" fill="currentColor" opacity=".35" />
+    <path d="M5.5 16.5l4-4 3 2 6-7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </SvgIcon>
+)
+
 const VIEW_OPTIONS: Array<{
   mode: AssignmentViewMode
   label: string
@@ -117,6 +147,12 @@ const VIEW_OPTIONS: Array<{
   { mode: 'weekly', label: 'Weekly view', icon: <WeeklyViewIcon /> },
   { mode: 'monthly', label: 'Monthly view', icon: <MonthlyViewIcon /> },
 ]
+
+const getViewSummary = (viewMode: AssignmentViewMode): string => {
+  if (viewMode === 'daily') return 'DAILY VIEW · WEEKENDS SHADED'
+  if (viewMode === 'weekly') return 'WEEKLY VIEW · SUN–SAT · AVERAGE OF ALL 7 CALENDAR DAYS'
+  return 'MONTHLY VIEW · AVERAGE OF ALL CALENDAR DAYS'
+}
 
 /**
  * Domain-neutral assignment grid structure. Each perspective supplies its
@@ -135,109 +171,175 @@ export const AssignmentsGrid = ({
   maxHeight = ASSIGNMENTS_GRID_MAX_HEIGHT,
   isEditMode = false,
   disableViewModeChange = isEditMode,
+  chartConfig,
+  toolbarActions,
 }: AssignmentsGridProps) => {
+  const [isChartVisible, setIsChartVisible] = useState(true)
   const periodWidth = getAssignmentsGridPeriodWidth(viewMode)
+  const identityWidth = ASSIGNMENTS_GRID_PRIMARY_WIDTH + typeColumnWidth
   const tableWidth =
-    ASSIGNMENTS_GRID_PRIMARY_WIDTH
-    + typeColumnWidth
+    identityWidth
     + periods.length * periodWidth
 
   return (
-    <TableContainer
-      ref={scrollContainerRef}
-      sx={{
-        width: '100%',
-        maxHeight,
-        overflow: 'auto',
-        border: `1px solid ${isEditMode ? COLOR_ACCENT : COLOR_LINE}`,
-        borderRadius: 0,
-      }}
-    >
-      {isEditMode && (
-        <Box
-          role="status"
-          aria-live="polite"
-          sx={{
-            position: 'sticky',
-            left: 0,
-            zIndex: 5,
-            display: 'flex',
-            alignItems: 'center',
-            minHeight: 22,
-            px: 0.75,
-            borderBottom: `1px solid ${COLOR_ACCENT}`,
-            backgroundColor: 'rgba(40, 94, 130, 0.08)',
-            color: 'primary.dark',
-            fontSize: '0.68rem',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-          }}
-        >
-          EDITING ASSIGNMENTS · TYPE TO REPLACE A VALUE · TAB MOVES BETWEEN CELLS
-        </Box>
-      )}
+    <Box>
       <Box
         role="toolbar"
-        aria-label="Assignment calendar view"
+        aria-label="Assignment calendar controls"
         sx={{
-          position: 'sticky',
-          top: 0,
-          left: 0,
-          zIndex: 6,
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          width: ASSIGNMENTS_GRID_PRIMARY_WIDTH + typeColumnWidth,
+          justifyContent: 'flex-end',
+          width: '100%',
           height: ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
-          borderRight: `1px solid ${COLOR_LINE}`,
-          borderBottom: `1px solid ${COLOR_LINE}`,
           backgroundColor: 'background.paper',
         }}
       >
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={viewMode}
-          onChange={(_event, nextMode: AssignmentViewMode | null) => {
-            if (nextMode) onViewModeChange(nextMode)
-          }}
-          aria-label="Assignment calendar period"
+        <Box
           sx={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.75,
+            width: identityWidth,
             height: 27,
-            '& .MuiToggleButton-root': {
-              width: 35,
-              minWidth: 35,
-              height: 27,
-              p: 0,
-              color: 'text.secondary',
-              borderColor: '#b8c1cb',
-              '&.Mui-selected': {
-                backgroundColor: COLOR_ACCENT,
-                color: '#fff',
-                '&:hover': { backgroundColor: COLOR_ACCENT },
-              },
-            },
           }}
         >
-          {VIEW_OPTIONS.map((option) => {
-            const disabled = disableViewModeChange && option.mode !== 'daily'
-            return (
-              <Tooltip key={option.mode} title={option.label} arrow>
-                <span>
-                  <ToggleButton
-                    value={option.mode}
-                    aria-label={option.label}
-                    disabled={disabled}
-                  >
-                    {option.icon}
-                  </ToggleButton>
-                </span>
-              </Tooltip>
-            )
-          })}
-        </ToggleButtonGroup>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={viewMode}
+            onChange={(_event, nextMode: AssignmentViewMode | null) => {
+              if (nextMode) onViewModeChange(nextMode)
+            }}
+            aria-label="Assignment calendar period"
+            sx={{
+              height: 27,
+              '& .MuiToggleButton-root': {
+                width: 35,
+                minWidth: 35,
+                height: 27,
+                p: 0,
+                color: 'text.secondary',
+                borderColor: '#b8c1cb',
+                '&.Mui-selected': {
+                  backgroundColor: COLOR_ACCENT,
+                  color: '#fff',
+                  '&:hover': { backgroundColor: COLOR_ACCENT },
+                },
+              },
+            }}
+          >
+            {VIEW_OPTIONS.map((option) => {
+              const disabled = disableViewModeChange && option.mode !== 'daily'
+              return (
+                <Tooltip key={option.mode} title={option.label} arrow>
+                  <span>
+                    <ToggleButton
+                      value={option.mode}
+                      aria-label={option.label}
+                      disabled={disabled}
+                    >
+                      {option.icon}
+                    </ToggleButton>
+                  </span>
+                </Tooltip>
+              )
+            })}
+          </ToggleButtonGroup>
+          {chartConfig && (
+            <Tooltip title={isChartVisible ? 'Hide allocation chart' : 'Show allocation chart'} arrow>
+              <ToggleButton
+                value="chart"
+                selected={isChartVisible}
+                onChange={() => setIsChartVisible((visible) => !visible)}
+                aria-label={isChartVisible ? 'Hide allocation chart' : 'Show allocation chart'}
+                sx={{
+                  width: 27,
+                  minWidth: 27,
+                  height: 27,
+                  p: 0,
+                  color: COLOR_ACCENT,
+                  borderColor: COLOR_ACCENT,
+                  '&.Mui-selected': {
+                    backgroundColor: COLOR_ACCENT,
+                    color: '#fff',
+                    '&:hover': { backgroundColor: COLOR_ACCENT },
+                  },
+                }}
+              >
+                <ChartViewIcon />
+              </ToggleButton>
+            </Tooltip>
+          )}
+        </Box>
+        <Typography
+          sx={{
+            position: 'absolute',
+            left: identityWidth,
+            right: toolbarActions ? 140 : 0,
+            top: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 27,
+            color: 'text.secondary',
+            fontSize: '0.62rem',
+            fontWeight: 600,
+            letterSpacing: '0.03em',
+            pointerEvents: 'none',
+          }}
+        >
+          {getViewSummary(viewMode)}
+        </Typography>
+        {toolbarActions}
       </Box>
-      <Table
+      <TableContainer
+        ref={scrollContainerRef}
+        sx={{
+          width: '100%',
+          maxHeight,
+          overflow: 'auto',
+          border: `1px solid ${isEditMode ? COLOR_ACCENT : COLOR_LINE}`,
+          borderRadius: 0,
+        }}
+      >
+        {isEditMode && (
+          <Box
+            role="status"
+            aria-live="polite"
+            sx={{
+              position: 'sticky',
+              left: 0,
+              zIndex: 5,
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: 22,
+              px: 0.75,
+              borderBottom: `1px solid ${COLOR_ACCENT}`,
+              backgroundColor: 'rgba(40, 94, 130, 0.08)',
+              color: 'primary.dark',
+              fontSize: '0.68rem',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+            }}
+          >
+            EDITING ASSIGNMENTS · TYPE TO REPLACE A VALUE · TAB MOVES BETWEEN CELLS
+          </Box>
+        )}
+        {chartConfig && isChartVisible && (
+          <AssignmentUsageChart
+            periods={periods}
+            periodWidth={periodWidth}
+            identityWidth={identityWidth}
+            config={chartConfig}
+          />
+        )}
+        <Table
         aria-label={ariaLabel}
         role="grid"
         size="small"
@@ -259,7 +361,7 @@ export const AssignmentsGrid = ({
             borderRight: 0,
           },
           '& .MuiTableCell-head': {
-            top: ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+            top: 0,
             height: `${ASSIGNMENTS_GRID_HEADER_HEIGHT}px !important`,
             padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
           },
@@ -327,8 +429,9 @@ export const AssignmentsGrid = ({
           </TableRow>
         </TableHead>
         <TableBody>{children}</TableBody>
-      </Table>
-    </TableContainer>
+        </Table>
+      </TableContainer>
+    </Box>
   )
 }
 

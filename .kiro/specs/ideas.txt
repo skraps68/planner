@@ -111,6 +111,19 @@
 
 - add density settings and column setting to a stored user profile
 
+- need chagnes to non-resource assignment display:
+The Project assignment API returns all resource assignments without filtering by resource_type.
+The frontend assignment data does not include or inspect resource type, so non-labor resources appear alongside labor resources.
+They are also incorrectly included in the Project table’s “Labor Totals” row and labor-usage chart.
+A non-labor Resource detail page also renders the same assignment table because the calendar is included unconditionally.
+Merely creating a non-labor resource does not make it appear; it must have assignment records.
+The API response currently lacks resource_type, so fixing this cleanly would require either backend filtering or adding the type to the response and filtering in the Project view. No changes were made.
+
+- need to add buttons and functionality to assign a new resource (labor or non-labor) to a project
+
+- need to add buttons and fucntionality to assign a new project to a resource (labor or non-labor)
+
+
 -------------------------------
 
 - collapse project overview and phases tab together. there is no need to keep these separate. need to make sure project fields are still editable, maybe on screen without jumping to a new screen.

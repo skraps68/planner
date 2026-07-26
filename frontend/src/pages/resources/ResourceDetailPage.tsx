@@ -335,38 +335,21 @@ const ResourceAllocationCalendar: React.FC<{
   if (assignments.length === 0) return <Alert severity="info">This resource has no assignments yet.</Alert>
 
   const hasEdits = editedCells.size > 0
+  const allocationChartValues = periods.map((period) =>
+    averageAssignmentPeriod(
+      period,
+      (date) => projects.reduce(
+        (sum, project) =>
+          sum
+          + getCell(project.projectId, date, 'capital')
+          + getCell(project.projectId, date, 'expense'),
+        0,
+      ),
+    ),
+  )
 
   return (
     <Paper sx={{ p: 1 }}>
-      {(canEdit || isEditMode) && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mb: 1 }}>
-          {!isEditMode ? (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<EditIcon />}
-              onClick={handleEditAssignments}
-            >
-              Edit
-            </Button>
-          ) : lockState === 'blocked' ? (
-            <Button variant="outlined" size="small" onClick={handleCancel}>
-              Close
-            </Button>
-          ) : (
-            <>
-              <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button variant="contained" size="small" startIcon={isSaving ? <CircularProgress size={14} /> : <SaveIcon />}
-                onClick={handleSave} disabled={isSaving || !hasEdits}>
-                Save Changes
-              </Button>
-            </>
-          )}
-        </Box>
-      )}
-
       <AssignmentsGrid
         ariaLabel="Resource assignment calendar"
         periods={periods}
@@ -377,6 +360,43 @@ const ResourceAllocationCalendar: React.FC<{
         scrollContainerRef={scrollContainerRef}
         isEditMode={effectiveEditMode}
         disableViewModeChange={isEditMode}
+        chartConfig={{
+          title: 'Allocation over time',
+          subtitle: 'Total Allocation %',
+          seriesLabel: 'Total allocation',
+          values: allocationChartValues,
+          valueFormatter: (value) => `${formatAssignmentAverage(value) || '0'}%`,
+          capacityLimit: 100,
+          availableCapacityLabel: 'Available capacity',
+        }}
+        toolbarActions={(canEdit || isEditMode) ? (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            {!isEditMode ? (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={handleEditAssignments}
+              >
+                Edit
+              </Button>
+            ) : lockState === 'blocked' ? (
+              <Button variant="outlined" size="small" onClick={handleCancel}>
+                Close
+              </Button>
+            ) : (
+              <>
+                <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
+                  Cancel
+                </Button>
+                <Button variant="contained" size="small" startIcon={isSaving ? <CircularProgress size={14} /> : <SaveIcon />}
+                  onClick={handleSave} disabled={isSaving || !hasEdits}>
+                  Save Changes
+                </Button>
+              </>
+            )}
+          </Box>
+        ) : undefined}
       >
               {/* Total Allocation row */}
               <TableRow>
@@ -386,19 +406,14 @@ const ResourceAllocationCalendar: React.FC<{
                 <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: '#e8f5e9', fontWeight: 'bold', borderRight: '1px solid', borderColor: 'divider', textAlign: 'center !important' }}>
                   {viewMode === 'daily' ? '%' : 'Avg %'}
                 </TableCell>
-                {periods.map((period) => {
-                  const total = averageAssignmentPeriod(
-                    period,
-                    (date) => projects.reduce(
-                      (sum, project) =>
-                        sum
-                        + getCell(project.projectId, date, 'capital')
-                        + getCell(project.projectId, date, 'expense'),
-                      0,
-                    ),
-                  )
+                {periods.map((period, index) => {
+                  const total = allocationChartValues[index]
                   const formatted = formatAssignmentAverage(total)
-                  const color = total > 100 ? '#d32f2f' : total > 0 ? '#2e7d32' : undefined
+                  const color = total > 100
+                    ? '#d32f2f'
+                    : Math.abs(total - 100) < 0.000_001
+                      ? '#000000'
+                      : total > 0 ? '#2e7d32' : undefined
                   return (
                     <TableCell key={period.key} align="center" sx={{
                       backgroundColor: period.isWeekend ? ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG : '#e8f5e9',
@@ -755,8 +770,8 @@ const ResourceDetailPage: React.FC = () => {
     </Box>
   )
 
-  const descriptionCell = (
-    <Grid item xs={12}>
+  const descriptionField = (
+    <>
       <Typography variant="caption" color="text.secondary">Description</Typography>
       {isEditing ? (
         <TextField fullWidth size="small" multiline rows={2} value={formData.description}
@@ -764,6 +779,12 @@ const ResourceDetailPage: React.FC = () => {
       ) : (
         <Typography variant="body1">{formData.description || '—'}</Typography>
       )}
+    </>
+  )
+
+  const descriptionCell = (
+    <Grid item xs={12}>
+      {descriptionField}
     </Grid>
   )
 
@@ -787,8 +808,8 @@ const ResourceDetailPage: React.FC = () => {
           <Grid container rowSpacing={1.5} columnSpacing={2}>
             {isLabor ? (
               <>
-                {/* Row 1: Worker | Resource Role | Edit — same cells in read & edit */}
-                <Grid item xs={12} sm={4}>
+                {/* Row 1: Worker | Description | Resource Role | Edit */}
+                <Grid item xs={12} sm={3}>
                   <Typography variant="caption" color="text.secondary">Worker</Typography>
                   {isEditing ? (
                     <WorkerSearchAutocomplete
@@ -816,6 +837,9 @@ const ResourceDetailPage: React.FC = () => {
                   )}
                 </Grid>
                 <Grid item xs={12} sm={4}>
+                  {descriptionField}
+                </Grid>
+                <Grid item xs={12} sm={3}>
                   <Typography variant="caption" color="text.secondary">Resource Role</Typography>
                   {isEditing ? (
                     <FormControl fullWidth size="small" sx={{ mt: 0.5 }}>
@@ -833,7 +857,7 @@ const ResourceDetailPage: React.FC = () => {
                     <Typography variant="body1">{resource?.resource_role_name || '—'}</Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} sm={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+                <Grid item xs={12} sm={2} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
                   {editControls}
                 </Grid>
 
@@ -847,9 +871,6 @@ const ResourceDetailPage: React.FC = () => {
                     }`}
                   </Typography>
                 </Grid>
-
-                {/* Row 3: Description */}
-                {descriptionCell}
               </>
             ) : (
               <>
