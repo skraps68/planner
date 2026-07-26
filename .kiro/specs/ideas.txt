@@ -123,6 +123,9 @@ The API response currently lacks resource_type, so fixing this cleanly would req
 
 - need to add buttons and fucntionality to assign a new project to a resource (labor or non-labor)
 
+- add a settings tab:
+  - whether or not weekends are usable and counted in percentages
+  - whether or not holidays are usable and counted in percentages
 
 -------------------------------
 
@@ -145,4 +148,3 @@ The API response currently lacks resource_type, so fixing this cleanly would req
 - add project ID search to expanded hierarchy page
 
 - add portfolio level financials (detail page)
-

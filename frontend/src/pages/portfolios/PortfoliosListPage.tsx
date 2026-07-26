@@ -29,9 +29,9 @@ import { format } from 'date-fns'
 import ScopeFilterBanner from '../../components/common/ScopeFilterBanner'
 import PermissionButton from '../../components/common/PermissionButton'
 import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
-import { LAST_DETAIL_KEY } from '../../components/layout/PortfolioShell'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 import { LIST_SCROLL_KEY, usePortfolioListState } from '../../hooks/usePortfolioListState'
+import { getLastHierarchyDetail } from '../../utils/hierarchySession'
 
 const formatDate = (value: string) => format(new Date(value), 'MMM dd, yyyy')
 
@@ -144,8 +144,8 @@ const PortfoliosListPage: React.FC = () => {
     idMode && businessId ? `(${businessId}) ${name}` : name
 
   // Where the contract control returns to (recorded by the shell on every
-  // detail visit); navigate-anyway if stale — the detail page handles not-found
-  const lastDetail = sessionStorage.getItem(LAST_DETAIL_KEY)
+  // detail visit).
+  const lastDetail = getLastHierarchyDetail()
 
   // Remember scroll position when leaving the page (the window is the scroller)
   useEffect(() => {

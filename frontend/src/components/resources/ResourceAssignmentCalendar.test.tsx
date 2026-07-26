@@ -24,6 +24,10 @@ vi.mock('../../contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }))
 
+beforeEach(() => {
+  sessionStorage.clear()
+})
+
 describe('ResourceAssignmentCalendar - Read-Only Display', () => {
   afterEach(() => {
     cleanup()
@@ -292,6 +296,63 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       // 0.7 heads on one day averaged across the full seven-day week.
       expect(within(totalRow as HTMLElement).getByText('0.1')).toBeInTheDocument()
       expect(screen.getByText('10')).toBeInTheDocument()
+    })
+
+    it('restores the period and chart visibility for the project during the session', async () => {
+      const user = userEvent.setup()
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      const view = render(
+        <MemoryRouter>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider theme={theme}>
+              <ResourceAssignmentCalendar
+                projectId={mockProjectId}
+                projectStartDate={mockStartDate}
+                projectEndDate={mockEndDate}
+              />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
+      )
+
+      await screen.findByRole('grid')
+      await user.click(screen.getByRole('button', { name: 'Weekly view' }))
+      await user.click(screen.getByRole('button', { name: 'Hide allocation chart' }))
+
+      expect(sessionStorage.getItem(`projectAssignmentView:${mockProjectId}`)).toBe(
+        JSON.stringify({ viewMode: 'weekly', chartVisible: false }),
+      )
+
+      view.unmount()
+      const restoredQueryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      render(
+        <MemoryRouter>
+          <QueryClientProvider client={restoredQueryClient}>
+            <ThemeProvider theme={theme}>
+              <ResourceAssignmentCalendar
+                projectId={mockProjectId}
+                projectStartDate={mockStartDate}
+                projectEndDate={mockEndDate}
+              />
+            </ThemeProvider>
+          </QueryClientProvider>
+        </MemoryRouter>
+      )
+
+      await screen.findByRole('grid')
+      expect(screen.getByRole('button', { name: 'Weekly view' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      expect(screen.getByRole('button', { name: 'Show allocation chart' })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      )
+      expect(screen.queryByTestId('assignment-usage-chart')).not.toBeInTheDocument()
     })
 
     it('displays resources with Capital and Expense rows', async () => {

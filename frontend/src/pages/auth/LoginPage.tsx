@@ -22,7 +22,7 @@ const LoginPage: React.FC = () => {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/portfolios')
+      navigate('/')
     }
   }, [isAuthenticated, navigate])
 

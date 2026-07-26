@@ -83,6 +83,7 @@ describe('usePortfolioListState', () => {
     expect(result.current.search).toBe('')
     expect(result.current.expandedPortfolios.size).toBe(0)
     expect(result.current.expandedPrograms.size).toBe(0)
+    expect(result.current.idMode).toBe(true)
     expect(sessionStorage.getItem(LIST_SCROLL_KEY)).toBeNull()
   })
 })

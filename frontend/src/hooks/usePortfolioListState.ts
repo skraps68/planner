@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useUserSettings } from '../contexts/UserSettingsContext'
 
 // Session-scoped persistence so the hierarchy looks the same when the user
 // returns from a detail page (browser back button, home link, or ✕ close).
@@ -12,7 +13,15 @@ export const LIST_SCROLL_KEY = 'portfoliosListScroll'
  * matching branches even when the saved expansion sets are empty.
  */
 export const resetPortfolioHierarchyState = () => {
-  sessionStorage.removeItem(LIST_STATE_KEY)
+  const { idMode } = loadSavedListState()
+  if (idMode) {
+    sessionStorage.setItem(
+      LIST_STATE_KEY,
+      JSON.stringify({ search: '', portfolios: [], programs: [], idMode: true }),
+    )
+  } else {
+    sessionStorage.removeItem(LIST_STATE_KEY)
+  }
   sessionStorage.removeItem(LIST_SCROLL_KEY)
 }
 
@@ -61,6 +70,7 @@ export interface PortfolioListState {
 }
 
 export function usePortfolioListState(): PortfolioListState {
+  const { settings, isServerBacked, updateSettings } = useUserSettings()
   const saved = useRef(loadSavedListState()).current
   const [search, setSearch] = useState(saved.search)
   const [expandedPortfolios, setExpandedPortfolios] = useState<Set<string>>(
@@ -83,6 +93,11 @@ export function usePortfolioListState(): PortfolioListState {
     )
   }, [search, expandedPortfolios, expandedPrograms, idMode])
 
+  useEffect(() => {
+    if (!isServerBacked) return
+    setIdMode(settings.navigation?.hierarchyLabelMode === 'business_id')
+  }, [isServerBacked, settings.navigation?.hierarchyLabelMode])
+
   const togglePortfolio = useCallback(
     (id: string) => setExpandedPortfolios((prev) => toggled(prev, id)),
     []
@@ -95,7 +110,15 @@ export function usePortfolioListState(): PortfolioListState {
     if (portfolioIds.length) setExpandedPortfolios((prev) => new Set([...prev, ...portfolioIds]))
     if (programIds.length) setExpandedPrograms((prev) => new Set([...prev, ...programIds]))
   }, [])
-  const toggleIdMode = useCallback(() => setIdMode((v) => !v), [])
+  const toggleIdMode = useCallback(() => {
+    setIdMode((current) => {
+      const next = !current
+      updateSettings({
+        navigation: { hierarchyLabelMode: next ? 'business_id' : 'name' },
+      })
+      return next
+    })
+  }, [updateSettings])
 
   return {
     search,

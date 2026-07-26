@@ -1,10 +1,12 @@
 """
 User management API endpoints for CRUD operations, role assignment, and scope management.
 """
-from typing import List, Optional
+from copy import deepcopy
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -23,7 +25,13 @@ from app.schemas.user import (
     ScopeAssignmentResponse,
     CurrentUserResponse
 )
+from app.schemas.user_settings import (
+    UserSettingsDocument,
+    UserSettingsPatchRequest,
+    UserSettingsResponse,
+)
 from app.repositories.user import user_repository, user_role_repository, scope_assignment_repository
+from app.repositories.user_settings import user_settings_repository
 from app.services.authentication import authentication_service
 from app.services.authorization import authorization_service, Permission
 from app.services.role_management import role_management_service
@@ -31,6 +39,7 @@ from app.services.audit import audit_service
 from app.core.exceptions import ConflictError
 
 router = APIRouter()
+USER_SETTINGS_SCHEMA_VERSION = 1
 
 
 def check_admin_access(current_user: User, db: Session):
@@ -40,6 +49,29 @@ def check_admin_access(current_user: User, db: Session):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin permission required"
         )
+
+
+def merge_settings(base: Dict[str, Any], patch: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge a settings patch; null removes an override."""
+    merged = deepcopy(base)
+    for key, value in patch.items():
+        if value is None:
+            merged.pop(key, None)
+        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_settings(merged[key], value)
+        else:
+            merged[key] = deepcopy(value)
+    return merged
+
+
+def settings_response(record) -> UserSettingsResponse:
+    return UserSettingsResponse(
+        settings_schema_version=record.settings_schema_version,
+        settings=UserSettingsDocument.model_validate(record.settings or {}),
+        version=record.version,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
 
 
 @router.get("", response_model=UserListResponse, status_code=status.HTTP_200_OK)
@@ -210,6 +242,123 @@ def create_user(
         created_at=user.created_at,
         updated_at=user.updated_at
     )
+
+
+@router.get(
+    "/me/settings",
+    response_model=UserSettingsResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_200_OK,
+)
+def get_my_settings(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Return the current user's settings, creating the default document if needed."""
+    record = user_settings_repository.get_by_user(db, current_user.id)
+    if record is None:
+        record = user_settings_repository.create(
+            db,
+            obj_in={
+                "user_id": current_user.id,
+                "settings_schema_version": USER_SETTINGS_SCHEMA_VERSION,
+                "settings": {},
+            },
+        )
+    return settings_response(record)
+
+
+@router.patch(
+    "/me/settings",
+    response_model=UserSettingsResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_200_OK,
+)
+def patch_my_settings(
+    request: UserSettingsPatchRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Deep-merge a validated patch into the current user's settings document."""
+    record = user_settings_repository.get_by_user(db, current_user.id)
+    if record is None:
+        if request.version != 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"message": "Settings changed; reload and retry.", "current_version": 0},
+            )
+        record = user_settings_repository.create(
+            db,
+            obj_in={
+                "user_id": current_user.id,
+                "settings_schema_version": USER_SETTINGS_SCHEMA_VERSION,
+                "settings": {},
+            },
+        )
+    elif request.version != record.version:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Settings changed; reload and retry.",
+                "current_version": record.version,
+            },
+        )
+
+    merged = merge_settings(record.settings or {}, request.patch)
+    try:
+        validated = UserSettingsDocument.model_validate(merged)
+    except ValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=error.errors(),
+        ) from error
+
+    record.settings = validated.model_dump(exclude_none=True)
+    record.settings_schema_version = USER_SETTINGS_SCHEMA_VERSION
+    try:
+        db.commit()
+        db.refresh(record)
+    except StaleDataError as error:
+        db.rollback()
+        current = user_settings_repository.get_by_user(db, current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Settings changed; reload and retry.",
+                "current_version": current.version if current else 0,
+            },
+        ) from error
+    return settings_response(record)
+
+
+@router.delete(
+    "/me/settings",
+    response_model=UserSettingsResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_200_OK,
+)
+def reset_my_settings(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Reset all durable preferences to application defaults."""
+    record = user_settings_repository.get_by_user(db, current_user.id)
+    if record is None:
+        record = user_settings_repository.create(
+            db,
+            obj_in={
+                "user_id": current_user.id,
+                "settings_schema_version": USER_SETTINGS_SCHEMA_VERSION,
+                "settings": {},
+            },
+        )
+        return settings_response(record)
+
+    record.settings = {}
+    record.settings_schema_version = USER_SETTINGS_SCHEMA_VERSION
+    db.commit()
+    db.refresh(record)
+    return settings_response(record)
 
 
 @router.get("/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK)

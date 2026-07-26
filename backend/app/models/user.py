@@ -47,6 +47,13 @@ class User(BaseModel):
     # Relationships
     user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="user")
+    settings_record = relationship(
+        "UserSettings",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
     
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

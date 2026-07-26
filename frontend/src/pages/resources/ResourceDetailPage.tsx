@@ -53,6 +53,7 @@ import {
   type AssignmentViewMode,
 } from '../../components/resources/assignmentPeriods'
 import { assignmentKeys, useResourceAssignments } from '../../hooks/useAssignments'
+import { useUserSettings } from '../../contexts/UserSettingsContext'
 
 // ─── Resource Allocation Calendar ───────────────────────────────────────────
 
@@ -98,12 +99,18 @@ const ResourceAllocationCalendar: React.FC<{
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const { settings, updateSettings } = useUserSettings()
   const canEdit = useMemo(() => hasPermission(user, 'manage_resources').hasPermission, [user])
 
   const { data: assignments = [], isLoading, error } = useResourceAssignments(resourceId)
 
   const [isEditMode, setIsEditMode] = useState(false)
-  const [viewMode, setViewMode] = useState<AssignmentViewMode>('daily')
+  const [viewMode, setViewMode] = useState<AssignmentViewMode>(
+    () => settings.assignmentGrids?.resource?.period ?? 'daily',
+  )
+  const [chartVisible, setChartVisible] = useState(
+    () => settings.assignmentGrids?.resource?.chartVisible ?? true,
+  )
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
   const { state: lockState, holder: lockHolder, takeOver: takeOverLock } = useEntityLock(
     'resource',
@@ -120,6 +127,14 @@ const ResourceAllocationCalendar: React.FC<{
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setViewMode(settings.assignmentGrids?.resource?.period ?? 'daily')
+    setChartVisible(settings.assignmentGrids?.resource?.chartVisible ?? true)
+  }, [
+    settings.assignmentGrids?.resource?.period,
+    settings.assignmentGrids?.resource?.chartVisible,
+  ])
 
   const ck = (projectId: string, dateStr: string, type: 'capital' | 'expense') =>
     `${projectId}:${dateStr}:${type}`
@@ -161,6 +176,7 @@ const ResourceAllocationCalendar: React.FC<{
     const anchorDate = periods[Math.min(visibleIndex, periods.length - 1)]?.dates[0]
 
     setViewMode(nextMode)
+    updateSettings({ assignmentGrids: { resource: { period: nextMode } } })
 
     requestAnimationFrame(() => {
       if (!scrollContainerRef.current || !anchorDate) return
@@ -171,7 +187,7 @@ const ResourceAllocationCalendar: React.FC<{
       scrollContainerRef.current.scrollLeft =
         Math.max(0, nextIndex) * getAssignmentsGridPeriodWidth(nextMode)
     })
-  }, [dates, isEditMode, periods, viewMode])
+  }, [dates, isEditMode, periods, updateSettings, viewMode])
 
   const getStored = (projectId: string, date: Date, type: 'capital' | 'expense'): number => {
     const cell = cellMap.get(`${projectId}::${dateKey(date)}`)
@@ -368,6 +384,13 @@ const ResourceAllocationCalendar: React.FC<{
           valueFormatter: (value) => `${formatAssignmentAverage(value) || '0'}%`,
           capacityLimit: 100,
           availableCapacityLabel: 'Available capacity',
+        }}
+        chartVisible={chartVisible}
+        onChartVisibilityChange={(visible) => {
+          setChartVisible(visible)
+          updateSettings({
+            assignmentGrids: { resource: { chartVisible: visible } },
+          })
         }}
         toolbarActions={(canEdit || isEditMode) ? (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>

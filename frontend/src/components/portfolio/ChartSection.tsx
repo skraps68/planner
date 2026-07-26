@@ -3,14 +3,18 @@ import { Paper, Typography, Grid, Box } from '@mui/material';
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, LabelList } from 'recharts';
 import { FinancialTableData } from '../../utils/forecastTransform';
 import { formatCurrency } from '../../utils/currencyFormat';
+import {
+  COLOR_FINANCIAL_BUDGET_FILL,
+  COLOR_FINANCIAL_BUDGET_STROKE,
+} from '../../theme';
 
 // Bar fills mirror the FinancialSummaryTable's Budget and Current Forecast column
 // backgrounds so the chart and table read as the same data. The Current Forecast
 // bar is one color; its Actuals/Forecast split is shown by the segment divider
 // line and the "A" / "F" letters, not by different fills. Strokes are a darker
 // shade of the same hue so the pale fills stay visible on white.
-const BUDGET_FILL = '#BBDEFB';            // table Budget column
-const BUDGET_STROKE = '#1976d2';
+const BUDGET_FILL = COLOR_FINANCIAL_BUDGET_FILL;
+const BUDGET_STROKE = COLOR_FINANCIAL_BUDGET_STROKE;
 const CURRENT_FORECAST_FILL = '#C8E6C9';  // table Current Forecast column
 const CURRENT_FORECAST_STROKE = '#388e3c';
 
@@ -240,7 +244,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, compact = false }) =>
               dataKey="name"
               tickLine={false}
               // Category labels take over the removed legend's colors:
-              // blue for Budget, green for Current Forecast
+              // slate for Budget, green for Current Forecast
               tick={(props: any) => {
                 const { x, y, payload } = props;
                 const isBudget = payload.value === 'Budget';

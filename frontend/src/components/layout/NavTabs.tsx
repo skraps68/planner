@@ -4,6 +4,7 @@ import { AccountTree } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { usePermissions } from '../../hooks/usePermissions'
 import { Permission } from '../../utils/permissions'
+import { getLastHierarchyDetail } from '../../utils/hierarchySession'
 
 interface NavTabDef {
   value: string            // navigation target + Tab value
@@ -37,11 +38,14 @@ const NavTabs: React.FC = () => {
   const tabs = TAB_DEFS.filter((t) => !t.permission || hasPermission(t.permission).hasPermission)
   const active = tabs.find((t) => t.match.some((m) => pathname === m || pathname.startsWith(m + '/')))
   const value = active ? active.value : false
+  const navigateToTab = (tabPath: string) => {
+    navigate(tabPath === '/portfolios' ? getLastHierarchyDetail() ?? tabPath : tabPath)
+  }
 
   return (
     <Tabs
       value={value}
-      onChange={(_e, v) => navigate(v)}
+      onChange={(_e, v) => navigateToTab(v)}
       sx={{ minHeight: 48, '& .MuiTabs-flexContainer': { height: 48 } }}
     >
       {tabs.map((t) => (

@@ -43,6 +43,11 @@ import {
   formatAssignmentAverage,
   type AssignmentViewMode,
 } from './assignmentPeriods'
+import {
+  loadProjectAssignmentView,
+  saveProjectAssignmentView,
+} from './projectAssignmentViewSession'
+import { useUserSettings } from '../../contexts/UserSettingsContext'
 
 // Memoized cell wrapper to prevent unnecessary re-renders
 interface CellWrapperProps {
@@ -145,6 +150,7 @@ const ResourceAssignmentCalendar = ({
   projectBreadcrumbItems,
 }: ResourceAssignmentCalendarProps) => {
   const { user } = useAuth()
+  const { settings, updateSettings } = useUserSettings()
   const navigate = useNavigate()
   
   // Use React Query hook for assignments data
@@ -155,7 +161,44 @@ const ResourceAssignmentCalendar = ({
   const { editedCells, setEditedCells, clearEdits } = usePersistedEdits(projectId)
   
   const [isEditMode, setIsEditMode] = useState(false)
-  const [viewMode, setViewMode] = useState<AssignmentViewMode>('daily')
+  const preferredAssignmentView = useMemo(() => ({
+    viewMode: settings.assignmentGrids?.project?.period ?? 'daily',
+    chartVisible: settings.assignmentGrids?.project?.chartVisible ?? true,
+  }), [
+    settings.assignmentGrids?.project?.period,
+    settings.assignmentGrids?.project?.chartVisible,
+  ])
+  const [assignmentView, setAssignmentView] = useState(
+    () => loadProjectAssignmentView(projectId, preferredAssignmentView),
+  )
+  const { viewMode, chartVisible } = assignmentView
+  const updateAssignmentView = useCallback((
+    update: Partial<{ viewMode: AssignmentViewMode; chartVisible: boolean }>,
+    persistPreference = true,
+  ) => {
+    setAssignmentView((current) => {
+      const next = { ...current, ...update }
+      saveProjectAssignmentView(projectId, next)
+      if (persistPreference) {
+        updateSettings({
+          assignmentGrids: {
+            project: {
+              ...(update.viewMode ? { period: update.viewMode } : {}),
+              ...(typeof update.chartVisible === 'boolean'
+                ? { chartVisible: update.chartVisible }
+                : {}),
+            },
+          },
+        })
+      }
+      return next
+    })
+  }, [projectId, updateSettings])
+  const setViewMode = useCallback(
+    (nextMode: AssignmentViewMode) =>
+      updateAssignmentView({ viewMode: nextMode }, false),
+    [updateAssignmentView],
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -166,6 +209,10 @@ const ResourceAssignmentCalendar = ({
   
   // Ref to track scroll position
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setAssignmentView(loadProjectAssignmentView(projectId, preferredAssignmentView))
+  }, [preferredAssignmentView, projectId])
 
   // Check if user has permission to edit resources
   const canEdit = useMemo(() => {
@@ -186,7 +233,7 @@ const ResourceAssignmentCalendar = ({
       setViewMode('daily')
       setIsEditMode(true)
     }
-  }, [editedCells.size, isEditMode, canEdit])
+  }, [editedCells.size, isEditMode, canEdit, setViewMode])
 
   const handleEditClick = useCallback(() => {
     if (!canEdit) {
@@ -206,7 +253,7 @@ const ResourceAssignmentCalendar = ({
         scrollContainerRef.current.scrollTop = scrollTop
       }
     })
-  }, [canEdit])
+  }, [canEdit, setViewMode])
 
   const handleCancelClick = useCallback(() => {
     // Save scroll position before exiting edit mode
@@ -521,7 +568,7 @@ const ResourceAssignmentCalendar = ({
     )
     const anchorDate = periods[Math.min(visibleIndex, periods.length - 1)]?.dates[0]
 
-    setViewMode(nextMode)
+    updateAssignmentView({ viewMode: nextMode })
 
     requestAnimationFrame(() => {
       if (!scrollContainerRef.current || !anchorDate) return
@@ -532,7 +579,7 @@ const ResourceAssignmentCalendar = ({
       scrollContainerRef.current.scrollLeft =
         Math.max(0, nextIndex) * getAssignmentsGridPeriodWidth(nextMode)
     })
-  }, [gridData, isEditMode, periods, viewMode])
+  }, [gridData, isEditMode, periods, updateAssignmentView, viewMode])
 
   // Memoized to prevent recreation on every render
   const handleCellChange = useCallback((
@@ -762,6 +809,10 @@ const ResourceAssignmentCalendar = ({
             valueFormatter: (value) =>
               `${value.toFixed(1)} ${viewMode === 'daily' ? 'heads' : 'heads/day'}`,
           }}
+          chartVisible={chartVisible}
+          onChartVisibilityChange={(visible) =>
+            updateAssignmentView({ chartVisible: visible })
+          }
           toolbarActions={canEdit ? (
             !isEditMode ? (
               <Button

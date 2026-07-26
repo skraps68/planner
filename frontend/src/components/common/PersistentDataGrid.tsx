@@ -6,6 +6,8 @@ import {
   GridInitialState,
   GridState,
 } from '@mui/x-data-grid'
+import { useUserSettings } from '../../contexts/UserSettingsContext'
+import type { UserGridSettings } from '../../types/userSettings'
 
 const STORAGE_PREFIX = 'planner:grid:v1:'
 const STORAGE_VERSION = 1
@@ -55,6 +57,42 @@ const writePreferences = (
   }
 }
 
+const fromUserGridSettings = (
+  settings: UserGridSettings | undefined,
+): PersistedGridPreferences | null => {
+  if (!settings) return null
+  const dimensions = Object.fromEntries(
+    Object.entries(settings.columnWidths ?? {}).map(([field, width]) => [
+      field,
+      { width },
+    ]),
+  )
+  return {
+    version: STORAGE_VERSION,
+    density: settings.density ?? 'compact',
+    columns: {
+      ...(settings.columnOrder ? { orderedFields: settings.columnOrder } : {}),
+      columnVisibilityModel: settings.columnVisibility ?? {},
+      ...(Object.keys(dimensions).length ? { dimensions } : {}),
+    },
+  }
+}
+
+const toUserGridSettings = (
+  preferences: PersistedGridPreferences,
+): UserGridSettings => ({
+  density: preferences.density,
+  columnOrder: preferences.columns.orderedFields,
+  columnVisibility: preferences.columns.columnVisibilityModel,
+  columnWidths: Object.fromEntries(
+    Object.entries(preferences.columns.dimensions ?? {})
+      .filter((entry): entry is [string, { width: number }] =>
+        typeof entry[1].width === 'number',
+      )
+      .map(([field, dimension]) => [field, dimension.width]),
+  ),
+})
+
 export const extractGridPreferences = (state: GridState): PersistedGridPreferences => {
   const dimensions: NonNullable<PersistedColumns['dimensions']> = {}
 
@@ -96,7 +134,18 @@ const PersistentDataGrid: React.FC<PersistentDataGridProps> = ({
   onStateChange,
   ...props
 }) => {
-  const stored = useMemo(() => readPreferences(persistenceKey), [persistenceKey])
+  const {
+    settings,
+    isServerBacked,
+    resetCounter,
+    updateSettings,
+  } = useUserSettings()
+  const stored = useMemo(
+    () =>
+      fromUserGridSettings(settings.grids?.[persistenceKey])
+      ?? (!isServerBacked ? readPreferences(persistenceKey) : null),
+    [isServerBacked, persistenceKey, settings.grids],
+  )
   const pendingPreferences = useRef<PersistedGridPreferences | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSerialized = useRef<string | null>(
@@ -122,10 +171,13 @@ const PersistentDataGrid: React.FC<PersistentDataGridProps> = ({
     const serialized = JSON.stringify(preferences)
     if (serialized !== lastSerialized.current) {
       writePreferences(persistenceKey, preferences)
+      updateSettings({
+        grids: { [persistenceKey]: toUserGridSettings(preferences) },
+      })
       lastSerialized.current = serialized
     }
     pendingPreferences.current = null
-  }, [persistenceKey])
+  }, [persistenceKey, updateSettings])
 
   const handleStateChange: NonNullable<DataGridProps['onStateChange']> = useCallback(
     (state, event, details) => {
@@ -148,7 +200,7 @@ const PersistentDataGrid: React.FC<PersistentDataGridProps> = ({
 
   return (
     <DataGrid
-      key={storageKeyFor(persistenceKey)}
+      key={`${storageKeyFor(persistenceKey)}:${resetCounter}`}
       {...props}
       density={stored?.density ?? density ?? 'compact'}
       initialState={mergedInitialState}

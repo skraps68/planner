@@ -28,7 +28,7 @@ describe('LoginPage', () => {
     render(<LoginPage />)
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/portfolios')
+      expect(mockNavigate).toHaveBeenCalledWith('/')
     })
     expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard')
   })

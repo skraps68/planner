@@ -12,6 +12,11 @@ export const COLOR_LINE = '#e4e8ee'
 export const COLOR_ACCENT = '#285e82'
 export const COLOR_ACCENT_DARK = '#1c4560'
 export const COLOR_ACCENT_LT = '#4d82a8'
+// Pale slate wash used for quantitative "filled" areas and highlighted cells.
+export const COLOR_SLATE_WASH = 'rgba(40, 94, 130, 0.18)'
+// Midpoint between the former financial blue and the slate wash on white.
+export const COLOR_FINANCIAL_BUDGET_FILL = '#cae0f2'
+export const COLOR_FINANCIAL_BUDGET_STROKE = '#3f73a9'
 // Semantic (institutional, muted — separate from the accent)
 export const COLOR_GOOD = '#1f8a54'
 export const COLOR_WARN = '#b7791f'

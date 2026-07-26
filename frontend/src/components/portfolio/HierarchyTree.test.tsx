@@ -58,7 +58,24 @@ describe('HierarchyTree', () => {
       expect(screen.getByText('Customer Experience')).toBeInTheDocument()
       expect(screen.getByText('CRM System Upgrade')).toBeInTheDocument()
     })
-    expect(screen.getByText('CRM System Upgrade').closest('[data-active="true"]')).not.toBeNull()
+    const activeProject = screen.getByText('CRM System Upgrade').closest('[data-active="true"]')
+    expect(activeProject).not.toBeNull()
+    expect(activeProject?.querySelector('[data-selection-outline]')).toHaveStyle({
+      left: '48px',
+    })
+  })
+
+  it('starts a selected program outline beside its expand control', async () => {
+    render(<HierarchyTree activeType="program" activeId="pg1" />, {
+      store: makeStore(),
+      queryClient: createTestQueryClient(),
+    })
+
+    const activeProgram = (await screen.findByText('Customer Experience')).closest('[data-active="true"]')
+    expect(activeProgram).not.toBeNull()
+    expect(activeProgram?.querySelector('[data-selection-outline]')).toHaveStyle({
+      left: '16px',
+    })
   })
 
   it('navigates when a row name is clicked', async () => {

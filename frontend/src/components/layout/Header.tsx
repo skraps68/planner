@@ -18,12 +18,14 @@ import {
   Logout,
   Settings,
   SwapHoriz,
+  Tune,
   Notifications as NotificationsIcon,
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
 import RoleSwitcher from '../auth/RoleSwitcher'
 import UserProfile from '../auth/UserProfile'
 import ChangePassword from '../auth/ChangePassword'
+import PreferencesDialog from '../auth/PreferencesDialog'
 import NavTabs from './NavTabs'
 
 const Header: React.FC = () => {
@@ -32,6 +34,7 @@ const Header: React.FC = () => {
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -59,6 +62,11 @@ const Header: React.FC = () => {
   const handleOpenChangePassword = () => {
     handleMenuClose()
     setChangePasswordOpen(true)
+  }
+
+  const handleOpenPreferences = () => {
+    handleMenuClose()
+    setPreferencesOpen(true)
   }
 
   const getRoleBadgeColor = (roleType: string) => {
@@ -157,6 +165,12 @@ const Header: React.FC = () => {
             </ListItemIcon>
             <ListItemText>Profile</ListItemText>
           </MenuItem>
+          <MenuItem onClick={handleOpenPreferences}>
+            <ListItemIcon>
+              <Tune fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Preferences</ListItemText>
+          </MenuItem>
           <MenuItem onClick={handleOpenChangePassword}>
             <ListItemIcon>
               <Settings fontSize="small" />
@@ -175,6 +189,7 @@ const Header: React.FC = () => {
         <RoleSwitcher open={roleSwitcherOpen} onClose={() => setRoleSwitcherOpen(false)} />
         <UserProfile open={profileOpen} onClose={() => setProfileOpen(false)} />
         <ChangePassword open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
+        <PreferencesDialog open={preferencesOpen} onClose={() => setPreferencesOpen(false)} />
       </Toolbar>
     </AppBar>
   )

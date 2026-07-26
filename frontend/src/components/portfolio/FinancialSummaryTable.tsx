@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { FinancialTableData } from '../../utils/forecastTransform'
 import { formatCurrency } from '../../utils/currencyFormat'
+import { COLOR_FINANCIAL_BUDGET_FILL } from '../../theme'
 
 interface FinancialSummaryTableProps {
   data: FinancialTableData | null
@@ -100,7 +101,7 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
           {/* Total Row */}
           <TableRow>
             <TableCell sx={{ ...cellSx, fontWeight: 'bold' }}>Total</TableCell>
-            <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#BBDEFB' }}>{formatCurrency(displayData.budget.total)}</TableCell>
+            <TableCell align="right" sx={{ ...cellSx, backgroundColor: COLOR_FINANCIAL_BUDGET_FILL }}>{formatCurrency(displayData.budget.total)}</TableCell>
             <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.actuals.total)}</TableCell>
             <TableCell align="center" sx={{ ...symbolSx, backgroundColor: '#E8F5E9' }}>+</TableCell>
             <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.forecast.total)}</TableCell>
@@ -121,7 +122,7 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
           {/* Capital Row */}
           <TableRow>
             <TableCell sx={{ ...cellSx, fontWeight: 'bold' }}>Capital</TableCell>
-            <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#BBDEFB' }}>{formatCurrency(displayData.budget.capital)}</TableCell>
+            <TableCell align="right" sx={{ ...cellSx, backgroundColor: COLOR_FINANCIAL_BUDGET_FILL }}>{formatCurrency(displayData.budget.capital)}</TableCell>
             <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.actuals.capital)}</TableCell>
             <TableCell align="center" sx={{ ...symbolSx, backgroundColor: '#E8F5E9' }}>+</TableCell>
             <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.forecast.capital)}</TableCell>
@@ -142,7 +143,7 @@ export const FinancialSummaryTable: React.FC<FinancialSummaryTableProps> = ({
           {/* Expense Row */}
           <TableRow>
             <TableCell sx={{ ...cellSx, fontWeight: 'bold' }}>Expense</TableCell>
-            <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#BBDEFB' }}>{formatCurrency(displayData.budget.expense)}</TableCell>
+            <TableCell align="right" sx={{ ...cellSx, backgroundColor: COLOR_FINANCIAL_BUDGET_FILL }}>{formatCurrency(displayData.budget.expense)}</TableCell>
             <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.actuals.expense)}</TableCell>
             <TableCell align="center" sx={{ ...symbolSx, backgroundColor: '#E8F5E9' }}>+</TableCell>
             <TableCell align="right" sx={{ ...cellSx, backgroundColor: '#E8F5E9' }}>{formatCurrency(displayData.forecast.expense)}</TableCell>

@@ -26,9 +26,16 @@ const DEPTH_STYLE = [
   { bg: 'transparent', color: 'text.primary', dim: 'text.disabled', hover: 'action.hover' },
 ]
 
+const ROW_BASE_LEFT_PX = 4
+const ROW_DEPTH_INDENT_PX = 14
+const LEAF_SPACER_WIDTH_PX = 22
+const SELECTION_OUTLINE_GUTTER_PX = 2
+const PROJECT_SELECTION_OUTLINE_GUTTER_PX = 6
+
 interface HierarchyTreeProps {
   activeType: HierarchyItemType
   activeId: string
+  width?: number
   onNavigate?: () => void
   onCollapse?: () => void
   /** Toggle out to the expanded (rich all-columns) hierarchy view */
@@ -47,6 +54,7 @@ const labelFor = (idMode: boolean, businessId: string, name: string) =>
 const HierarchyTree: React.FC<HierarchyTreeProps> = ({
   activeType,
   activeId,
+  width,
   onNavigate,
   onCollapse,
   onExpandFull,
@@ -213,23 +221,43 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
       data-active={isActive ? 'true' : undefined}
       onClick={onClick}
       sx={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        pl: 0.5 + depth * 1.75,
+        pl: `${ROW_BASE_LEFT_PX + depth * ROW_DEPTH_INDENT_PX}px`,
         pr: 0.5,
         py: 0.25,
         cursor: 'pointer',
         borderRadius: 1,
         backgroundColor: DEPTH_STYLE[depth].bg,
         color: DEPTH_STYLE[depth].color,
-        // Selected row: thick inset outline (no layout shift) instead of a fill;
-        // light outline on the slate header rows, primary on light rows.
-        boxShadow: isActive
-          ? (theme) => `inset 0 0 0 2px ${depth === 0 ? COLOR_HEADER_FG : theme.palette.primary.main}`
-          : 'none',
         '&:hover': { backgroundColor: DEPTH_STYLE[depth].hover },
       }}
     >
+      {isActive && (
+        <Box
+          aria-hidden="true"
+          data-selection-outline
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: `${
+              ROW_BASE_LEFT_PX
+              + depth * ROW_DEPTH_INDENT_PX
+              + (depth === 2 ? LEAF_SPACER_WIDTH_PX : 0)
+              - (depth === 2
+                ? PROJECT_SELECTION_OUTLINE_GUTTER_PX
+                : SELECTION_OUTLINE_GUTTER_PX)
+            }px`,
+            border: '2px solid',
+            borderColor: depth === 0 ? COLOR_HEADER_FG : 'primary.main',
+            borderRadius: 1,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       {arrow}
       <Typography
         variant="body2"
@@ -262,12 +290,12 @@ const HierarchyTree: React.FC<HierarchyTreeProps> = ({
   )
 
   // 22px spacer keeps leaf names aligned with expandable siblings' names
-  const leafSpacer = <Box sx={{ width: 22, flexShrink: 0 }} />
+  const leafSpacer = <Box sx={{ width: LEAF_SPACER_WIDTH_PX, flexShrink: 0 }} />
 
   return (
     <Paper
       sx={{
-        width: idMode ? 280 : 240,
+        width: width ?? (idMode ? 280 : 240),
         flexShrink: 0,
         overflowY: 'auto',
         maxHeight: 'calc(100vh - 96px)',

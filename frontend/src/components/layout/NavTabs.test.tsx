@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { render, createTestStore } from '../../test/test-utils'
@@ -18,6 +18,11 @@ const storeFor = (roles: string[]) =>
   })
 
 describe('NavTabs', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear()
+    sessionStorage.clear()
+  })
+
   it('renders the hierarchy icon + the five labelled tabs for an admin', () => {
     mockLocation = { pathname: '/portfolios' }
     render(<NavTabs />, { store: storeFor(['ADMIN']) })
@@ -56,5 +61,31 @@ describe('NavTabs', () => {
     render(<NavTabs />, { store: storeFor(['ADMIN']) })
     await user.click(screen.getByRole('tab', { name: 'Actuals' }))
     expect(mockNavigate).toHaveBeenCalledWith('/actuals')
+  })
+
+  it.each([
+    '/portfolios/pf1',
+    '/programs/pg1',
+    '/projects/pj1?tab=assignments',
+  ])('returns to the last selected hierarchy item from another tab: %s', async (savedPath) => {
+    mockLocation = { pathname: '/resources' }
+    sessionStorage.setItem('lastHierarchyDetail', savedPath)
+    const user = userEvent.setup()
+    render(<NavTabs />, { store: storeFor(['ADMIN']) })
+
+    await user.click(screen.getByRole('tab', { name: /hierarchy/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith(savedPath)
+  })
+
+  it('falls back to the expanded hierarchy when the saved path is invalid', async () => {
+    mockLocation = { pathname: '/resources' }
+    sessionStorage.setItem('lastHierarchyDetail', '/resources/r1')
+    const user = userEvent.setup()
+    render(<NavTabs />, { store: storeFor(['ADMIN']) })
+
+    await user.click(screen.getByRole('tab', { name: /hierarchy/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/portfolios')
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, render as rtlRender } from '@testing-library/react'
+import { fireEvent, screen, render as rtlRender } from '@testing-library/react'
 import { createTestStore, createTestQueryClient } from '../../test/test-utils'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { Provider } from 'react-redux'
@@ -11,8 +11,8 @@ import PortfolioShell from './PortfolioShell'
 let mockNarrow = false
 
 vi.mock('../portfolio/HierarchyTree', () => ({
-  default: ({ activeType, activeId, onCollapse }: any) => (
-    <div data-testid="hierarchy-tree">
+  default: ({ activeType, activeId, onCollapse, width }: any) => (
+    <div data-testid="hierarchy-tree" data-width={width}>
       {activeType}:{activeId}
       {onCollapse && (
         <button aria-label="Collapse tree" onClick={onCollapse}>collapse</button>
@@ -77,6 +77,7 @@ describe('PortfolioShell', () => {
     renderAt('/projects/pj1')
     expect(screen.getByTestId('project-detail')).toBeInTheDocument()
     expect(screen.getByTestId('hierarchy-tree')).toHaveTextContent('project:pj1')
+    expect(screen.getByRole('separator', { name: /resize hierarchy navigation/i })).toBeInTheDocument()
   })
 
   it('renders tree + detail when a portfolio detail route is active (State 2)', () => {
@@ -96,6 +97,38 @@ describe('PortfolioShell', () => {
     expect(sessionStorage.getItem('lastHierarchyDetail')).toBe('/projects/pj1')
   })
 
+  it('resizes the tree with the keyboard and saves the width for the session', () => {
+    renderAt('/projects/pj1')
+    const separator = screen.getByRole('separator', { name: /resize hierarchy navigation/i })
+
+    fireEvent.keyDown(separator, { key: 'ArrowRight' })
+
+    expect(screen.getByTestId('hierarchy-tree')).toHaveAttribute('data-width', '248')
+    expect(separator).toHaveAttribute('aria-valuenow', '248')
+    expect(sessionStorage.getItem('portfolioTreeWidth')).toBe('248')
+  })
+
+  it('resizes the tree by dragging the separator', () => {
+    renderAt('/projects/pj1')
+    const separator = screen.getByRole('separator', { name: /resize hierarchy navigation/i })
+
+    fireEvent.pointerDown(separator, { pointerId: 1, clientX: 240 })
+    fireEvent.pointerMove(separator, { pointerId: 1, clientX: 340 })
+    fireEvent.pointerUp(separator, { pointerId: 1, clientX: 340 })
+
+    expect(screen.getByTestId('hierarchy-tree')).toHaveAttribute('data-width', '340')
+    expect(sessionStorage.getItem('portfolioTreeWidth')).toBe('340')
+  })
+
+  it('restores a saved tree width from the session', () => {
+    sessionStorage.setItem('portfolioTreeWidth', '376')
+    renderAt('/projects/pj1')
+
+    expect(screen.getByTestId('hierarchy-tree')).toHaveAttribute('data-width', '376')
+    expect(screen.getByRole('separator', { name: /resize hierarchy navigation/i }))
+      .toHaveAttribute('aria-valuenow', '376')
+  })
+
   it('collapses the tree to a rail and expands it back', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     renderAt('/projects/pj1')
@@ -103,10 +136,12 @@ describe('PortfolioShell', () => {
 
     await user.click(screen.getByRole('button', { name: /collapse tree/i }))
     expect(screen.queryByTestId('hierarchy-tree')).not.toBeInTheDocument()
+    expect(screen.queryByRole('separator', { name: /resize hierarchy navigation/i })).not.toBeInTheDocument()
     expect(sessionStorage.getItem('portfolioTreeCollapsed')).toBe('1')
 
     await user.click(screen.getByRole('button', { name: /expand tree/i }))
     expect(screen.getByTestId('hierarchy-tree')).toBeInTheDocument()
+    expect(screen.getByRole('separator', { name: /resize hierarchy navigation/i })).toBeInTheDocument()
   })
 })
 
@@ -120,6 +155,7 @@ describe('PortfolioShell narrow screens', () => {
     renderAt('/projects/pj1')
     expect(screen.getByTestId('project-detail')).toBeInTheDocument()
     expect(screen.queryByTestId('hierarchy-tree')).not.toBeInTheDocument()
+    expect(screen.queryByRole('separator', { name: /resize hierarchy navigation/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /list/i })).toBeInTheDocument()
   })
 

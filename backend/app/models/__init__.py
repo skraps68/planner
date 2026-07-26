@@ -10,6 +10,7 @@ from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
 from app.models.actual import Actual
 from app.models.user import User, UserRole, ScopeAssignment, RoleType, ScopeType
+from app.models.user_settings import UserSettings
 from app.models.audit import AuditLog
 from app.models.business_id import BusinessIdConfig
 
@@ -34,6 +35,7 @@ __all__ = [
     "ScopeAssignment",
     "RoleType",
     "ScopeType",
+    "UserSettings",
     "AuditLog",
     "BusinessIdConfig",
 ]

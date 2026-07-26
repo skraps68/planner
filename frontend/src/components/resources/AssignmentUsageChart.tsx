@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import {
   COLOR_ACCENT,
   COLOR_LINE,
+  COLOR_SLATE_WASH,
 } from '../../theme'
 import type { AssignmentPeriod } from './assignmentPeriods'
 import {
@@ -13,7 +14,6 @@ import {
 const CHART_HEIGHT = 160
 const PLOT_TOP = 16
 const PLOT_BOTTOM = 132
-const USED_FILL = 'rgba(40, 94, 130, 0.18)'
 const AVAILABLE_FILL = 'rgba(76, 175, 80, 0.20)'
 const OVER_FILL = 'rgba(192, 57, 47, 0.22)'
 const LIMIT_COLOR = '#c0392f'
@@ -131,7 +131,7 @@ export const AssignmentUsageChart = ({
           {config.subtitle}
         </Typography>
         <Box sx={{ position: 'absolute', left: '10px', top: '61px', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Box sx={{ width: 20, height: 9, borderTop: `2px solid ${COLOR_ACCENT}`, backgroundColor: USED_FILL }} />
+          <Box sx={{ width: 20, height: 9, borderTop: `2px solid ${COLOR_ACCENT}`, backgroundColor: COLOR_SLATE_WASH }} />
           <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>{config.seriesLabel}</Typography>
         </Box>
         {config.capacityLimit !== undefined && config.availableCapacityLabel && (
@@ -210,7 +210,7 @@ export const AssignmentUsageChart = ({
               clipPath={`url(#${clipId}-under)`}
             />
           )}
-          {usedPath && <path d={usedPath} fill={USED_FILL} />}
+          {usedPath && <path d={usedPath} fill={COLOR_SLATE_WASH} />}
           {limitY !== undefined && usedPath && (
             <path
               d={usedPath}

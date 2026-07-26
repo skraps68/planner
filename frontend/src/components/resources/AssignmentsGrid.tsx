@@ -105,6 +105,8 @@ interface AssignmentsGridProps {
   isEditMode?: boolean
   disableViewModeChange?: boolean
   chartConfig?: AssignmentUsageChartConfig
+  chartVisible?: boolean
+  onChartVisibilityChange?: (visible: boolean) => void
   toolbarActions?: ReactNode
 }
 
@@ -172,9 +174,17 @@ export const AssignmentsGrid = ({
   isEditMode = false,
   disableViewModeChange = isEditMode,
   chartConfig,
+  chartVisible,
+  onChartVisibilityChange,
   toolbarActions,
 }: AssignmentsGridProps) => {
-  const [isChartVisible, setIsChartVisible] = useState(true)
+  const [internalChartVisible, setInternalChartVisible] = useState(true)
+  const isChartVisible = chartVisible ?? internalChartVisible
+  const toggleChartVisibility = () => {
+    const nextVisible = !isChartVisible
+    if (chartVisible === undefined) setInternalChartVisible(nextVisible)
+    onChartVisibilityChange?.(nextVisible)
+  }
   const periodWidth = getAssignmentsGridPeriodWidth(viewMode)
   const identityWidth = ASSIGNMENTS_GRID_PRIMARY_WIDTH + typeColumnWidth
   const tableWidth =
@@ -256,7 +266,7 @@ export const AssignmentsGrid = ({
               <ToggleButton
                 value="chart"
                 selected={isChartVisible}
-                onChange={() => setIsChartVisible((visible) => !visible)}
+                onChange={toggleChartVisibility}
                 aria-label={isChartVisible ? 'Hide allocation chart' : 'Show allocation chart'}
                 sx={{
                   width: 27,

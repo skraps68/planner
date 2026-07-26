@@ -14,6 +14,7 @@ import { Resource } from '../../types'
 import PermissionButton from '../../components/common/PermissionButton'
 import PageHeader from '../../components/common/PageHeader'
 import DataTable from '../../components/common/DataTable'
+import { useUserSettings } from '../../contexts/UserSettingsContext'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -82,19 +83,27 @@ const ResourceTab: React.FC<{
 
 const ResourcesListPage: React.FC = () => {
   const navigate = useNavigate()
+  const { settings, updateSettings } = useUserSettings()
   // The URL is the single source of truth for the active tab (?tab=0|1), so
   // returning from a resource detail page via the browser back button restores
   // whichever tab (Labor/Non-Labor) the user left from.
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = useMemo(() => {
     const parsed = parseInt(searchParams.get('tab') ?? '', 10)
-    return Math.min(Math.max(Number.isNaN(parsed) ? 0 : parsed, 0), 1)
-  }, [searchParams])
+    const preferredTab =
+      settings.lists?.resources?.defaultTab === 'non_labor' ? 1 : 0
+    return Math.min(Math.max(Number.isNaN(parsed) ? preferredTab : parsed, 0), 1)
+  }, [searchParams, settings.lists?.resources?.defaultTab])
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     const next = new URLSearchParams(searchParams)
     if (newValue === 0) next.delete('tab')
     else next.set('tab', String(newValue))
+    updateSettings({
+      lists: {
+        resources: { defaultTab: newValue === 0 ? 'labor' : 'non_labor' },
+      },
+    })
     // replace (not push) so switching tabs doesn't stack history entries
     setSearchParams(next, { replace: true })
   }

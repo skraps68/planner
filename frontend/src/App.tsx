@@ -33,6 +33,8 @@ import PortfolioDetailPage from './pages/portfolios/PortfolioDetailPage'
 import PortfolioFormPage from './pages/portfolios/PortfolioFormPage'
 import ReferenceDataPage from './pages/setup/ReferenceDataPage'
 import { AdminRoute } from './components/common/AdminRoute'
+import { UserSettingsProvider } from './contexts/UserSettingsContext'
+import LandingRedirect from './components/layout/LandingRedirect'
 
 function App() {
   return (
@@ -44,9 +46,10 @@ function App() {
             path="/*"
             element={
               <ProtectedRoute>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/portfolios" replace />} />
+                <UserSettingsProvider>
+                  <Layout>
+                    <Routes>
+                    <Route path="/" element={<LandingRedirect />} />
                     <Route path="/dashboard" element={<DashboardPage />} />
                     <Route path="/portfolios/new" element={<PortfolioFormPage />} />
                     {/* Program/project lists are consolidated into the Portfolios view */}
@@ -91,8 +94,9 @@ function App() {
                       }
                     />
                     {/* Additional routes will be added in subsequent tasks */}
-                  </Routes>
-                </Layout>
+                    </Routes>
+                  </Layout>
+                </UserSettingsProvider>
               </ProtectedRoute>
             }
           />
