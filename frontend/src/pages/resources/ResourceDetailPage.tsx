@@ -19,12 +19,20 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
-import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+} from '@mui/icons-material'
 import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
+import { projectsApi } from '../../api/projects'
 import { resourceRolesApi } from '../../api/resourceRoles'
 import { assignmentsApi, BulkAssignmentUpdate, BulkUpdateResult } from '../../api/assignments'
-import { Resource, ResourceAssignment, ResourceRole } from '../../types'
+import { Project, Resource, ResourceAssignment, ResourceRole } from '../../types'
 import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
+import { AssignmentEntityAutocomplete } from '../../components/resources/AssignmentEntityAutocomplete'
+import { AssignmentDraftRows } from '../../components/resources/AssignmentDraftRows'
 import PageHeader from '../../components/common/PageHeader'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
@@ -65,9 +73,22 @@ interface ProjectRow {
 /**
  * Generates a sorted, deduplicated list of UTC date strings from assignments
  */
-function buildDateRange(assignments: ResourceAssignment[]): Date[] {
+function buildDateRange(
+  assignments: ResourceAssignment[],
+  draftProject: Project | null = null,
+): Date[] {
   const dateSet = new Set<string>()
   assignments.forEach((a) => dateSet.add(a.assignment_date))
+  if (draftProject?.start_date && draftProject.end_date) {
+    const [startYear, startMonth, startDay] = draftProject.start_date.split('-').map(Number)
+    const [endYear, endMonth, endDay] = draftProject.end_date.split('-').map(Number)
+    const cursor = new Date(Date.UTC(startYear, startMonth - 1, startDay))
+    const end = new Date(Date.UTC(endYear, endMonth - 1, endDay))
+    while (cursor <= end) {
+      dateSet.add(dateKey(cursor))
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    }
+  }
   const sourceDates = Array.from(dateSet)
     .sort()
     .map((d) => {
@@ -94,8 +115,9 @@ interface BreadcrumbItem {
 
 const ResourceAllocationCalendar: React.FC<{
   resourceId: string
+  allowAddProject: boolean
   resourceBreadcrumbItems?: BreadcrumbItem[]
-}> = ({ resourceId, resourceBreadcrumbItems }) => {
+}> = ({ resourceId, allowAddProject, resourceBreadcrumbItems }) => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -127,6 +149,8 @@ const ResourceAllocationCalendar: React.FC<{
   const [validationErrors, setValidationErrors] = useState<Map<string, string>>(new Map())
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [isAddingProject, setIsAddingProject] = useState(false)
+  const [draftProject, setDraftProject] = useState<Project | null>(null)
 
   useEffect(() => {
     setViewMode(settings.assignmentGrids?.resource?.period ?? 'daily')
@@ -139,17 +163,33 @@ const ResourceAllocationCalendar: React.FC<{
   const ck = (projectId: string, dateStr: string, type: 'capital' | 'expense') =>
     `${projectId}:${dateStr}:${type}`
 
+  const assignedProjectIds = useMemo(
+    () => new Set(assignments.map((assignment) => assignment.project_id)),
+    [assignments],
+  )
+
+  const searchProjects = useCallback(async (query: string) => {
+    const response = await projectsApi.list({ search: query, page: 1, size: 100 })
+    return response.items.filter((project) => !assignedProjectIds.has(project.id))
+  }, [assignedProjectIds])
+
   const { dates, projects, cellMap } = useMemo(() => {
-    const dates = buildDateRange(assignments)
+    const dates = buildDateRange(assignments, draftProject)
     const projectMap = new Map<string, string>()
     assignments.forEach((a) => {
       if (!projectMap.has(a.project_id))
         projectMap.set(a.project_id, (a as any).project_name || a.project_id)
     })
-    const projects: ProjectRow[] = Array.from(projectMap.entries()).map(([id, name]) => ({
+    const existingProjects: ProjectRow[] = Array.from(projectMap.entries()).map(([id, name]) => ({
       projectId: id,
       projectName: name,
     }))
+    const projects = draftProject && !projectMap.has(draftProject.id)
+      ? [
+          { projectId: draftProject.id, projectName: draftProject.name },
+          ...existingProjects,
+        ]
+      : existingProjects
     const cellMap = new Map<string, { capital: number; expense: number }>()
     assignments.forEach((a) => {
       cellMap.set(`${a.project_id}::${a.assignment_date}`, {
@@ -158,7 +198,7 @@ const ResourceAllocationCalendar: React.FC<{
       })
     })
     return { dates, projects, cellMap }
-  }, [assignments])
+  }, [assignments, draftProject])
 
   const periods = useMemo(
     () => buildAssignmentPeriods(dates, viewMode),
@@ -204,6 +244,27 @@ const ResourceAllocationCalendar: React.FC<{
     setIsEditMode(true)
   }, [])
 
+  const handleAddProject = useCallback(() => {
+    if (!canEdit || !allowAddProject) return
+    setViewMode('daily')
+    setIsEditMode(true)
+    setIsAddingProject(true)
+    setDraftProject(null)
+    setSaveError(null)
+  }, [allowAddProject, canEdit])
+
+  const handleDraftProjectChange = useCallback((project: Project | null) => {
+    if (draftProject?.id && draftProject.id !== project?.id) {
+      setEditedCells((edits) => new Map(
+        Array.from(edits).filter(([key]) => !key.startsWith(`${draftProject.id}:`)),
+      ))
+      setValidationErrors((errors) => new Map(
+        Array.from(errors).filter(([key]) => !key.startsWith(`${draftProject.id}:`)),
+      ))
+    }
+    setDraftProject(project)
+  }, [draftProject])
+
   const handleCellChange = useCallback((projectId: string, dateStr: string, type: 'capital' | 'expense', value: number) => {
     const key = ck(projectId, dateStr, type)
     setEditedCells((prev) => {
@@ -219,6 +280,8 @@ const ResourceAllocationCalendar: React.FC<{
   const handleCancel = useCallback(() => {
     setEditedCells(new Map())
     setValidationErrors(new Map())
+    setIsAddingProject(false)
+    setDraftProject(null)
     setIsEditMode(false)
     setSaveError(null)
   }, [])
@@ -286,25 +349,38 @@ const ResourceAllocationCalendar: React.FC<{
       }
 
       const bulkUpdates: BulkAssignmentUpdate[] = []
+      const createPromises: Array<ReturnType<typeof assignmentsApi.create>> = []
       for (const [gk, edits] of grouped) {
         const [projectId, dateStr] = gk.split(':')
         const existing = assignments.find(
           (a) => a.project_id === projectId && a.assignment_date === dateStr
         )
-        if (!existing) continue
         const cell = cellMap.get(`${projectId}::${dateStr}`)
-        bulkUpdates.push({
-          id: existing.id,
-          capital_percentage: Math.round(edits.capital ?? cell?.capital ?? 0),
-          expense_percentage: Math.round(edits.expense ?? cell?.expense ?? 0),
-          version: existing.version ?? 1,
-        })
+        const capitalPercentage = Math.round(edits.capital ?? cell?.capital ?? 0)
+        const expensePercentage = Math.round(edits.expense ?? cell?.expense ?? 0)
+        if (existing) {
+          bulkUpdates.push({
+            id: existing.id,
+            capital_percentage: capitalPercentage,
+            expense_percentage: expensePercentage,
+            version: existing.version ?? 1,
+          })
+        } else {
+          createPromises.push(assignmentsApi.create({
+            resource_id: resourceId,
+            project_id: projectId,
+            assignment_date: dateStr,
+            capital_percentage: capitalPercentage,
+            expense_percentage: expensePercentage,
+          }))
+        }
       }
 
       let bulkResult: BulkUpdateResult = { succeeded: [], failed: [] }
       if (bulkUpdates.length > 0) {
         bulkResult = await assignmentsApi.bulkUpdate(bulkUpdates)
       }
+      const createResults = await Promise.all(createPromises)
 
       // Refresh so any successful updates (and up-to-date versions for
       // conflicting ones) are reflected before we decide what to keep.
@@ -332,10 +408,18 @@ const ResourceAllocationCalendar: React.FC<{
         setSaveError(
           `${bulkResult.failed.length} change(s) conflicted with edits by another user and were kept for review.`
         )
+        if (draftProject && createResults.some(
+          (created) => created.project_id === draftProject.id,
+        )) {
+          setIsAddingProject(false)
+          setDraftProject(null)
+        }
         // Stay in edit mode — do not clear edits or exit.
       } else {
         setEditedCells(new Map())
         setValidationErrors(new Map())
+        setIsAddingProject(false)
+        setDraftProject(null)
         setIsEditMode(false)
         setSaveSuccess(true)
       }
@@ -344,12 +428,19 @@ const ResourceAllocationCalendar: React.FC<{
     } finally {
       setIsSaving(false)
     }
-  }, [editedCells, assignments, cellMap, dates, projects, queryClient, resourceId])
+  }, [
+    editedCells,
+    assignments,
+    cellMap,
+    dates,
+    projects,
+    queryClient,
+    resourceId,
+    draftProject,
+  ])
 
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
   if (error) return <Alert severity="error">Failed to load assignments</Alert>
-  if (assignments.length === 0) return <Alert severity="info">This resource has no assignments yet.</Alert>
-
   const hasEdits = editedCells.size > 0
   const allocationChartValues = periods.map((period) =>
     averageAssignmentPeriod(
@@ -395,25 +486,48 @@ const ResourceAllocationCalendar: React.FC<{
         toolbarActions={(canEdit || isEditMode) ? (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             {!isEditMode ? (
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<EditIcon />}
-                onClick={handleEditAssignments}
-              >
-                Edit
-              </Button>
+              <>
+                {allowAddProject && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddProject}
+                  >
+                    Add Project
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={handleEditAssignments}
+                >
+                  Edit
+                </Button>
+              </>
             ) : lockState === 'blocked' ? (
               <Button variant="outlined" size="small" onClick={handleCancel}>
                 Close
               </Button>
             ) : (
               <>
+                {allowAddProject && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddProject}
+                    disabled={isSaving || isAddingProject}
+                  >
+                    Add Project
+                  </Button>
+                )}
                 <Button variant="outlined" size="small" startIcon={<CancelIcon />} onClick={handleCancel} disabled={isSaving}>
                   Cancel
                 </Button>
                 <Button variant="contained" size="small" startIcon={isSaving ? <CircularProgress size={14} /> : <SaveIcon />}
-                  onClick={handleSave} disabled={isSaving || !hasEdits}>
+                  onClick={handleSave} disabled={isSaving || !hasEdits || (isAddingProject && !draftProject)}>
                   Save Changes
                 </Button>
               </>
@@ -449,6 +563,28 @@ const ResourceAllocationCalendar: React.FC<{
                 })}
               </TableRow>
 
+              {isAddingProject && !draftProject && (
+                <AssignmentDraftRows
+                  periods={periods}
+                  selector={
+                      <AssignmentEntityAutocomplete
+                        value={null}
+                        onChange={handleDraftProjectChange}
+                        searchOptions={searchProjects}
+                        getOptionLabel={(project) =>
+                          project.business_id
+                            ? `${project.business_id} · ${project.name}`
+                            : project.name
+                        }
+                        ariaLabel="Choose project to add"
+                        placeholder="Choose project…"
+                        entityPlural="projects"
+                        autoFocus
+                      />
+                  }
+                />
+              )}
+
               {/* One pair of rows per project */}
               {projects.map((project) => (
                 <React.Fragment key={project.projectId}>
@@ -460,14 +596,30 @@ const ResourceAllocationCalendar: React.FC<{
                       verticalAlign: 'middle',
                       textAlign: 'left !important',
                     }}>
-                      <Typography variant="body2" fontWeight="medium" component="a"
-                        onClick={() => navigate(`/projects/${project.projectId}?tab=1`, {
-                          state: resourceBreadcrumbItems ? { fromResourceBreadcrumbs: resourceBreadcrumbItems } : undefined,
-                        })}
-                        sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}
-                      >
-                        {project.projectName}
-                      </Typography>
+                      {isAddingProject && draftProject?.id === project.projectId ? (
+                        <AssignmentEntityAutocomplete
+                          value={draftProject}
+                          onChange={handleDraftProjectChange}
+                          searchOptions={searchProjects}
+                          getOptionLabel={(option) =>
+                            option.business_id
+                              ? `${option.business_id} · ${option.name}`
+                              : option.name
+                          }
+                          ariaLabel="Choose project to add"
+                          placeholder="Choose project…"
+                          entityPlural="projects"
+                        />
+                      ) : (
+                        <Typography variant="body2" fontWeight="medium" component="a"
+                          onClick={() => navigate(`/projects/${project.projectId}?tab=1`, {
+                            state: resourceBreadcrumbItems ? { fromResourceBreadcrumbs: resourceBreadcrumbItems } : undefined,
+                          })}
+                          sx={{ color: 'primary.main', textDecoration: 'underline', cursor: 'pointer' }}
+                        >
+                          {project.projectName}
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider', textAlign: 'left !important' }}>
                       <Typography variant="caption" color="primary">Cap %</Typography>
@@ -537,6 +689,16 @@ const ResourceAllocationCalendar: React.FC<{
                   </TableRow>
                 </React.Fragment>
               ))}
+              {projects.length === 0 && !isAddingProject && (
+                <TableRow>
+                  <TableCell
+                    colSpan={Math.max(2, periods.length + 2)}
+                    sx={{ py: 2, color: 'text.secondary', textAlign: 'center !important' }}
+                  >
+                    No projects assigned. Use Add Project to create the first assignment.
+                  </TableCell>
+                </TableRow>
+              )}
       </AssignmentsGrid>
 
       <LockBanner holder={lockHolder} state={lockState} onTakeOver={takeOverLock} />
@@ -920,6 +1082,7 @@ const ResourceDetailPage: React.FC = () => {
       <Typography variant="h6" sx={{ mb: 1 }}>Assignments</Typography>
       <ResourceAllocationCalendar
         resourceId={id!}
+        allowAddProject={resource?.resource_type === 'LABOR'}
         resourceBreadcrumbItems={
           fromProjectBreadcrumbs
             ? [...fromProjectBreadcrumbs, { label: resource?.name || '…', path: `/resources/${id}`, state: { fromProjectBreadcrumbs } }]

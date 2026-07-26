@@ -26,6 +26,9 @@ export interface ProjectUpdateRequest extends Partial<Omit<ProjectCreateRequest,
 }
 
 export interface ProjectListParams {
+  page?: number
+  size?: number
+  /** Legacy aliases retained for existing callers. */
   skip?: number
   limit?: number
   program_id?: string

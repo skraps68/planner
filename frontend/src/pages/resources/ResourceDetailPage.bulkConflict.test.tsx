@@ -24,10 +24,12 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { render, createTestStore } from '../../test/test-utils'
 import ResourceDetailPage from './ResourceDetailPage'
 import { resourcesApi } from '../../api/resources'
+import { projectsApi } from '../../api/projects'
 import { assignmentsApi } from '../../api/assignments'
 import { COLOR_HEADER_BG, COLOR_HEADER_FG } from '../../theme'
 
 vi.mock('../../api/resources')
+vi.mock('../../api/projects')
 vi.mock('../../api/assignments')
 
 vi.mock('react-router-dom', async () => {
@@ -153,6 +155,117 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     const saveButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Save Changes' })
     expect(cancelButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(saveButton.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps Add Project available when the labor resource has no assignments', async () => {
+    const user = userEvent.setup()
+    vi.mocked(assignmentsApi.getByResource).mockReset()
+    vi.mocked(assignmentsApi.getByResource).mockResolvedValue([])
+
+    render(<ResourceDetailPage />, { store, queryClient })
+
+    const grid = await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    expect(within(grid).getByText(/No projects assigned/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add Project' }))
+    expect(screen.getByRole('combobox', {
+      name: 'Choose project to add',
+    })).toBeInTheDocument()
+  })
+
+  it('adds a searched project as pinned blank rows and creates entered assignments', async () => {
+    const user = userEvent.setup()
+    const newProject = {
+      id: 'project-gamma',
+      business_id: 'PRJ-003',
+      program_id: 'program-1',
+      name: 'Project Gamma',
+      business_sponsor: 'Sponsor',
+      project_manager: 'Manager',
+      technical_lead: 'Lead',
+      start_date: '2024-01-16',
+      end_date: '2024-01-17',
+      cost_center_code: 'CC-003',
+      version: 1,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    }
+    vi.mocked(projectsApi.list).mockResolvedValue({
+      items: [newProject],
+      total: 1,
+      page: 1,
+      size: 100,
+      pages: 1,
+    } as any)
+    vi.mocked(assignmentsApi.create).mockResolvedValue({
+      id: 'assignment-gamma',
+      resource_id: 'resource-1',
+      project_id: newProject.id,
+      project_name: newProject.name,
+      assignment_date: '2024-01-16',
+      capital_percentage: 25,
+      expense_percentage: 0,
+      version: 1,
+    } as any)
+
+    render(<ResourceDetailPage />, { store, queryClient })
+    const grid = await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    const assignmentCard = grid.closest('.MuiPaper-root') as HTMLElement
+
+    await user.click(within(assignmentCard).getByRole('button', { name: 'Add Project' }))
+
+    const projectPicker = within(assignmentCard).getByRole('combobox', {
+      name: 'Choose project to add',
+    })
+    expect(projectPicker.closest('td')).toHaveAttribute('rowspan', '2')
+    await user.type(projectPicker, 'Gamma')
+
+    await waitFor(() => {
+      expect(projectsApi.list).toHaveBeenCalledWith({
+        search: 'Gamma',
+        page: 1,
+        size: 100,
+      })
+    })
+    await user.click(await screen.findByRole('option', { name: 'PRJ-003 · Project Gamma' }))
+
+    const selectedPicker = within(assignmentCard).getByRole('combobox', {
+      name: 'Choose project to add',
+    })
+    const newProjectRow = selectedPicker.closest('tr') as HTMLElement
+    const existingProjectRow = within(assignmentCard).getByText('Project Alpha').closest('tr') as HTMLElement
+    expect(
+      newProjectRow.compareDocumentPosition(existingProjectRow)
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: January 16, 2024',
+    })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: January 17, 2024',
+    })).toBeInTheDocument()
+
+    const allocationCell = within(newProjectRow).getAllByRole('button', {
+      name: 'Allocation percentage',
+    })[1]
+    await user.click(allocationCell)
+    const allocationInput = within(newProjectRow).getByRole('textbox', {
+      name: 'Allocation percentage',
+    })
+    await user.type(allocationInput, '25')
+    await user.tab()
+
+    await user.click(within(assignmentCard).getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => {
+      expect(assignmentsApi.create).toHaveBeenCalledWith({
+        resource_id: 'resource-1',
+        project_id: 'project-gamma',
+        assignment_date: '2024-01-16',
+        capital_percentage: 25,
+        expense_percentage: 0,
+      })
+    })
   })
 
   it('shows calendar-day averages in Monthly view and returns to Daily for editing', async () => {

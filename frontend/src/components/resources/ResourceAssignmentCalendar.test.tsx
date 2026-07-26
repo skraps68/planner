@@ -799,7 +799,7 @@ describe('ResourceAssignmentCalendar - Edit Mode', () => {
       })
     })
 
-    it('displays only Edit button in read-only mode', async () => {
+    it('displays Add Resource and Edit controls in read-only mode', async () => {
       render(
         <ResourceAssignmentCalendar
           projectId={mockProjectId}
@@ -812,6 +812,7 @@ describe('ResourceAssignmentCalendar - Edit Mode', () => {
         expect(screen.getByText('Edit')).toBeInTheDocument()
       })
 
+      expect(screen.getByText('Add Resource')).toBeInTheDocument()
       expect(screen.queryByText('Save')).not.toBeInTheDocument()
       expect(screen.queryByText('Cancel')).not.toBeInTheDocument()
     })

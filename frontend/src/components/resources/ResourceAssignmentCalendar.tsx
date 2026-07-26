@@ -12,7 +12,10 @@ import {
   Stack,
   Snackbar,
 } from '@mui/material'
+import { Add as AddIcon } from '@mui/icons-material'
 import { assignmentsApi, BulkUpdateFailure } from '../../api/assignments'
+import { resourcesApi } from '../../api/resources'
+import type { Resource } from '../../types'
 import {
   transformToGrid,
   getCellValue,
@@ -48,6 +51,8 @@ import {
   saveProjectAssignmentView,
 } from './projectAssignmentViewSession'
 import { useUserSettings } from '../../contexts/UserSettingsContext'
+import { AssignmentEntityAutocomplete } from './AssignmentEntityAutocomplete'
+import { AssignmentDraftRows } from './AssignmentDraftRows'
 
 // Memoized cell wrapper to prevent unnecessary re-renders
 interface CellWrapperProps {
@@ -206,6 +211,8 @@ const ResourceAssignmentCalendar = ({
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false)
   const [bulkConflictFailures, setBulkConflictFailures] = useState<BulkUpdateFailure[]>([])
   const [bulkConflictSuccessCount, setBulkConflictSuccessCount] = useState(0)
+  const [isAddingResource, setIsAddingResource] = useState(false)
+  const [draftResource, setDraftResource] = useState<Resource | null>(null)
   
   // Ref to track scroll position
   const scrollContainerRef = React.useRef<HTMLDivElement>(null)
@@ -218,6 +225,25 @@ const ResourceAssignmentCalendar = ({
   const canEdit = useMemo(() => {
     return hasPermission(user, 'manage_resources').hasPermission
   }, [user])
+
+  const assignedResourceIds = useMemo(
+    () => new Set(assignments.map((assignment) => assignment.resource_id)),
+    [assignments],
+  )
+
+  const searchLaborResources = useCallback(async (query: string) => {
+    const response = await resourcesApi.list({
+      page: 1,
+      size: 100,
+      resource_type: 'LABOR',
+      search: query,
+    })
+    return response.items.filter(
+      (resource) =>
+        resource.resource_type === 'LABOR'
+        && !assignedResourceIds.has(resource.id),
+    )
+  }, [assignedResourceIds])
 
   // Handle query errors
   useEffect(() => {
@@ -255,6 +281,27 @@ const ResourceAssignmentCalendar = ({
     })
   }, [canEdit, setViewMode])
 
+  const handleAddResource = useCallback(() => {
+    if (!canEdit) return
+    setViewMode('daily')
+    setIsEditMode(true)
+    setIsAddingResource(true)
+    setDraftResource(null)
+    setSaveError(null)
+  }, [canEdit, setViewMode])
+
+  const handleDraftResourceChange = useCallback((resource: Resource | null) => {
+    if (draftResource?.id && draftResource.id !== resource?.id) {
+      setEditedCells((edits) => new Map(
+        Array.from(edits).filter(([key]) => !key.startsWith(`${draftResource.id}:`)),
+      ))
+      setValidationErrors((errors) => new Map(
+        Array.from(errors).filter(([key]) => !key.startsWith(`${draftResource.id}:`)),
+      ))
+    }
+    setDraftResource(resource)
+  }, [draftResource, setEditedCells])
+
   const handleCancelClick = useCallback(() => {
     // Save scroll position before exiting edit mode
     const scrollLeft = scrollContainerRef.current?.scrollLeft || 0
@@ -263,6 +310,8 @@ const ResourceAssignmentCalendar = ({
     setIsEditMode(false)
     clearEdits() // Clear persisted edits
     setValidationErrors(new Map())
+    setIsAddingResource(false)
+    setDraftResource(null)
     
     // Restore scroll position after state update
     requestAnimationFrame(() => {
@@ -464,6 +513,12 @@ const ResourceAssignmentCalendar = ({
         setBulkConflictFailures(bulkResult.failed)
         setBulkConflictSuccessCount(successCount)
         setConflictDialogOpen(true)
+        if (draftResource && createResults.some(
+          (created) => created.resource_id === draftResource.id,
+        )) {
+          setIsAddingResource(false)
+          setDraftResource(null)
+        }
         
         // Don't exit edit mode - keep failed edits visible
       } else {
@@ -473,6 +528,8 @@ const ResourceAssignmentCalendar = ({
         // Clear all edits and exit edit mode
         clearEdits() // Clear persisted edits
         setValidationErrors(new Map())
+        setIsAddingResource(false)
+        setDraftResource(null)
         setIsEditMode(false)
         setSaveSuccess(true)
         onSaveSuccess?.()
@@ -502,7 +559,17 @@ const ResourceAssignmentCalendar = ({
     } finally {
       setIsSaving(false)
     }
-  }, [canEdit, editedCells, assignments, projectId, onSaveSuccess, onSaveError, invalidateProject, clearEdits])
+  }, [
+    canEdit,
+    editedCells,
+    assignments,
+    projectId,
+    onSaveSuccess,
+    onSaveError,
+    invalidateProject,
+    clearEdits,
+    draftResource,
+  ])
   
   const handleConflictRefreshAndRetry = useCallback(async () => {
     // Close the dialog
@@ -522,6 +589,8 @@ const ResourceAssignmentCalendar = ({
     // Clear all edits and exit edit mode
     clearEdits() // Clear persisted edits
     setValidationErrors(new Map())
+    setIsAddingResource(false)
+    setDraftResource(null)
     setIsEditMode(false)
   }, [clearEdits])
   
@@ -545,13 +614,23 @@ const ResourceAssignmentCalendar = ({
         parseUTCDate(projectStartDate),
         parseUTCDate(projectEndDate)
       )
+
+      if (
+        draftResource
+        && !result.resources.some((resource) => resource.resourceId === draftResource.id)
+      ) {
+        result.resources.unshift({
+          resourceId: draftResource.id,
+          resourceName: draftResource.name,
+        })
+      }
       
       return result
     } catch (err) {
       console.error('Error transforming grid data:', err)
       return null
     }
-  }, [assignments, projectStartDate, projectEndDate])
+  }, [assignments, draftResource, projectStartDate, projectEndDate])
 
   const periods = useMemo(
     () => buildAssignmentPeriods(gridData?.dates ?? [], viewMode),
@@ -710,15 +789,6 @@ const ResourceAssignmentCalendar = ({
     )
   }
 
-  // Empty state: no resources
-  if (gridData.resources.length === 0) {
-    return (
-      <Alert severity="info">
-        No resources are currently assigned to this project. Add resource assignments to see them in the calendar view.
-      </Alert>
-    )
-  }
-
   const laborChartValues = periods.map((period) =>
     averageAssignmentPeriod(period, (date) =>
       gridData.resources.reduce((sum, resource) => (
@@ -815,17 +885,36 @@ const ResourceAssignmentCalendar = ({
           }
           toolbarActions={canEdit ? (
             !isEditMode ? (
-              <Button
-                variant="contained"
-                color="primary"
-                size="small"
-                onClick={handleEditClick}
-                aria-label="Enable edit mode for resource assignments"
-              >
-                Edit
-              </Button>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddResource}
+                >
+                  Add Resource
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={handleEditClick}
+                  aria-label="Enable edit mode for resource assignments"
+                >
+                  Edit
+                </Button>
+              </Stack>
             ) : (
               <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddResource}
+                  disabled={isSaving || isAddingResource}
+                >
+                  Add Resource
+                </Button>
                 <Button
                   variant="outlined"
                   color="secondary"
@@ -842,7 +931,11 @@ const ResourceAssignmentCalendar = ({
                   color="primary"
                   size="small"
                   onClick={handleSaveClick}
-                  disabled={isSaving}
+                  disabled={
+                    isSaving
+                    || editedCells.size === 0
+                    || (isAddingResource && !draftResource)
+                  }
                   aria-label="Save all changes to resource assignments"
                   aria-busy={isSaving}
                   type="button"
@@ -909,6 +1002,23 @@ const ResourceAssignmentCalendar = ({
                 )
               })}
             </TableRow>
+            {isAddingResource && !draftResource && (
+              <AssignmentDraftRows
+                periods={periods}
+                selector={
+                    <AssignmentEntityAutocomplete
+                      value={null}
+                      onChange={handleDraftResourceChange}
+                      searchOptions={searchLaborResources}
+                      getOptionLabel={(resource) => resource.name}
+                      ariaLabel="Choose labor resource to add"
+                      placeholder="Choose resource…"
+                      entityPlural="labor resources"
+                      autoFocus
+                    />
+                }
+              />
+            )}
             {gridData.resources.map((resource) => (
               <React.Fragment key={resource.resourceId}>
                 {/* Capital Row */}
@@ -930,22 +1040,34 @@ const ResourceAssignmentCalendar = ({
                     role="rowheader"
                     aria-label={`${resource.resourceName} - Capital and Expense allocations`}
                   >
-                    <Typography
-                      variant="body2"
-                      fontWeight="medium"
-                      component="a"
-                      onClick={() => navigate(`/resources/${resource.resourceId}`, {
-                        state: { fromProjectBreadcrumbs: projectBreadcrumbItems },
-                      })}
-                      sx={{
-                        cursor: 'pointer',
-                        color: 'primary.main',
-                        textDecoration: 'underline',
-                        '&:hover': { color: 'primary.dark' },
-                      }}
-                    >
-                      {resource.resourceName}
-                    </Typography>
+                    {isAddingResource && draftResource?.id === resource.resourceId ? (
+                      <AssignmentEntityAutocomplete
+                        value={draftResource}
+                        onChange={handleDraftResourceChange}
+                        searchOptions={searchLaborResources}
+                        getOptionLabel={(option) => option.name}
+                        ariaLabel="Choose labor resource to add"
+                        placeholder="Choose resource…"
+                        entityPlural="labor resources"
+                      />
+                    ) : (
+                      <Typography
+                        variant="body2"
+                        fontWeight="medium"
+                        component="a"
+                        onClick={() => navigate(`/resources/${resource.resourceId}`, {
+                          state: { fromProjectBreadcrumbs: projectBreadcrumbItems },
+                        })}
+                        sx={{
+                          cursor: 'pointer',
+                          color: 'primary.main',
+                          textDecoration: 'underline',
+                          '&:hover': { color: 'primary.dark' },
+                        }}
+                      >
+                        {resource.resourceName}
+                      </Typography>
+                    )}
                   </TableCell>
                   {/* Cost Treatment Label Cell - Capital */}
                   <TableCell
@@ -1067,6 +1189,16 @@ const ResourceAssignmentCalendar = ({
                 </TableRow>
               </React.Fragment>
             ))}
+            {gridData.resources.length === 0 && !isAddingResource && (
+              <TableRow>
+                <TableCell
+                  colSpan={Math.max(2, periods.length + 2)}
+                  sx={{ py: 2, color: 'text.secondary', textAlign: 'center !important' }}
+                >
+                  No resources are currently assigned. Use Add Resource to create the first assignment.
+                </TableCell>
+              </TableRow>
+            )}
         </AssignmentsGrid>
       </Paper>
     </Box>
