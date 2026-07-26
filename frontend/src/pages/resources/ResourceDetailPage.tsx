@@ -49,6 +49,7 @@ import {
   AssignmentPercentageCell,
   AssignmentsGridCell as TableCell,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_TYPE_WIDTH,
   ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
   ASSIGNMENTS_GRID_WEEKEND_BG,
   getAssignmentsGridPeriodSx,
@@ -70,6 +71,38 @@ interface ProjectRow {
   projectName: string
 }
 
+interface DraftProjectTimelineShift {
+  direction: 'past' | 'future'
+  targetDate: string
+}
+
+function getDraftProjectTimelineShift(
+  assignments: ResourceAssignment[],
+  draftProject: Project | null,
+): DraftProjectTimelineShift | null {
+  if (
+    assignments.length === 0
+    || !draftProject?.start_date
+    || !draftProject.end_date
+  ) {
+    return null
+  }
+
+  const assignmentDates = assignments
+    .map((assignment) => assignment.assignment_date)
+    .sort()
+  const timelineStart = assignmentDates[0]
+  const timelineEnd = assignmentDates[assignmentDates.length - 1]
+
+  if (draftProject.end_date < timelineStart) {
+    return { direction: 'past', targetDate: draftProject.end_date }
+  }
+  if (draftProject.start_date > timelineEnd) {
+    return { direction: 'future', targetDate: draftProject.start_date }
+  }
+  return null
+}
+
 /**
  * Generates a sorted, deduplicated list of UTC date strings from assignments
  */
@@ -79,7 +112,12 @@ function buildDateRange(
 ): Date[] {
   const dateSet = new Set<string>()
   assignments.forEach((a) => dateSet.add(a.assignment_date))
-  if (draftProject?.start_date && draftProject.end_date) {
+  const timelineShift = getDraftProjectTimelineShift(assignments, draftProject)
+  if (
+    draftProject?.start_date
+    && draftProject.end_date
+    && (dateSet.size === 0 || timelineShift)
+  ) {
     const [startYear, startMonth, startDay] = draftProject.start_date.split('-').map(Number)
     const [endYear, endMonth, endDay] = draftProject.end_date.split('-').map(Number)
     const cursor = new Date(Date.UTC(startYear, startMonth - 1, startDay))
@@ -151,6 +189,7 @@ const ResourceAllocationCalendar: React.FC<{
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isAddingProject, setIsAddingProject] = useState(false)
   const [draftProject, setDraftProject] = useState<Project | null>(null)
+  const lastTimelineShiftRef = React.useRef<string | null>(null)
 
   useEffect(() => {
     setViewMode(settings.assignmentGrids?.resource?.period ?? 'daily')
@@ -172,6 +211,11 @@ const ResourceAllocationCalendar: React.FC<{
     const response = await projectsApi.list({ search: query, page: 1, size: 100 })
     return response.items.filter((project) => !assignedProjectIds.has(project.id))
   }, [assignedProjectIds])
+
+  const draftProjectTimelineShift = useMemo(
+    () => getDraftProjectTimelineShift(assignments, draftProject),
+    [assignments, draftProject],
+  )
 
   const { dates, projects, cellMap } = useMemo(() => {
     const dates = buildDateRange(assignments, draftProject)
@@ -204,6 +248,49 @@ const ResourceAllocationCalendar: React.FC<{
     () => buildAssignmentPeriods(dates, viewMode),
     [dates, viewMode],
   )
+
+  useEffect(() => {
+    if (!draftProject || !draftProjectTimelineShift || viewMode !== 'daily') {
+      lastTimelineShiftRef.current = null
+      return
+    }
+
+    const shiftKey = [
+      draftProject.id,
+      draftProjectTimelineShift.direction,
+      draftProjectTimelineShift.targetDate,
+    ].join(':')
+    if (lastTimelineShiftRef.current === shiftKey) return
+
+    const frame = requestAnimationFrame(() => {
+      const container = scrollContainerRef.current
+      if (!container) return
+
+      const targetIndex = periods.findIndex(
+        (period) => dateKey(period.dates[0]) === draftProjectTimelineShift.targetDate,
+      )
+      if (targetIndex < 0) return
+
+      const periodWidth = getAssignmentsGridPeriodWidth('daily')
+      if (draftProjectTimelineShift.direction === 'past') {
+        const visibleTimelineWidth = Math.max(
+          periodWidth,
+          container.clientWidth
+            - ASSIGNMENTS_GRID_PRIMARY_WIDTH
+            - ASSIGNMENTS_GRID_TYPE_WIDTH,
+        )
+        container.scrollLeft = Math.max(
+          0,
+          (targetIndex + 1) * periodWidth - visibleTimelineWidth,
+        )
+      } else {
+        container.scrollLeft = targetIndex * periodWidth
+      }
+      lastTimelineShiftRef.current = shiftKey
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [draftProject, draftProjectTimelineShift, periods, viewMode])
 
   const handleViewModeChange = useCallback((nextMode: AssignmentViewMode) => {
     if (isEditMode || nextMode === viewMode) return
@@ -457,6 +544,13 @@ const ResourceAllocationCalendar: React.FC<{
 
   return (
     <Paper sx={{ p: 1 }}>
+      {draftProjectTimelineShift && (
+        <Alert severity="warning" sx={{ mb: 1 }}>
+          {draftProjectTimelineShift.direction === 'past'
+            ? 'Dates shifted to show the end of this past project.'
+            : 'Dates shifted to show the start of this future project.'}
+        </Alert>
+      )}
       <AssignmentsGrid
         ariaLabel="Resource assignment calendar"
         periods={periods}

@@ -8,6 +8,7 @@ from uuid import UUID
 import csv
 import io
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.resource_assignment import ResourceAssignment
@@ -29,6 +30,27 @@ class AssignmentService:
         self.phase_repository = project_phase_repository
         self.user_role_repository = user_role_repository
         self.scope_assignment_repository = scope_assignment_repository
+
+    @staticmethod
+    def _is_duplicate_assignment_error(error: IntegrityError) -> bool:
+        """Recognize the assignment identity constraint across databases."""
+        message = str(getattr(error, "orig", error)).lower()
+        return (
+            "uq_resource_assignments_resource_project_date" in message
+            or (
+                "unique constraint failed" in message
+                and "resource_assignments.resource_id" in message
+                and "resource_assignments.project_id" in message
+                and "resource_assignments.assignment_date" in message
+            )
+        )
+
+    @staticmethod
+    def _duplicate_assignment_message(assignment_date: date) -> str:
+        return (
+            "This resource is already assigned to this project on "
+            f"{assignment_date}"
+        )
     
     def _validate_cross_project_allocation(
         self,
@@ -121,11 +143,20 @@ class AssignmentService:
                 f"Assignment date {assignment_date} must be between project start "
                 f"({project.start_date}) and end ({project.end_date})"
             )
-        
+
         # Validate scope access if user_id provided
         if user_id:
             if not self._can_access_project(db, user_id, project_id):
                 raise ValueError(f"User does not have access to project {project_id}")
+
+        existing_assignment = self.repository.get_by_resource_project_date(
+            db,
+            resource_id,
+            project_id,
+            assignment_date,
+        )
+        if existing_assignment:
+            raise ValueError(self._duplicate_assignment_message(assignment_date))
         
         # Validate percentages are whole numbers (integers)
         if capital_percentage % 1 != 0:
@@ -158,7 +189,15 @@ class AssignmentService:
             "expense_percentage": expense_percentage
         }
         
-        return self.repository.create(db, obj_in=assignment_data)
+        try:
+            return self.repository.create(db, obj_in=assignment_data)
+        except IntegrityError as error:
+            db.rollback()
+            if self._is_duplicate_assignment_error(error):
+                raise ValueError(
+                    self._duplicate_assignment_message(assignment_date)
+                ) from error
+            raise
     
     def get_assignment(self, db: Session, assignment_id: UUID) -> Optional[ResourceAssignment]:
         """Get assignment by ID."""

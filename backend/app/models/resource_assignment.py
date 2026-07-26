@@ -5,7 +5,14 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Date, Numeric, ForeignKey, CheckConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Date,
+    ForeignKey,
+    Numeric,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel, GUID
@@ -51,6 +58,12 @@ class ResourceAssignment(BaseModel):
         CheckConstraint('capital_percentage >= 0 AND capital_percentage <= 100', name='check_capital_percentage'),
         CheckConstraint('expense_percentage >= 0 AND expense_percentage <= 100', name='check_expense_percentage'),
         CheckConstraint('capital_percentage + expense_percentage <= 100', name='check_allocation_sum'),
+        UniqueConstraint(
+            'resource_id',
+            'project_id',
+            'assignment_date',
+            name='uq_resource_assignments_resource_project_date',
+        ),
     )
     
     def __repr__(self) -> str:

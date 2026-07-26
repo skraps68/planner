@@ -58,6 +58,12 @@ const nonLaborResource = {
   resource_type: 'NON_LABOR' as const,
 }
 
+const alreadyAssignedLaborResource = {
+  ...laborResource,
+  id: existingAssignment.resource_id,
+  name: existingAssignment.resource_name,
+}
+
 const renderCalendar = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -99,8 +105,8 @@ describe('ResourceAssignmentCalendar add-resource workflow', () => {
     vi.mocked(assignmentsApi.getByProject).mockResolvedValue([existingAssignment] as any)
     vi.mocked(assignmentsApi.getByDate).mockResolvedValue([])
     vi.mocked(resourcesApi.list).mockResolvedValue({
-      items: [nonLaborResource, laborResource],
-      total: 2,
+      items: [alreadyAssignedLaborResource, nonLaborResource, laborResource],
+      total: 3,
       page: 1,
       size: 100,
       pages: 1,
@@ -148,6 +154,7 @@ describe('ResourceAssignmentCalendar add-resource workflow', () => {
         search: 'New Labor',
       })
     })
+    expect(screen.queryByRole('option', { name: 'Existing Resource' })).not.toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Non-Labor Resource' })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('option', { name: 'New Labor Resource' }))
 

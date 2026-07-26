@@ -173,7 +173,7 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     })).toBeInTheDocument()
   })
 
-  it('adds a searched project as pinned blank rows and creates entered assignments', async () => {
+  it('keeps the natural timeline when a searched project overlaps it', async () => {
     const user = userEvent.setup()
     const newProject = {
       id: 'project-gamma',
@@ -183,16 +183,22 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
       business_sponsor: 'Sponsor',
       project_manager: 'Manager',
       technical_lead: 'Lead',
-      start_date: '2024-01-16',
+      start_date: '2024-01-14',
       end_date: '2024-01-17',
       cost_center_code: 'CC-003',
       version: 1,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     }
+    const alreadyAssignedProject = {
+      ...newProject,
+      id: 'project-a',
+      business_id: 'PRJ-001',
+      name: 'Project Alpha',
+    }
     vi.mocked(projectsApi.list).mockResolvedValue({
-      items: [newProject],
-      total: 1,
+      items: [alreadyAssignedProject, newProject],
+      total: 2,
       page: 1,
       size: 100,
       pages: 1,
@@ -202,8 +208,8 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
       resource_id: 'resource-1',
       project_id: newProject.id,
       project_name: newProject.name,
-      assignment_date: '2024-01-16',
-      capital_percentage: 25,
+      assignment_date: '2024-01-15',
+      capital_percentage: 20,
       expense_percentage: 0,
       version: 1,
     } as any)
@@ -227,6 +233,9 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
         size: 100,
       })
     })
+    expect(screen.queryByRole('option', {
+      name: 'PRJ-001 · Project Alpha',
+    })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('option', { name: 'PRJ-003 · Project Gamma' }))
 
     const selectedPicker = within(assignmentCard).getByRole('combobox', {
@@ -238,21 +247,25 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
       newProjectRow.compareDocumentPosition(existingProjectRow)
       & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+    expect(screen.queryByRole('columnheader', {
+      name: 'Date: January 14, 2024',
+    })).not.toBeInTheDocument()
     expect(screen.getByRole('columnheader', {
+      name: 'Date: January 15, 2024',
+    })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', {
       name: 'Date: January 16, 2024',
-    })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', {
-      name: 'Date: January 17, 2024',
-    })).toBeInTheDocument()
+    })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Dates shifted to show/i)).not.toBeInTheDocument()
 
     const allocationCell = within(newProjectRow).getAllByRole('button', {
       name: 'Allocation percentage',
-    })[1]
+    })[0]
     await user.click(allocationCell)
     const allocationInput = within(newProjectRow).getByRole('textbox', {
       name: 'Allocation percentage',
     })
-    await user.type(allocationInput, '25')
+    await user.type(allocationInput, '20')
     await user.tab()
 
     await user.click(within(assignmentCard).getByRole('button', { name: 'Save Changes' }))
@@ -261,10 +274,117 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
       expect(assignmentsApi.create).toHaveBeenCalledWith({
         resource_id: 'resource-1',
         project_id: 'project-gamma',
-        assignment_date: '2024-01-16',
-        capital_percentage: 25,
+        assignment_date: '2024-01-15',
+        capital_percentage: 20,
         expense_percentage: 0,
       })
+    })
+  })
+
+  it('shifts a wholly past project so its end is at the end of the visible timeline', async () => {
+    const user = userEvent.setup()
+    const pastProject = {
+      id: 'project-past',
+      business_id: 'PRJ-PAST',
+      program_id: 'program-1',
+      name: 'Past Project',
+      business_sponsor: 'Sponsor',
+      project_manager: 'Manager',
+      technical_lead: 'Lead',
+      start_date: '2023-12-01',
+      end_date: '2023-12-31',
+      cost_center_code: 'CC-PAST',
+      version: 1,
+      created_at: '2023-01-01T00:00:00Z',
+      updated_at: '2023-01-01T00:00:00Z',
+    }
+    vi.mocked(projectsApi.list).mockResolvedValue({
+      items: [pastProject],
+      total: 1,
+      page: 1,
+      size: 100,
+      pages: 1,
+    } as any)
+
+    render(<ResourceDetailPage />, { store, queryClient })
+    const grid = await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    const assignmentCard = grid.closest('.MuiPaper-root') as HTMLElement
+    const scrollContainer = grid.closest('.MuiTableContainer-root') as HTMLDivElement
+    Object.defineProperty(scrollContainer, 'clientWidth', {
+      configurable: true,
+      value: 400,
+    })
+
+    await user.click(within(assignmentCard).getByRole('button', { name: 'Add Project' }))
+    const projectPicker = within(assignmentCard).getByRole('combobox', {
+      name: 'Choose project to add',
+    })
+    await user.type(projectPicker, 'Past')
+    await user.click(await screen.findByRole('option', { name: 'PRJ-PAST · Past Project' }))
+
+    expect(await screen.findByText(
+      'Dates shifted to show the end of this past project.',
+    )).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: December 31, 2023',
+    })).toBeInTheDocument()
+    await waitFor(() => {
+      // December 31 is day index 30; align its right edge with the 168px
+      // timeline viewport (400px container minus the two sticky columns).
+      expect(scrollContainer.scrollLeft).toBe(31 * 42 - 168)
+    })
+  })
+
+  it('shifts a wholly future project to show its start at the beginning of the timeline', async () => {
+    const user = userEvent.setup()
+    const futureProject = {
+      id: 'project-future',
+      business_id: 'PRJ-FUTURE',
+      program_id: 'program-1',
+      name: 'Future Project',
+      business_sponsor: 'Sponsor',
+      project_manager: 'Manager',
+      technical_lead: 'Lead',
+      start_date: '2024-02-01',
+      end_date: '2024-02-29',
+      cost_center_code: 'CC-FUTURE',
+      version: 1,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    }
+    vi.mocked(projectsApi.list).mockResolvedValue({
+      items: [futureProject],
+      total: 1,
+      page: 1,
+      size: 100,
+      pages: 1,
+    } as any)
+
+    render(<ResourceDetailPage />, { store, queryClient })
+    const grid = await screen.findByRole('grid', { name: 'Resource assignment calendar' })
+    const assignmentCard = grid.closest('.MuiPaper-root') as HTMLElement
+    const scrollContainer = grid.closest('.MuiTableContainer-root') as HTMLDivElement
+    Object.defineProperty(scrollContainer, 'clientWidth', {
+      configurable: true,
+      value: 400,
+    })
+
+    await user.click(within(assignmentCard).getByRole('button', { name: 'Add Project' }))
+    const projectPicker = within(assignmentCard).getByRole('combobox', {
+      name: 'Choose project to add',
+    })
+    await user.type(projectPicker, 'Future')
+    await user.click(await screen.findByRole('option', { name: 'PRJ-FUTURE · Future Project' }))
+
+    expect(await screen.findByText(
+      'Dates shifted to show the start of this future project.',
+    )).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: February 1, 2024',
+    })).toBeInTheDocument()
+    await waitFor(() => {
+      // February 1 is 17 days after the natural January 15 start.
+      expect(scrollContainer.scrollLeft).toBe(17 * 42)
     })
   })
 

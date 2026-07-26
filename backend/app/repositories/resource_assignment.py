@@ -44,6 +44,22 @@ class ResourceAssignmentRepository(BaseRepository[ResourceAssignment]):
                 ResourceAssignment.assignment_date == assignment_date
             )
         ).all()
+
+    def get_by_resource_project_date(
+        self,
+        db: Session,
+        resource_id: UUID,
+        project_id: UUID,
+        assignment_date: date,
+    ) -> Optional[ResourceAssignment]:
+        """Get the single assignment cell for a resource, project, and date."""
+        return db.query(ResourceAssignment).filter(
+            and_(
+                ResourceAssignment.resource_id == resource_id,
+                ResourceAssignment.project_id == project_id,
+                ResourceAssignment.assignment_date == assignment_date,
+            )
+        ).first()
     
     def get_by_date_range(
         self,
