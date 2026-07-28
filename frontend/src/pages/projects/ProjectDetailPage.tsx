@@ -157,7 +157,11 @@ const ProjectDetailPage: React.FC = () => {
       message: 'Phases saved successfully',
       severity: 'success',
     })
-    refetch()
+    void Promise.all([
+      refetch(),
+      queryClient.invalidateQueries({ queryKey: ['phases', id] }),
+      queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+    ])
   }
 
   const handlePhaseSaveError = (error: string) => {
@@ -210,9 +214,13 @@ const ProjectDetailPage: React.FC = () => {
         severity: 'success',
       })
       setIsEditingInfo(false)
-      refetch()
-      // Refresh the hierarchy views (slim tree / rich list) so the new name shows
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      void Promise.all([
+        refetch(),
+        // Refresh the hierarchy views (slim tree / rich list) so the new name shows.
+        queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        // Project dates and phase-boundary adjustments affect financial reporting.
+        queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+      ])
     } catch (error: any) {
       // Try to handle as conflict error
       const isConflict = handleError(error, editValues)

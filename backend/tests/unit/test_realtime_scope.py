@@ -18,6 +18,12 @@ def test_assignment_scopes_to_project_id():
     assert resolve_scope_ids(a) == ["p9"]
 
 
+def test_nonlabor_plan_scopes_to_project_id():
+    class NonLaborPlanLine: ...
+    plan = NonLaborPlanLine(); plan.id = "n1"; plan.project_id = "p9"
+    assert resolve_scope_ids(plan) == ["p9"]
+
+
 def test_unknown_entity_broadcasts():
     class Worker: ...
     w = Worker(); w.id = "w1"

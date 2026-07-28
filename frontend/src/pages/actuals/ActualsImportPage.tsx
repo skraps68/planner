@@ -27,6 +27,7 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { actualsApi, ActualImportResponse, AllocationConflictResponse } from '../../api/actuals'
 
 const steps = ['Upload File', 'Validate Data', 'Review Results', 'Import Confirmation']
@@ -35,6 +36,7 @@ type ImportType = 'labor' | 'nonlabor'
 
 const ActualsImportPage = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [activeStep, setActiveStep] = useState(0)
   const [importType, setImportType] = useState<ImportType>('labor')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -120,6 +122,10 @@ const ActualsImportPage = () => {
         ? await actualsApi.importLaborActuals(selectedFile, false)
         : await actualsApi.importNonLaborActuals(selectedFile, false)
       setImportResult(result)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['actuals'] }),
+        queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+      ])
       setActiveStep(3)
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to import actuals')

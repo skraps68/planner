@@ -81,6 +81,7 @@ export function useCreateAssignment() {
       queryClient.invalidateQueries({ queryKey: assignmentKeys.lists() })
       queryClient.invalidateQueries({ queryKey: assignmentKeys.byProject(newAssignment.project_id) })
       queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(newAssignment.resource_id) })
+      queryClient.invalidateQueries({ queryKey: ['forecast'] })
     },
   })
 }
@@ -102,6 +103,7 @@ export function useUpdateAssignment() {
       queryClient.invalidateQueries({ queryKey: assignmentKeys.lists() })
       queryClient.invalidateQueries({ queryKey: assignmentKeys.byProject(updatedAssignment.project_id) })
       queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(updatedAssignment.resource_id) })
+      queryClient.invalidateQueries({ queryKey: ['forecast'] })
     },
   })
 }
@@ -118,6 +120,7 @@ export function useBulkUpdateAssignments() {
     onSuccess: () => {
       // Invalidate all assignment queries since we don't know which ones were affected
       queryClient.invalidateQueries({ queryKey: assignmentKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['forecast'] })
     },
   })
 }
@@ -134,6 +137,7 @@ export function useDeleteAssignment() {
     onSuccess: () => {
       // Invalidate all assignment queries
       queryClient.invalidateQueries({ queryKey: assignmentKeys.all })
+      queryClient.invalidateQueries({ queryKey: ['forecast'] })
     },
   })
 }
@@ -146,10 +150,19 @@ export function useInvalidateAssignments() {
   const queryClient = useQueryClient()
 
   return {
-    invalidateAll: () => queryClient.invalidateQueries({ queryKey: assignmentKeys.all }),
+    invalidateAll: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: assignmentKeys.all }),
+      queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+    ]),
     invalidateProject: (projectId: string) =>
-      queryClient.invalidateQueries({ queryKey: assignmentKeys.byProject(projectId) }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: assignmentKeys.byProject(projectId) }),
+        queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+      ]),
     invalidateResource: (resourceId: string) =>
-      queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(resourceId) }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(resourceId) }),
+        queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+      ]),
   }
 }

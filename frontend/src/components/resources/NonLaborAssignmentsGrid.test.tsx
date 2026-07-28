@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { render } from '../../test/test-utils'
+import { createTestQueryClient, render } from '../../test/test-utils'
 import type { NonLaborPlanLine } from '../../types'
 import NonLaborAssignmentsGrid from './NonLaborAssignmentsGrid'
 
@@ -167,5 +167,51 @@ describe('NonLaborAssignmentsGrid', () => {
         name: /Forecast Line Name/,
       })).toHaveValue('Equipment')
     })
+  })
+
+  it('invalidates financial forecasts after saving occurrence overrides', async () => {
+    const user = userEvent.setup()
+    const queryClient = createTestQueryClient()
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    mocks.setOverride.mockResolvedValue(
+      line('capital-plan', 'Equipment', 'CAPITAL', 125),
+    )
+
+    render(
+      <NonLaborAssignmentsGrid
+        perspective="project"
+        project={{
+          id: 'project-1',
+          name: 'ERP Replacement',
+          start_date: '2026-01-04',
+          end_date: '2026-01-10',
+          currency_code: 'USD',
+        }}
+      />,
+      { queryClient },
+    )
+
+    await screen.findByText('Software Subscription')
+    await user.click(screen.getByRole('button', {
+      name: 'Expand Software Subscription',
+    }))
+    await user.click(screen.getByRole('button', { name: /^Edit$/ }))
+
+    const amount = screen.getByRole('spinbutton', {
+      name: 'Equipment amount for Date: January 5, 2026',
+    })
+    await user.clear(amount)
+    await user.type(amount, '125')
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => {
+      expect(mocks.setOverride).toHaveBeenCalledWith(
+        'capital-plan',
+        'capital-plan-occurrence',
+        125,
+        1,
+      )
+    })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['forecast'] })
   })
 })

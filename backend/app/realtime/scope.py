@@ -18,7 +18,11 @@ def resolve_scope_ids(obj: Any) -> List[str]:
     name = entity_type_name(obj)
     if name in ("portfolio", "program", "project"):
         return [str(obj.id)] if getattr(obj, "id", None) is not None else []
-    if name in ("project_phase", "resource_assignment"):
+    if name in (
+        "project_phase",
+        "resource_assignment",
+        "non_labor_plan_line",
+    ):
         pid = getattr(obj, "project_id", None)
         return [str(pid)] if pid is not None else []
     return []

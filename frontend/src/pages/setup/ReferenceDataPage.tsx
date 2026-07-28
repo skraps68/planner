@@ -199,6 +199,7 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['worker-types'] })
       qc.invalidateQueries({ queryKey: ['rates'] })
+      qc.invalidateQueries({ queryKey: ['forecast'] })
       setDialogOpen(false)
     },
     onError: (e) => notify(errText(e, 'Failed to set rate'), 'error'),

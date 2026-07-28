@@ -35,4 +35,21 @@ describe('queryKeyPrefixesFor', () => {
       expect.arrayContaining([['resource-roles']]),
     )
   })
+  it('maps project phase changes to project financial forecasts', () => {
+    expect(queryKeyPrefixesFor('project_phase')).toEqual(
+      expect.arrayContaining([['phases'], ['project'], ['forecast']]),
+    )
+  })
+  it('maps non-labor plan and occurrence changes to plans and forecasts', () => {
+    for (const entityType of ['non_labor_plan_line', 'non_labor_plan_occurrence']) {
+      expect(queryKeyPrefixesFor(entityType)).toEqual(
+        expect.arrayContaining([['nonlabor-plans'], ['forecast']]),
+      )
+    }
+  })
+  it('refreshes non-labor plans when plan references change', () => {
+    expect(queryKeyPrefixesFor('non_labor_plan_line_reference')).toEqual(
+      expect.arrayContaining([['nonlabor-plans']]),
+    )
+  })
 })

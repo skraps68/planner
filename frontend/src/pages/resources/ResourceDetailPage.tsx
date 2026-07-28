@@ -487,7 +487,10 @@ const ResourceAllocationCalendar: React.FC<{
 
       // Refresh so any successful updates (and up-to-date versions for
       // conflicting ones) are reflected before we decide what to keep.
-      await queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(resourceId) })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: assignmentKeys.byResource(resourceId) }),
+        queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+      ])
 
       if (bulkResult.failed.length > 0) {
         // Partial failure: keep only the conflicting cells in edit mode so

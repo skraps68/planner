@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -21,7 +21,7 @@ import {
   ExpandMore,
   Save as SaveIcon,
 } from '@mui/icons-material'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { nonlaborPlansApi } from '../../api/nonlaborPlans'
 import { useAuth } from '../../contexts/AuthContext'
@@ -127,6 +127,7 @@ export default function NonLaborAssignmentsGrid({
   resource,
 }: NonLaborAssignmentsGridProps) {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const { settings, updateSettings } = useUserSettings()
   const preferenceKey = perspective === 'project'
     ? 'nonLaborProject'
@@ -236,6 +237,13 @@ export default function NonLaborAssignmentsGrid({
   )
   const warnings = [...new Set(lines.flatMap((line) => line.warnings))]
 
+  const refreshPlansAndForecasts = useCallback(async () => {
+    await Promise.all([
+      refetch(),
+      queryClient.invalidateQueries({ queryKey: ['forecast'] }),
+    ])
+  }, [queryClient, refetch])
+
   const handleViewModeChange = (nextMode: AssignmentViewMode) => {
     setViewMode(nextMode)
     updateSettings({
@@ -285,7 +293,7 @@ export default function NonLaborAssignmentsGrid({
       }
       setChanges(new Map())
       setIsEditMode(false)
-      await refetch()
+      await refreshPlansAndForecasts()
     } catch (saveFailure: unknown) {
       setSaveError(
         (saveFailure as { response?: { data?: { detail?: string } } })
@@ -629,7 +637,7 @@ export default function NonLaborAssignmentsGrid({
           setDrawerOpen(false)
           setSelectedPlan(undefined)
         }}
-        onSaved={() => refetch()}
+        onSaved={refreshPlansAndForecasts}
         fixedProject={project ? {
           id: project.id,
           name: project.name,
