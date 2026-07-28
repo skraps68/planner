@@ -12,7 +12,13 @@ from app.models.base import Base
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project
-from app.models.resource import Resource, ResourceType
+from app.models.resource import (
+    Resource,
+    ResourceRole,
+    ResourceType,
+    Worker,
+    WorkerType,
+)
 from app.models.resource_assignment import ResourceAssignment
 from app.services.assignment import assignment_service
 
@@ -53,13 +59,32 @@ def assignment_context():
         end_date=date(2024, 12, 31),
         cost_center_code="UNIQUE-001",
     )
+    worker_type = WorkerType(
+        id=uuid4(),
+        type="Employee",
+        description="Employee",
+    )
+    role = ResourceRole(
+        id=uuid4(),
+        name="Developer",
+        description="Developer",
+    )
+    worker = Worker(
+        id=uuid4(),
+        worker_type_id=worker_type.id,
+        external_id="UNIQUE-WORKER",
+        name="Uniqueness Resource",
+        cost_center_code="UNIQUE-WORKER-CC",
+    )
     resource = Resource(
         id=uuid4(),
         name="Uniqueness Resource",
-        resource_type=ResourceType.NON_LABOR,
+        resource_type=ResourceType.LABOR,
         description="Test resource",
+        worker_id=worker.id,
+        resource_role_id=role.id,
     )
-    db.add_all([portfolio, program, project, resource])
+    db.add_all([portfolio, program, project, worker_type, role, worker, resource])
     db.commit()
 
     yield db, resource, project

@@ -6,8 +6,8 @@ Covers:
       derived capital/expense reconcile against the labor+nonlabor halves.
   (b) actual routing: a labor actual and a non-labor actual land in the right
       buckets with exact values.
-  (c) forecast routing: future assignments for a labor resource (worker-rate
-      path) and a non-labor resource (default $500/day path) route correctly.
+  (c) forecast routing: a future assignment for a labor resource (worker-rate
+      path) and exact non-labor plan occurrences route correctly.
   (d) budget 4-way matches the four ProjectPhase budget columns exactly.
   (e) program-level aggregation sums the four-way keys across two projects.
 
@@ -28,10 +28,25 @@ from app.models.base import Base
 from app.models.portfolio import Portfolio
 from app.models.program import Program
 from app.models.project import Project, ProjectPhase
-from app.models.resource import Resource, ResourceRole, ResourceType, Worker, WorkerType
+from app.models.resource import (
+    Resource,
+    ResourceRole,
+    ResourceType,
+    Worker,
+    WorkerType,
+)
 from app.models.resource_assignment import ResourceAssignment
 from app.models.rate import Rate
 from app.models.actual import Actual
+from app.models.nonlabor_plan import (
+    NonLaborCostTreatment,
+    NonLaborForecastBasis,
+    NonLaborOccurrenceSource,
+    NonLaborPlanLine,
+    NonLaborPlanMethod,
+    NonLaborPlanOccurrence,
+    NonLaborPlanStatus,
+)
 
 from app.services.forecasting import ForecastData, forecasting_service
 
@@ -121,11 +136,17 @@ def _make_labor_resource(db, suffix, rate_amount=Decimal("1000.00")):
     )
     db.add(resource)
     db.flush()
-    return SimpleNamespace(resource=resource, worker=worker, worker_type=worker_type, rate=rate)
+    return SimpleNamespace(
+        resource=resource, worker=worker, worker_type=worker_type, rate=rate
+    )
 
 
 def _make_nonlabor_resource(db, suffix):
-    resource = Resource(name=f"Non-Labor Resource {suffix}", resource_type=ResourceType.NON_LABOR, worker_id=None)
+    resource = Resource(
+        name=f"Non-Labor Resource {suffix}",
+        resource_type=ResourceType.NON_LABOR,
+        worker_id=None,
+    )
     db.add(resource)
     db.flush()
     return resource
@@ -134,7 +155,8 @@ def _make_nonlabor_resource(db, suffix):
 @pytest.fixture()
 def full_setup(db_session):
     """One project with a fully-budgeted phase, one labor + one non-labor
-    actual (in the past), and one labor + one non-labor future assignment.
+    actual (in the past), one labor future assignment, and two exact non-labor
+    forecast occurrences.
     """
     db = db_session
     program = _make_portfolio_program(db, "A")
@@ -187,7 +209,7 @@ def full_setup(db_session):
     db.add(nonlabor_actual)
     db.flush()
 
-    # Future assignments (after as_of_date) - one labor, one non-labor.
+    # Future labor assignment (after as_of_date).
     labor_assignment = ResourceAssignment(
         resource_id=labor.resource.id,
         project_id=project.id,
@@ -197,14 +219,55 @@ def full_setup(db_session):
     )
     db.add(labor_assignment)
 
-    nonlabor_assignment = ResourceAssignment(
+    # A legacy percentage row is deliberately present to verify that it is no
+    # longer treated as a non-labor forecast source.
+    ignored_nonlabor_assignment = ResourceAssignment(
         resource_id=nonlabor_resource.id,
         project_id=project.id,
         assignment_date=date(2026, 7, 1),
         capital_percentage=Decimal("70.00"),
         expense_percentage=Decimal("30.00"),
     )
-    db.add(nonlabor_assignment)
+    db.add(ignored_nonlabor_assignment)
+
+    capital_plan = NonLaborPlanLine(
+        project_id=project.id,
+        resource_id=nonlabor_resource.id,
+        name="Capital equipment",
+        forecast_basis=NonLaborForecastBasis.CASH,
+        method=NonLaborPlanMethod.MANUAL,
+        cost_treatment=NonLaborCostTreatment.CAPITAL,
+        total_amount=Decimal("350.00"),
+        status=NonLaborPlanStatus.ACTIVE,
+    )
+    expense_plan = NonLaborPlanLine(
+        project_id=project.id,
+        resource_id=nonlabor_resource.id,
+        name="Subscription",
+        forecast_basis=NonLaborForecastBasis.CASH,
+        method=NonLaborPlanMethod.MANUAL,
+        cost_treatment=NonLaborCostTreatment.EXPENSE,
+        total_amount=Decimal("150.00"),
+        status=NonLaborPlanStatus.ACTIVE,
+    )
+    db.add_all([capital_plan, expense_plan])
+    db.flush()
+    db.add_all(
+        [
+            NonLaborPlanOccurrence(
+                plan_line_id=capital_plan.id,
+                occurrence_date=date(2026, 7, 1),
+                base_amount=Decimal("350.00"),
+                source=NonLaborOccurrenceSource.MANUAL,
+            ),
+            NonLaborPlanOccurrence(
+                plan_line_id=expense_plan.id,
+                occurrence_date=date(2026, 7, 1),
+                base_amount=Decimal("150.00"),
+                source=NonLaborOccurrenceSource.MANUAL,
+            ),
+        ]
+    )
     db.commit()
 
     return SimpleNamespace(
@@ -215,7 +278,9 @@ def full_setup(db_session):
         labor_actual=labor_actual,
         nonlabor_actual=nonlabor_actual,
         labor_assignment=labor_assignment,
-        nonlabor_assignment=nonlabor_assignment,
+        ignored_nonlabor_assignment=ignored_nonlabor_assignment,
+        capital_plan=capital_plan,
+        expense_plan=expense_plan,
         as_of_date=as_of_date,
     )
 
@@ -226,20 +291,40 @@ def project_with_phase_budget(full_setup):
     return full_setup.project
 
 
-def test_to_dict_has_seven_keys_per_series(db_session, project_with_phase_budget, full_setup):
+def test_to_dict_has_seven_keys_per_series(
+    db_session, project_with_phase_budget, full_setup
+):
     fd = forecasting_service.calculate_project_forecast(
-        db_session, project_with_phase_budget.id, as_of_date=full_setup.as_of_date
+        db_session,
+        project_with_phase_budget.id,
+        as_of_date=full_setup.as_of_date,
     )
     d = fd.to_dict()
     for series in ("budget", "actual", "forecast"):
-        for key in ("total", "capital", "expense", "labor_capital", "labor_expense", "nonlabor_capital", "nonlabor_expense"):
+        for key in (
+            "total",
+            "capital",
+            "expense",
+            "labor_capital",
+            "labor_expense",
+            "nonlabor_capital",
+            "nonlabor_expense",
+        ):
             assert key in d[series], f"{series}.{key} missing"
         # labor+nonlabor sub-fields reconcile to capital/expense
-        assert d[series]["capital"] == d[series]["labor_capital"] + d[series]["nonlabor_capital"]
-        assert d[series]["expense"] == d[series]["labor_expense"] + d[series]["nonlabor_expense"]
+        assert (
+            d[series]["capital"]
+            == d[series]["labor_capital"] + d[series]["nonlabor_capital"]
+        )
+        assert (
+            d[series]["expense"]
+            == d[series]["labor_expense"] + d[series]["nonlabor_expense"]
+        )
 
 
-def test_actual_routes_labor_and_nonlabor_by_resource_type(db_session, full_setup):
+def test_actual_routes_labor_and_nonlabor_by_resource_type(
+    db_session, full_setup
+):
     fd = forecasting_service.calculate_project_forecast(
         db_session, full_setup.project.id, as_of_date=full_setup.as_of_date
     )
@@ -250,17 +335,62 @@ def test_actual_routes_labor_and_nonlabor_by_resource_type(db_session, full_setu
     assert fd.total_actual == Decimal("1000.00")
 
 
-def test_forecast_routes_labor_and_nonlabor_by_resource_type(db_session, full_setup):
+def test_forecast_routes_labor_and_nonlabor_by_resource_type(
+    db_session, full_setup
+):
     fd = forecasting_service.calculate_project_forecast(
         db_session, full_setup.project.id, as_of_date=full_setup.as_of_date
     )
-    # Labor: worker rate $1000/day * (60+40)/100 = 1000; capital=600, expense=400
+    # Labor: $1000/day * (60+40)/100 = 1000; cap=600, expense=400.
     assert fd.forecast_labor_capital == Decimal("600.00")
     assert fd.forecast_labor_expense == Decimal("400.00")
-    # Non-labor: default $500/day path * (70+30)/100 = 500; capital=350, expense=150
+    # Exact non-labor occurrences replace the legacy percentage source.
     assert fd.forecast_nonlabor_capital == Decimal("350.00")
     assert fd.forecast_nonlabor_expense == Decimal("150.00")
     assert fd.total_forecast == Decimal("1500.00")
+
+
+def test_overdue_nonlabor_plan_remains_forecast_without_actuals(
+    db_session, full_setup
+):
+    db_session.delete(full_setup.nonlabor_actual)
+    for occurrence in db_session.query(NonLaborPlanOccurrence).filter(
+        NonLaborPlanOccurrence.plan_line_id.in_(
+            [full_setup.capital_plan.id, full_setup.expense_plan.id]
+        )
+    ):
+        occurrence.occurrence_date = date(2026, 5, 1)
+    db_session.commit()
+
+    fd = forecasting_service.calculate_project_forecast(
+        db_session,
+        full_setup.project.id,
+        as_of_date=full_setup.as_of_date,
+    )
+
+    assert fd.forecast_nonlabor_capital == Decimal("350.00")
+    assert fd.forecast_nonlabor_expense == Decimal("150.00")
+
+
+def test_nonlabor_actuals_consume_overdue_plan_by_treatment(
+    db_session, full_setup
+):
+    for occurrence in db_session.query(NonLaborPlanOccurrence).filter(
+        NonLaborPlanOccurrence.plan_line_id.in_(
+            [full_setup.capital_plan.id, full_setup.expense_plan.id]
+        )
+    ):
+        occurrence.occurrence_date = date(2026, 5, 1)
+    db_session.commit()
+
+    fd = forecasting_service.calculate_project_forecast(
+        db_session,
+        full_setup.project.id,
+        as_of_date=full_setup.as_of_date,
+    )
+
+    assert fd.forecast_nonlabor_capital == Decimal("200.00")
+    assert fd.forecast_nonlabor_expense == Decimal("0.00")
 
 
 def test_budget_four_way_matches_phase_columns_exactly(db_session, full_setup):
@@ -320,7 +450,10 @@ def test_program_level_aggregates_four_way_across_projects(db_session):
     d = fd.to_dict()
     assert d["budget"]["labor_capital"] == 3000.00
     assert d["budget"]["nonlabor_expense"] == 600.00
-    assert d["budget"]["capital"] == d["budget"]["labor_capital"] + d["budget"]["nonlabor_capital"]
+    assert (
+        d["budget"]["capital"]
+        == d["budget"]["labor_capital"] + d["budget"]["nonlabor_capital"]
+    )
 
 
 def test_to_dict_legacy_nine_param_construction_keeps_capital_expense():
@@ -368,8 +501,12 @@ def test_to_dict_legacy_nine_param_construction_keeps_capital_expense():
 
     # Call to_dict() and verify the fallback emits the legacy values
     d = fd.to_dict()
-    assert d["budget"]["capital"] == 70.0, "Budget capital should be 70.0 from legacy param"
-    assert d["budget"]["expense"] == 30.0, "Budget expense should be 30.0 from legacy param"
+    assert (
+        d["budget"]["capital"] == 70.0
+    ), "Budget capital should be 70.0 from legacy param"
+    assert (
+        d["budget"]["expense"] == 30.0
+    ), "Budget expense should be 30.0 from legacy param"
     assert d["budget"]["total"] == 100.0, "Budget total should be 100.0"
 
     # Verify the four-way keys are still 0.0

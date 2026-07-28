@@ -5,7 +5,8 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     programs, projects, resources, resource_roles, workers, rates,
-    assignments, actuals, reports, auth, users, audit, phases, portfolios, realtime
+    assignments, actuals, reports, auth, users, audit, phases, portfolios, realtime,
+    external_reference_types, nonlabor_plans,
 )
 
 api_router = APIRouter()
@@ -23,6 +24,16 @@ api_router.include_router(resource_roles.router, prefix="/resource-roles", tags=
 api_router.include_router(workers.router, prefix="/workers", tags=["workers"])
 api_router.include_router(rates.router, prefix="/rates", tags=["rates"])
 api_router.include_router(assignments.router, prefix="/assignments", tags=["assignments"])
+api_router.include_router(
+    nonlabor_plans.router,
+    prefix="/nonlabor-plans",
+    tags=["nonlabor-plans"],
+)
+api_router.include_router(
+    external_reference_types.router,
+    prefix="/external-reference-types",
+    tags=["external-reference-types"],
+)
 api_router.include_router(actuals.router, prefix="/actuals", tags=["actuals"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(realtime.router, prefix="/realtime", tags=["realtime"])

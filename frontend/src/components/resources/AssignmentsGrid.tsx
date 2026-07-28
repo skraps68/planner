@@ -108,6 +108,8 @@ interface AssignmentsGridProps {
   chartVisible?: boolean
   onChartVisibilityChange?: (visible: boolean) => void
   toolbarActions?: ReactNode
+  viewSummary?: string
+  periodWidthOverride?: number
 }
 
 const DailyViewIcon = () => (
@@ -177,6 +179,8 @@ export const AssignmentsGrid = ({
   chartVisible,
   onChartVisibilityChange,
   toolbarActions,
+  viewSummary,
+  periodWidthOverride,
 }: AssignmentsGridProps) => {
   const [internalChartVisible, setInternalChartVisible] = useState(true)
   const isChartVisible = chartVisible ?? internalChartVisible
@@ -185,7 +189,7 @@ export const AssignmentsGrid = ({
     if (chartVisible === undefined) setInternalChartVisible(nextVisible)
     onChartVisibilityChange?.(nextVisible)
   }
-  const periodWidth = getAssignmentsGridPeriodWidth(viewMode)
+  const periodWidth = periodWidthOverride ?? getAssignmentsGridPeriodWidth(viewMode)
   const identityWidth = ASSIGNMENTS_GRID_PRIMARY_WIDTH + typeColumnWidth
   const tableWidth =
     identityWidth
@@ -304,7 +308,7 @@ export const AssignmentsGrid = ({
             pointerEvents: 'none',
           }}
         >
-          {getViewSummary(viewMode)}
+          {viewSummary ?? getViewSummary(viewMode)}
         </Typography>
         {toolbarActions}
       </Box>

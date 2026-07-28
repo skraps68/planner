@@ -16,6 +16,7 @@ import {
   TableRow,
   FormControl,
   InputLabel,
+  IconButton,
   Select,
   MenuItem,
 } from '@mui/material'
@@ -24,12 +25,20 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  DeleteOutline as DeleteIcon,
 } from '@mui/icons-material'
 import { resourcesApi, ResourceUpdateInput } from '../../api/resources'
+import { externalReferenceTypesApi } from '../../api/externalReferenceTypes'
 import { projectsApi } from '../../api/projects'
 import { resourceRolesApi } from '../../api/resourceRoles'
 import { assignmentsApi, BulkAssignmentUpdate, BulkUpdateResult } from '../../api/assignments'
-import { Project, Resource, ResourceAssignment, ResourceRole } from '../../types'
+import {
+  ExternalReferenceType,
+  Project,
+  Resource,
+  ResourceAssignment,
+  ResourceRole,
+} from '../../types'
 import WorkerSearchAutocomplete from '../../components/resources/WorkerSearchAutocomplete'
 import { AssignmentEntityAutocomplete } from '../../components/resources/AssignmentEntityAutocomplete'
 import { AssignmentDraftRows } from '../../components/resources/AssignmentDraftRows'
@@ -55,6 +64,7 @@ import {
   getAssignmentsGridPeriodSx,
   getAssignmentsGridPeriodWidth,
 } from '../../components/resources/AssignmentsGrid'
+import NonLaborAssignmentsGrid from '../../components/resources/NonLaborAssignmentsGrid'
 import {
   averageAssignmentPeriod,
   buildAssignmentPeriods,
@@ -69,6 +79,12 @@ import { useUserSettings } from '../../contexts/UserSettingsContext'
 interface ProjectRow {
   projectId: string
   projectName: string
+}
+
+interface ResourceReferenceDraft {
+  reference_type_id: string
+  reference_type_name?: string
+  value: string
 }
 
 interface DraftProjectTimelineShift {
@@ -836,6 +852,8 @@ const ResourceDetailPage: React.FC = () => {
 
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null)
   const [workerError, setWorkerError] = useState<string | null>(null)
+  const [externalReferences, setExternalReferences] = useState<ResourceReferenceDraft[]>([])
+  const [referenceTypes, setReferenceTypes] = useState<ExternalReferenceType[]>([])
 
   const [roles, setRoles] = useState<ResourceRole[]>([])
 
@@ -845,6 +863,14 @@ const ResourceDetailPage: React.FC = () => {
       .then(setRoles)
       .catch(() => { /* role select stays empty; not fatal to the page */ })
   }, [])
+
+  useEffect(() => {
+    if (formData.resource_type !== 'NON_LABOR') return
+    externalReferenceTypesApi
+      .list()
+      .then(setReferenceTypes)
+      .catch(() => { /* reference editor remains empty; not fatal to the page */ })
+  }, [formData.resource_type])
 
   // For a brand-new LABOR resource, default the role to "Default" once roles
   // have loaded (only fires while resource_role_id is still unset).
@@ -869,6 +895,13 @@ const ResourceDetailPage: React.FC = () => {
         version: data.version,
       })
       setSelectedWorkerId(data.worker_id ?? null)
+      setExternalReferences(
+        (data.external_references ?? []).map((item) => ({
+          reference_type_id: item.reference_type_id,
+          reference_type_name: item.reference_type_name,
+          value: item.value,
+        })),
+      )
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load resource')
     } finally {
@@ -906,6 +939,12 @@ const ResourceDetailPage: React.FC = () => {
             name: formData.name,
             resource_type: formData.resource_type,
             description: formData.description || undefined,
+            external_references: externalReferences
+              .filter((item) => item.reference_type_id && item.value)
+              .map((item) => ({
+                reference_type_id: item.reference_type_id,
+                value: item.value,
+              })),
           })
         }
         navigate('/resources')
@@ -919,6 +958,12 @@ const ResourceDetailPage: React.FC = () => {
           updatePayload.resource_role_id = formData.resource_role_id || undefined
         } else {
           updatePayload.name = formData.name
+          updatePayload.external_references = externalReferences
+            .filter((item) => item.reference_type_id && item.value)
+            .map((item) => ({
+              reference_type_id: item.reference_type_id,
+              value: item.value,
+            }))
         }
         const updated = await resourcesApi.update(id!, updatePayload)
         setResource(updated)
@@ -943,6 +988,13 @@ const ResourceDetailPage: React.FC = () => {
         version: resource.version,
       })
       setSelectedWorkerId(resource.worker_id ?? null)
+      setExternalReferences(
+        (resource.external_references ?? []).map((item) => ({
+          reference_type_id: item.reference_type_id,
+          reference_type_name: item.reference_type_name,
+          value: item.value,
+        })),
+      )
     }
     setIsEditing(false)
     setError(null)
@@ -1018,6 +1070,84 @@ const ResourceDetailPage: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </Grid>
+              {formData.resource_type === 'NON_LABOR' && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    External References
+                  </Typography>
+                  {externalReferences.map((reference, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '180px minmax(0, 1fr) 36px',
+                        gap: 1,
+                        mb: 1,
+                      }}
+                    >
+                      <FormControl size="small">
+                        <InputLabel id={`new-resource-reference-type-${index}`}>
+                          Type
+                        </InputLabel>
+                        <Select
+                          labelId={`new-resource-reference-type-${index}`}
+                          label="Type"
+                          value={reference.reference_type_id}
+                          onChange={(event) => setExternalReferences((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    ...item,
+                                    reference_type_id: event.target.value,
+                                    reference_type_name: referenceTypes.find(
+                                      (type) => type.id === event.target.value,
+                                    )?.name,
+                                  }
+                                : item
+                            )
+                          )}
+                        >
+                          {referenceTypes.filter((item) => item.is_active).map((item) => (
+                            <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <TextField
+                        label="Reference Value"
+                        value={reference.value}
+                        inputProps={{ maxLength: 32, pattern: '[A-Za-z0-9]+' }}
+                        onChange={(event) => {
+                          const value = event.target.value.replace(/[^A-Za-z0-9]/g, '')
+                          setExternalReferences((current) =>
+                            current.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, value } : item
+                            )
+                          )
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        aria-label="Remove reference"
+                        onClick={() => setExternalReferences((current) =>
+                          current.filter((_item, itemIndex) => itemIndex !== index)
+                        )}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                  <Button
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setExternalReferences((current) => [
+                      ...current,
+                      { reference_type_id: '', value: '' },
+                    ])}
+                  >
+                    Add Reference
+                  </Button>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <Button variant="contained" onClick={handleSave} disabled={saving}>
@@ -1065,6 +1195,117 @@ const ResourceDetailPage: React.FC = () => {
     <Grid item xs={12}>
       {descriptionField}
     </Grid>
+  )
+
+  const externalReferencesField = (
+    <>
+      <Typography variant="caption" color="text.secondary">
+        External References
+      </Typography>
+      {isEditing ? (
+        <Box sx={{ mt: 0.5 }}>
+          {externalReferences.map((reference, index) => (
+            <Box
+              key={index}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '180px minmax(0, 1fr) 36px',
+                gap: 1,
+                mb: 1,
+              }}
+            >
+              <FormControl size="small">
+                <InputLabel id={`resource-reference-type-${index}`}>
+                  Type
+                </InputLabel>
+                <Select
+                  labelId={`resource-reference-type-${index}`}
+                  label="Type"
+                  value={reference.reference_type_id}
+                  onChange={(event) => setExternalReferences((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? {
+                            ...item,
+                            reference_type_id: event.target.value,
+                            reference_type_name: referenceTypes.find(
+                              (type) => type.id === event.target.value,
+                            )?.name,
+                          }
+                        : item
+                    )
+                  )}
+                >
+                  {reference.reference_type_id
+                    && !referenceTypes.some(
+                      (item) => item.id === reference.reference_type_id,
+                    ) && (
+                      <MenuItem value={reference.reference_type_id}>
+                        {reference.reference_type_name || 'Existing reference type'}
+                      </MenuItem>
+                    )}
+                  {referenceTypes.filter((item) => item.is_active).map((item) => (
+                    <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                label="Reference Value"
+                value={reference.value}
+                inputProps={{ maxLength: 32, pattern: '[A-Za-z0-9]+' }}
+                onChange={(event) => {
+                  const value = event.target.value.replace(/[^A-Za-z0-9]/g, '')
+                  setExternalReferences((current) =>
+                    current.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, value } : item
+                    )
+                  )
+                }}
+              />
+              <IconButton
+                size="small"
+                aria-label="Remove reference"
+                onClick={() => setExternalReferences((current) =>
+                  current.filter((_item, itemIndex) => itemIndex !== index)
+                )}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ))}
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setExternalReferences((current) => [
+              ...current,
+              { reference_type_id: '', value: '' },
+            ])}
+          >
+            Add Reference
+          </Button>
+        </Box>
+      ) : externalReferences.length ? (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.25 }}>
+          {externalReferences.map((reference) => (
+            <Typography
+              key={`${reference.reference_type_id}:${reference.value}`}
+              variant="body2"
+              sx={{
+                px: 1,
+                py: 0.35,
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+              }}
+            >
+              {`${reference.reference_type_name || 'Reference'}: ${reference.value}`}
+            </Typography>
+          ))}
+        </Box>
+      ) : (
+        <Typography variant="body1">—</Typography>
+      )}
+    </>
   )
 
   return (
@@ -1166,6 +1407,9 @@ const ResourceDetailPage: React.FC = () => {
                   {editControls}
                 </Grid>
                 {descriptionCell}
+                <Grid item xs={12}>
+                  {externalReferencesField}
+                </Grid>
               </>
             )}
           </Grid>
@@ -1174,19 +1418,30 @@ const ResourceDetailPage: React.FC = () => {
 
       {/* Allocation calendar */}
       <Typography variant="h6" sx={{ mb: 1 }}>Assignments</Typography>
-      <ResourceAllocationCalendar
-        resourceId={id!}
-        allowAddProject={resource?.resource_type === 'LABOR'}
-        resourceBreadcrumbItems={
-          fromProjectBreadcrumbs
-            ? [...fromProjectBreadcrumbs, { label: resource?.name || '…', path: `/resources/${id}`, state: { fromProjectBreadcrumbs } }]
-            : [
-                { label: 'Home', path: '/dashboard' },
-                { label: 'Resources', path: '/resources' },
-                { label: resource?.name || '…', path: `/resources/${id}` },
-              ]
-        }
-      />
+      {isLabor ? (
+        <ResourceAllocationCalendar
+          resourceId={id!}
+          allowAddProject
+          resourceBreadcrumbItems={
+            fromProjectBreadcrumbs
+              ? [...fromProjectBreadcrumbs, { label: resource?.name || '…', path: `/resources/${id}`, state: { fromProjectBreadcrumbs } }]
+              : [
+                  { label: 'Home', path: '/dashboard' },
+                  { label: 'Resources', path: '/resources' },
+                  { label: resource?.name || '…', path: `/resources/${id}` },
+                ]
+          }
+        />
+      ) : (
+        <NonLaborAssignmentsGrid
+          perspective="resource"
+          resource={{
+            id: id!,
+            name: resource?.name || formData.name,
+            external_references: resource?.external_references,
+          }}
+        />
+      )}
 
       {/* Conflict Dialog */}
       <ConflictDialog
@@ -1206,6 +1461,18 @@ const ResourceDetailPage: React.FC = () => {
             })
             if ('worker_id' in conflictState.attemptedChanges) {
               setSelectedWorkerId(conflictState.attemptedChanges.worker_id ?? null)
+            }
+            if ('external_references' in conflictState.attemptedChanges) {
+              setExternalReferences(
+                (conflictState.attemptedChanges.external_references ?? []).map(
+                  (item: { reference_type_id: string; value: string }) => ({
+                    ...item,
+                    reference_type_name: referenceTypes.find(
+                      (type) => type.id === item.reference_type_id,
+                    )?.name,
+                  }),
+                ),
+              )
             }
           }
           clearConflict()

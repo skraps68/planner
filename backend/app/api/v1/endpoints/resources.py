@@ -18,6 +18,7 @@ from app.schemas.resource import (
     ResourceListResponse,
     ResourceSummary
 )
+from app.schemas.nonlabor_plan import ExternalReferenceResponse
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.resource import resource_service, rate_service
 from app.core.exceptions import ConflictError
@@ -33,6 +34,18 @@ def _enrich(db: Session, resource) -> ResourceResponse:
     """
     response = ResourceResponse.model_validate(resource)
     response.assignment_count = len(resource.resource_assignments) if resource.resource_assignments else 0
+    response.external_references = [
+        ExternalReferenceResponse(
+            id=link.external_reference.id,
+            reference_type_id=link.external_reference.reference_type_id,
+            reference_type_name=link.external_reference.reference_type.name,
+            value=link.external_reference.value,
+            version=link.external_reference.version,
+            created_at=link.external_reference.created_at,
+            updated_at=link.external_reference.updated_at,
+        )
+        for link in (getattr(resource, "external_reference_links", None) or [])
+    ]
     response.resource_role_name = resource.resource_role.name if resource.resource_role else None
     if resource.resource_type == ResourceType.LABOR and resource.worker_id:
         worker = resource.worker
@@ -73,7 +86,8 @@ async def create_resource(
             resource_type=resource_in.resource_type,
             description=resource_in.description,
             worker_id=resource_in.worker_id,
-            resource_role_id=resource_in.resource_role_id
+            resource_role_id=resource_in.resource_role_id,
+            external_references=resource_in.external_references,
         )
 
         return _enrich(db, resource)
@@ -210,7 +224,8 @@ async def update_resource(
             name=resource_in.name,
             description=resource_in.description,
             worker_id=resource_in.worker_id,
-            resource_role_id=resource_in.resource_role_id
+            resource_role_id=resource_in.resource_role_id,
+            external_references=resource_in.external_references,
         )
 
         return _enrich(db, resource)

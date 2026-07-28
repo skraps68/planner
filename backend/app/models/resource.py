@@ -54,6 +54,16 @@ class Resource(BaseModel):
 
     # Relationships
     resource_assignments = relationship("ResourceAssignment", back_populates="resource", cascade="all, delete-orphan")
+    nonlabor_plan_lines = relationship(
+        "NonLaborPlanLine",
+        back_populates="resource",
+        cascade="all, delete-orphan",
+    )
+    external_reference_links = relationship(
+        "ResourceExternalReference",
+        back_populates="resource",
+        cascade="all, delete-orphan",
+    )
     worker = relationship("Worker")
     resource_role = relationship("ResourceRole", back_populates="resources")
     

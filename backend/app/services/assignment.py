@@ -131,6 +131,11 @@ class AssignmentService:
         resource = self.resource_repository.get(db, resource_id)
         if not resource:
             raise ValueError(f"Resource with ID {resource_id} not found")
+        if resource.resource_type != ResourceType.LABOR:
+            raise ValueError(
+                "Percentage assignments can only use LABOR resources; "
+                "use a non-labor cost plan for NON_LABOR resources"
+            )
         
         # Validate project exists
         project = self.project_repository.get(db, project_id)
@@ -349,6 +354,12 @@ class AssignmentService:
         assignment = self.repository.get(db, assignment_id)
         if not assignment:
             raise ValueError(f"Assignment with ID {assignment_id} not found")
+        resource = self.resource_repository.get(db, assignment.resource_id)
+        if not resource or resource.resource_type != ResourceType.LABOR:
+            raise ValueError(
+                "Percentage assignments can only use LABOR resources; "
+                "use a non-labor cost plan for NON_LABOR resources"
+            )
         
         # Check version if provided (for optimistic locking)
         if expected_version is not None and assignment.version != expected_version:

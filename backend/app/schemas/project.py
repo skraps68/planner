@@ -22,6 +22,7 @@ class ProjectBase(BaseSchema):
     start_date: date = Field(description="Project start date")
     end_date: date = Field(description="Project end date")
     cost_center_code: str = Field(min_length=1, max_length=50, description="Cost center code")
+    currency_code: str = Field(default="USD", min_length=3, max_length=3, description="ISO currency code")
     description: Optional[str] = Field(default=None, max_length=1000, description="Project description")
     
     @field_validator('end_date')
@@ -49,6 +50,7 @@ class ProjectUpdate(VersionedSchema):
     start_date: Optional[date] = Field(default=None, description="Project start date")
     end_date: Optional[date] = Field(default=None, description="Project end date")
     cost_center_code: Optional[str] = Field(default=None, min_length=1, max_length=50, description="Cost center code")
+    currency_code: Optional[str] = Field(default=None, min_length=3, max_length=3, description="ISO currency code")
     description: Optional[str] = Field(default=None, max_length=1000, description="Project description")
     
     @field_validator('end_date')

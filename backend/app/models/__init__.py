@@ -13,6 +13,21 @@ from app.models.user import User, UserRole, ScopeAssignment, RoleType, ScopeType
 from app.models.user_settings import UserSettings
 from app.models.audit import AuditLog
 from app.models.business_id import BusinessIdConfig
+from app.models.nonlabor_plan import (
+    ExternalReference,
+    ExternalReferenceType,
+    NonLaborCostTreatment,
+    NonLaborForecastBasis,
+    NonLaborFrequency,
+    NonLaborOccurrenceSource,
+    NonLaborPeriodPlacement,
+    NonLaborPlanLine,
+    NonLaborPlanLineReference,
+    NonLaborPlanMethod,
+    NonLaborPlanOccurrence,
+    NonLaborPlanStatus,
+    ResourceExternalReference,
+)
 
 __all__ = [
     "Base",
@@ -38,4 +53,17 @@ __all__ = [
     "UserSettings",
     "AuditLog",
     "BusinessIdConfig",
+    "ExternalReference",
+    "ExternalReferenceType",
+    "NonLaborCostTreatment",
+    "NonLaborForecastBasis",
+    "NonLaborFrequency",
+    "NonLaborOccurrenceSource",
+    "NonLaborPeriodPlacement",
+    "NonLaborPlanLine",
+    "NonLaborPlanLineReference",
+    "NonLaborPlanMethod",
+    "NonLaborPlanOccurrence",
+    "NonLaborPlanStatus",
+    "ResourceExternalReference",
 ]

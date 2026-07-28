@@ -23,6 +23,11 @@ export interface AssignmentUsageChartConfig {
   subtitle: string
   seriesLabel: string
   values: number[]
+  stackedSeries?: Array<{
+    label: string
+    values: number[]
+    fill: string
+  }>
   valueFormatter?: (value: number) => string
   capacityLimit?: number
   availableCapacityLabel?: string
@@ -46,6 +51,19 @@ const linePath = (points: Array<{ x: number; y: number }>): string => {
   return points
     .map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`)
     .join(' ')
+}
+
+const bandPath = (
+  topPoints: Array<{ x: number; y: number }>,
+  bottomPoints: Array<{ x: number; y: number }>,
+): string => {
+  if (topPoints.length === 0) return ''
+  return [
+    `M ${topPoints[0].x} ${topPoints[0].y}`,
+    ...topPoints.slice(1).map(({ x, y }) => `L ${x} ${y}`),
+    ...[...bottomPoints].reverse().map(({ x, y }) => `L ${x} ${y}`),
+    'Z',
+  ].join(' ')
 }
 
 const formatAxisValue = (value: number): string => {
@@ -88,6 +106,40 @@ export const AssignmentUsageChart = ({
         ...[...points].reverse().map(({ x, y: pointY }) => `L ${x} ${pointY}`),
         'Z',
       ].join(' ')
+  const stackedAreas = (config.stackedSeries ?? []).reduce<Array<{
+    label: string
+    fill: string
+    values: number[]
+    path: string
+  }>>((areas, series) => {
+    const lowerValues = areas.length
+      ? areas[areas.length - 1].values
+      : periods.map(() => 0)
+    const upperValues = periods.map(
+      (_period, index) =>
+        (lowerValues[index] ?? 0) + (series.values[index] ?? 0),
+    )
+    const upperPoints = periods.map((_period, index) => ({
+      x: index * periodWidth + periodWidth / 2,
+      y: y(upperValues[index]),
+    }))
+    const lowerPoints = periods.map((_period, index) => ({
+      x: index * periodWidth + periodWidth / 2,
+      y: y(lowerValues[index] ?? 0),
+    }))
+    areas.push({
+      label: series.label,
+      fill: series.fill,
+      values: upperValues,
+      path: bandPath(upperPoints, lowerPoints),
+    })
+    return areas
+  }, [])
+  const legendSeries = config.stackedSeries ?? [{
+    label: config.seriesLabel,
+    values: config.values,
+    fill: COLOR_SLATE_WASH,
+  }]
   const valueFormatter = config.valueFormatter ?? formatAxisValue
   const axisLabels = config.capacityLimit === undefined
     ? [
@@ -130,18 +182,53 @@ export const AssignmentUsageChart = ({
         <Typography sx={{ position: 'absolute', left: '10px', top: '29px', color: 'text.secondary', fontSize: 10 }}>
           {config.subtitle}
         </Typography>
-        <Box sx={{ position: 'absolute', left: '10px', top: '61px', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Box sx={{ width: 20, height: 9, borderTop: `2px solid ${COLOR_ACCENT}`, backgroundColor: COLOR_SLATE_WASH }} />
-          <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>{config.seriesLabel}</Typography>
-        </Box>
+        {legendSeries.map((series, index) => (
+          <Box
+            key={series.label}
+            sx={{
+              position: 'absolute',
+              left: '10px',
+              top: `${61 + index * 21}px`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+            }}
+          >
+            <Box
+              sx={{
+                width: 20,
+                height: 9,
+                borderTop: `2px solid ${COLOR_ACCENT}`,
+                backgroundColor: series.fill,
+              }}
+            />
+            <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>
+              {series.label}
+            </Typography>
+          </Box>
+        ))}
         {config.capacityLimit !== undefined && config.availableCapacityLabel && (
-          <Box sx={{ position: 'absolute', left: '10px', top: '82px', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Box sx={{
+            position: 'absolute',
+            left: '10px',
+            top: `${61 + legendSeries.length * 21}px`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+          }}>
             <Box sx={{ width: 20, height: 9, backgroundColor: AVAILABLE_FILL }} />
             <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>{config.availableCapacityLabel}</Typography>
           </Box>
         )}
         {config.capacityLimit !== undefined && (
-          <Box sx={{ position: 'absolute', left: '10px', top: '103px', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Box sx={{
+            position: 'absolute',
+            left: '10px',
+            top: `${61 + (legendSeries.length + (config.availableCapacityLabel ? 1 : 0)) * 21}px`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+          }}>
             <Box sx={{ width: 20, borderTop: `2px dashed ${LIMIT_COLOR}` }} />
             <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>Capacity limit</Typography>
           </Box>
@@ -210,7 +297,11 @@ export const AssignmentUsageChart = ({
               clipPath={`url(#${clipId}-under)`}
             />
           )}
-          {usedPath && <path d={usedPath} fill={COLOR_SLATE_WASH} />}
+          {stackedAreas.length
+            ? stackedAreas.map((area) => (
+                <path key={area.label} d={area.path} fill={area.fill} />
+              ))
+            : usedPath && <path d={usedPath} fill={COLOR_SLATE_WASH} />}
           {limitY !== undefined && usedPath && (
             <path
               d={usedPath}
@@ -284,7 +375,16 @@ export const AssignmentUsageChart = ({
               height={PLOT_BOTTOM - PLOT_TOP}
               fill="transparent"
             >
-              <title>{`${period.ariaLabel}: ${valueFormatter(config.values[index] ?? 0)}`}</title>
+              <title>
+                {config.stackedSeries
+                  ? [
+                      `${period.ariaLabel}: ${valueFormatter(config.values[index] ?? 0)} total`,
+                      ...config.stackedSeries.map((series) =>
+                        `${series.label} ${valueFormatter(series.values[index] ?? 0)}`
+                      ),
+                    ].join(' · ')
+                  : `${period.ariaLabel}: ${valueFormatter(config.values[index] ?? 0)}`}
+              </title>
             </rect>
           ))}
         </svg>

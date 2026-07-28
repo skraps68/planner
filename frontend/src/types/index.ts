@@ -32,6 +32,7 @@ export interface Project {
   start_date: string
   end_date: string
   cost_center_code: string
+  currency_code?: string
   version: number
   created_at: string
   updated_at: string
@@ -83,6 +84,73 @@ export interface Resource {
   worker_name?: string
   worker_type_name?: string
   current_rate?: string
+  external_references?: ExternalReference[]
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export type NonLaborPlanMethod = 'MANUAL' | 'STRAIGHT_LINE'
+export type NonLaborCostTreatment = 'CAPITAL' | 'EXPENSE'
+export type NonLaborFrequency = 'DAILY' | 'MONTHLY' | 'YEARLY'
+export type NonLaborPeriodPlacement = 'PERIOD_START' | 'PERIOD_END'
+
+export interface ExternalReferenceType {
+  id: string
+  name: string
+  description: string
+  is_active: boolean
+  reference_count: number
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ExternalReference {
+  id: string
+  reference_type_id: string
+  reference_type_name: string
+  value: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface NonLaborPlanOccurrence {
+  id: string
+  occurrence_date: string
+  base_amount: number
+  override_amount: number | null
+  effective_amount: number
+  source: 'MANUAL' | 'GENERATED'
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface NonLaborPlanLine {
+  id: string
+  project_id: string
+  project_name: string
+  project_start_date: string
+  project_end_date: string
+  resource_id: string
+  resource_name: string
+  name: string
+  description?: string
+  forecast_basis: 'CASH'
+  method: NonLaborPlanMethod
+  cost_treatment: NonLaborCostTreatment
+  currency_code: string
+  total_amount: number
+  schedule_start: string | null
+  schedule_end: string | null
+  frequency: NonLaborFrequency | null
+  period_placement: NonLaborPeriodPlacement | null
+  status: 'ACTIVE' | 'CANCELLED'
+  occurrences: NonLaborPlanOccurrence[]
+  references: ExternalReference[]
+  warnings: string[]
   version: number
   created_at: string
   updated_at: string

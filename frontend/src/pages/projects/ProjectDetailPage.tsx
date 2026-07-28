@@ -16,6 +16,8 @@ import {
   Autocomplete,
   Switch,
   FormControlLabel,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material'
 import { Edit, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { projectsApi } from '../../api/projects'
@@ -31,9 +33,11 @@ import ChartSection from '../../components/portfolio/ChartSection'
 import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import DetailField, { DETAIL_BUTTON_BAND_VIEW, DETAIL_BUTTON_BAND_EDIT } from '../../components/common/DetailField'
 import ResourceAssignmentCalendar from '../../components/resources/ResourceAssignmentCalendar'
+import NonLaborAssignmentsGrid from '../../components/resources/NonLaborAssignmentsGrid'
 import ProjectActualsTab from '../../components/actuals/ProjectActualsTab'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
+import { useUserSettings } from '../../contexts/UserSettingsContext'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -53,6 +57,9 @@ const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { settings, updateSettings } = useUserSettings()
+  const assignmentPerspective =
+    settings.assignmentGrids?.projectPerspective ?? 'labor'
   
   // The URL is the single source of truth for the active tab (?tab=N, clamped).
   // - Selecting a different project in the nav tree lands on a bare /projects/:id
@@ -388,16 +395,46 @@ const ProjectDetailPage: React.FC = () => {
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
-        <ResourceAssignmentCalendar
-          projectId={id!}
-          projectStartDate={project.start_date}
-          projectEndDate={project.end_date}
-          onSaveSuccess={handleAssignmentSaveSuccess}
-          onSaveError={handleAssignmentSaveError}
-          projectBreadcrumbItems={[
-            { label: project.name, path: `/projects/${id}?tab=1` },
-          ]}
-        />
+        <Box sx={{ display: 'flex', mb: 1 }}>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={assignmentPerspective}
+            onChange={(_event, value: 'labor' | 'non_labor' | null) => {
+              if (!value) return
+              updateSettings({
+                assignmentGrids: { projectPerspective: value },
+              })
+            }}
+            aria-label="Assignment type"
+          >
+            <ToggleButton value="labor">Labor</ToggleButton>
+            <ToggleButton value="non_labor">Non-Labor</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+        {assignmentPerspective === 'labor' ? (
+          <ResourceAssignmentCalendar
+            projectId={id!}
+            projectStartDate={project.start_date}
+            projectEndDate={project.end_date}
+            onSaveSuccess={handleAssignmentSaveSuccess}
+            onSaveError={handleAssignmentSaveError}
+            projectBreadcrumbItems={[
+              { label: project.name, path: `/projects/${id}?tab=1` },
+            ]}
+          />
+        ) : (
+          <NonLaborAssignmentsGrid
+            perspective="project"
+            project={{
+              id: id!,
+              name: project.name,
+              start_date: project.start_date,
+              end_date: project.end_date,
+              currency_code: project.currency_code,
+            }}
+          />
+        )}
       </TabPanel>
 
       <TabPanel value={tabValue} index={2}>

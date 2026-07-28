@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.models.nonlabor_plan import ResourceExternalReference
 from app.models.resource import Resource, Worker, WorkerType, ResourceType
 from app.models.rate import Rate
 from app.models.user import ScopeType
@@ -21,6 +22,7 @@ from app.repositories.resource_role import resource_role_repository
 from app.repositories.user import user_role_repository, scope_assignment_repository
 from app.repositories.project import project_repository
 from app.services.resource_role import DEFAULT_ROLE_NAME
+from app.services.external_reference import external_reference_service
 
 
 class ResourceService:
@@ -39,7 +41,8 @@ class ResourceService:
         resource_type: ResourceType,
         description: Optional[str] = None,
         worker_id: Optional[UUID] = None,
-        resource_role_id: Optional[UUID] = None
+        resource_role_id: Optional[UUID] = None,
+        external_references: Optional[List] = None,
     ) -> Resource:
         """
         Create a new resource.
@@ -64,6 +67,10 @@ class ResourceService:
             raise ValueError(f"Invalid resource type: {resource_type}")
 
         if resource_type == ResourceType.LABOR:
+            if external_references:
+                raise ValueError(
+                    "Labor resources cannot have external references"
+                )
             if worker_id is None:
                 raise ValueError("Labor resources must be linked to a worker")
             worker = worker_repository.get(db, worker_id)
@@ -91,7 +98,63 @@ class ResourceService:
             "resource_role_id": resource_role_id,
         }
 
-        return self.repository.create(db, obj_in=resource_data)
+        resolved_references = self._resolve_external_references(
+            db,
+            external_references or [],
+        )
+        resource = self.repository.create(db, obj_in=resource_data)
+        if resolved_references:
+            self._replace_external_references(
+                db,
+                resource,
+                resolved_references,
+            )
+            db.commit()
+            db.refresh(resource)
+        return resource
+
+    @staticmethod
+    def _resolve_external_references(
+        db: Session,
+        reference_inputs: List,
+    ) -> List:
+        seen = set()
+        resolved = []
+        for reference_in in reference_inputs:
+            key = (
+                reference_in.reference_type_id,
+                reference_in.value.upper(),
+            )
+            if key in seen:
+                raise ValueError(
+                    "A resource cannot contain the same external reference twice"
+                )
+            seen.add(key)
+            resolved.append(
+                external_reference_service.get_or_create(
+                    db,
+                    reference_in.reference_type_id,
+                    reference_in.value,
+                )
+            )
+        return resolved
+
+    @staticmethod
+    def _replace_external_references(
+        db: Session,
+        resource: Resource,
+        resolved_references: List,
+    ) -> None:
+        for link in list(resource.external_reference_links):
+            db.delete(link)
+        db.flush()
+        for reference in resolved_references:
+            db.add(
+                ResourceExternalReference(
+                    resource_id=resource.id,
+                    external_reference_id=reference.id,
+                )
+            )
 
     def _resolve_labor_role(self, db: Session, resource_role_id: Optional[UUID]) -> UUID:
         """
@@ -189,7 +252,8 @@ class ResourceService:
         name: Optional[str] = None,
         description: Optional[str] = None,
         worker_id: Optional[UUID] = None,
-        resource_role_id: Optional[UUID] = None
+        resource_role_id: Optional[UUID] = None,
+        external_references: Optional[List] = None,
     ) -> Resource:
         """
         Update resource with validation.
@@ -218,6 +282,10 @@ class ResourceService:
         update_data = {}
 
         if resource.resource_type == ResourceType.LABOR:
+            if external_references is not None:
+                raise ValueError(
+                    "Labor resources cannot have external references"
+                )
             if worker_id is not None and worker_id != resource.worker_id:
                 worker = worker_repository.get(db, worker_id)
                 if not worker:
@@ -247,7 +315,25 @@ class ResourceService:
         if description is not None:
             update_data["description"] = description
 
-        return self.repository.update(db, db_obj=resource, obj_in=update_data)
+        resolved_references = (
+            self._resolve_external_references(db, external_references)
+            if external_references is not None
+            else None
+        )
+        resource = self.repository.update(
+            db,
+            db_obj=resource,
+            obj_in=update_data,
+        )
+        if resolved_references is not None:
+            self._replace_external_references(
+                db,
+                resource,
+                resolved_references,
+            )
+            db.commit()
+            db.refresh(resource)
+        return resource
 
     def delete_resource(self, db: Session, resource_id: UUID) -> bool:
         """

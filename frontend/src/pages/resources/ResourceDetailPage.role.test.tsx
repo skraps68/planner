@@ -7,6 +7,8 @@ import { resourcesApi } from '../../api/resources'
 import { resourceRolesApi } from '../../api/resourceRoles'
 import { assignmentsApi } from '../../api/assignments'
 import { workersApi } from '../../api/workers'
+import { externalReferenceTypesApi } from '../../api/externalReferenceTypes'
+import { nonlaborPlansApi } from '../../api/nonlaborPlans'
 
 let mockParams: { id: string } = { id: 'new' }
 vi.mock('react-router-dom', async () => {
@@ -29,6 +31,15 @@ vi.mock('../../api/assignments', () => ({
 }))
 vi.mock('../../api/workers', () => ({
   workersApi: { get: vi.fn(), search: vi.fn() },
+}))
+vi.mock('../../api/externalReferenceTypes', () => ({
+  externalReferenceTypesApi: { list: vi.fn() },
+}))
+vi.mock('../../api/nonlaborPlans', () => ({
+  nonlaborPlansApi: {
+    list: vi.fn(),
+    setOverride: vi.fn(),
+  },
 }))
 
 vi.mock('../../contexts/AuthContext', () => ({
@@ -76,11 +87,41 @@ const laborResource = {
   updated_at: '2026-01-01T00:00:00Z',
 }
 
+const nonlaborResource = {
+  id: 'resource-2',
+  name: 'Software Subscription',
+  resource_type: 'NON_LABOR' as const,
+  description: 'Annual platform cost',
+  external_references: [{
+    id: 'reference-1',
+    reference_type_id: 'reference-type-1',
+    reference_type_name: 'Contract ID',
+    value: 'CONTRACT123',
+    version: 1,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  }],
+  version: 2,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+}
+
 describe('ResourceDetailPage resource role', () => {
   beforeEach(() => {
     vi.mocked(resourceRolesApi.list).mockResolvedValue(roles as any)
     vi.mocked(assignmentsApi.getByResource).mockResolvedValue([])
     vi.mocked(workersApi.get).mockResolvedValue({ id: 'worker-1', name: 'Jane Doe' } as any)
+    vi.mocked(nonlaborPlansApi.list).mockResolvedValue([])
+    vi.mocked(externalReferenceTypesApi.list).mockResolvedValue([{
+      id: 'reference-type-1',
+      name: 'Contract ID',
+      description: 'Contract identifier',
+      is_active: true,
+      reference_count: 1,
+      version: 1,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }])
   })
 
   it('create mode: shows a Resource Role select defaulting to Default', async () => {
@@ -137,5 +178,46 @@ describe('ResourceDetailPage resource role', () => {
     render(<ResourceDetailPage />)
 
     await waitFor(() => expect(screen.getByText('Resource (Labor)')).toBeInTheDocument())
+  })
+
+  it('shows and updates default references for a non-labor resource', async () => {
+    mockParams = { id: 'resource-2' }
+    vi.mocked(resourcesApi.get).mockResolvedValue(nonlaborResource as any)
+    vi.mocked(resourcesApi.update).mockImplementation(async (_id, input) => ({
+      ...nonlaborResource,
+      external_references: [{
+        ...nonlaborResource.external_references[0],
+        value: input.external_references?.[0]?.value ?? 'CONTRACT123',
+      }],
+      version: 3,
+    } as any))
+    const user = userEvent.setup()
+    render(<ResourceDetailPage />)
+
+    expect(await screen.findByText('Contract ID: CONTRACT123')).toBeInTheDocument()
+    const detailEdit = screen.getAllByRole('button', { name: 'Edit' })
+      .find((button) => !button.hasAttribute('disabled'))
+    expect(detailEdit).toBeDefined()
+    await user.click(detailEdit!)
+
+    const referenceInput = screen.getByRole('textbox', {
+      name: 'Reference Value',
+    })
+    await user.clear(referenceInput)
+    await user.type(referenceInput, 'CONTRACT456')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(resourcesApi.update).toHaveBeenCalledWith(
+        'resource-2',
+        expect.objectContaining({
+          version: 2,
+          external_references: [{
+            reference_type_id: 'reference-type-1',
+            value: 'CONTRACT456',
+          }],
+        }),
+      )
+    })
   })
 })

@@ -8,6 +8,7 @@ from pydantic import Field
 
 from app.models.resource import ResourceType
 from .base import BaseSchema, TimestampMixin, PaginatedResponse, VersionedSchema
+from .nonlabor_plan import ExternalReferenceInput, ExternalReferenceResponse
 
 
 class ResourceBase(BaseSchema):
@@ -29,6 +30,10 @@ class ResourceCreate(ResourceBase):
         default=None,
         description="LABOR only; defaults to 'Default'"
     )
+    external_references: List[ExternalReferenceInput] = Field(
+        default_factory=list,
+        description="Default identifiers for a NON_LABOR resource",
+    )
 
 
 class ResourceUpdate(VersionedSchema):
@@ -42,6 +47,10 @@ class ResourceUpdate(VersionedSchema):
         description="Required for LABOR; forbidden for NON_LABOR"
     )
     resource_role_id: Optional[UUID] = Field(default=None, description="LABOR only")
+    external_references: Optional[List[ExternalReferenceInput]] = Field(
+        default=None,
+        description="Replacement default identifiers for a NON_LABOR resource",
+    )
 
 
 class ResourceResponse(ResourceBase, TimestampMixin, VersionedSchema):
@@ -54,6 +63,10 @@ class ResourceResponse(ResourceBase, TimestampMixin, VersionedSchema):
     worker_type_name: Optional[str] = Field(default=None, description="Denormalized worker's employment class (LABOR only)")
     current_rate: Optional[str] = Field(default=None, description="Denormalized current rate for the worker's employment class (LABOR only)")
     assignment_count: Optional[int] = Field(default=0, description="Number of assignments for this resource")
+    external_references: List[ExternalReferenceResponse] = Field(
+        default_factory=list,
+        description="Default identifiers for a NON_LABOR resource",
+    )
 
 
 class ResourceListResponse(PaginatedResponse[ResourceResponse]):

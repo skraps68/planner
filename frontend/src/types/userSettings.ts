@@ -30,11 +30,20 @@ export interface UserSettings {
     }
   }
   assignmentGrids?: {
+    projectPerspective?: 'labor' | 'non_labor'
     project?: {
       period?: AssignmentPeriodPreference
       chartVisible?: boolean
     }
     resource?: {
+      period?: AssignmentPeriodPreference
+      chartVisible?: boolean
+    }
+    nonLaborProject?: {
+      period?: AssignmentPeriodPreference
+      chartVisible?: boolean
+    }
+    nonLaborResource?: {
       period?: AssignmentPeriodPreference
       chartVisible?: boolean
     }
@@ -70,8 +79,11 @@ export const DEFAULT_USER_SETTINGS: Required<
     resources: { defaultTab: 'labor' },
   },
   assignmentGrids: {
+    projectPerspective: 'labor',
     project: { period: 'daily', chartVisible: true },
     resource: { period: 'daily', chartVisible: true },
+    nonLaborProject: { period: 'daily', chartVisible: true },
+    nonLaborResource: { period: 'daily', chartVisible: true },
   },
   grids: {},
 }

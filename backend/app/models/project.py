@@ -36,6 +36,7 @@ class Project(BaseModel):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     cost_center_code = Column(String(50), nullable=False, unique=True, index=True)
+    currency_code = Column(String(3), nullable=False, default="USD", server_default="USD")
     
     # Optional fields
     description = Column(String(1000), nullable=True)
@@ -49,6 +50,11 @@ class Project(BaseModel):
     program = relationship("Program", back_populates="projects")
     phases = relationship("ProjectPhase", back_populates="project", cascade="all, delete-orphan")
     resource_assignments = relationship("ResourceAssignment", back_populates="project", cascade="all, delete-orphan")
+    nonlabor_plan_lines = relationship(
+        "NonLaborPlanLine",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
     actuals = relationship("Actual", back_populates="project", cascade="all, delete-orphan")
     
     # Constraints

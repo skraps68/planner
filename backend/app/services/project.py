@@ -35,6 +35,7 @@ class ProjectService:
         end_date: date,
         cost_center_code: str,
         description: Optional[str] = None,
+        currency_code: str = "USD",
         execution_capital_budget: Optional[Decimal] = None,
         execution_expense_budget: Optional[Decimal] = None,
         planning_capital_budget: Optional[Decimal] = None,
@@ -89,6 +90,7 @@ class ProjectService:
             "start_date": start_date,
             "end_date": end_date,
             "cost_center_code": cost_center_code,
+            "currency_code": currency_code.upper(),
             "description": description,
             "business_id": allocate_business_id(db, "project"),
         }
@@ -161,6 +163,7 @@ class ProjectService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         cost_center_code: Optional[str] = None,
+        currency_code: Optional[str] = None,
         description: Optional[str] = None
     ) -> Project:
         """
@@ -213,6 +216,9 @@ class ProjectService:
             if existing and existing.id != project_id:
                 raise ValueError(f"Project with cost center code '{cost_center_code}' already exists")
             update_data["cost_center_code"] = cost_center_code
+
+        if currency_code is not None:
+            update_data["currency_code"] = currency_code.upper()
         
         # Handle date updates with validation
         new_start = start_date if start_date is not None else project.start_date

@@ -11,6 +11,7 @@ export interface ProjectCreateRequest {
   start_date: string
   end_date: string
   cost_center_code: string
+  currency_code?: string
   execution_phase: {
     capital_budget: number
     expense_budget: number

@@ -161,6 +161,51 @@ describe('AssignmentsGrid', () => {
     expect(screen.getByRole('button', { name: 'Show allocation chart' })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('renders stacked monetary series while retaining the total outline', () => {
+    const periods = buildAssignmentPeriods([
+      new Date(Date.UTC(2026, 0, 31)),
+      new Date(Date.UTC(2026, 1, 28)),
+    ], 'monthly')
+
+    render(
+      <AssignmentsGrid
+        ariaLabel="Non-labor assignments"
+        periods={periods}
+        viewMode="monthly"
+        onViewModeChange={vi.fn()}
+        primaryHeader="Resource"
+        primaryHeaderAriaLabel="Resource name"
+        chartConfig={{
+          title: 'Non-Labor forecast over time',
+          subtitle: 'Stacked cash-flow amounts',
+          seriesLabel: 'Total forecast',
+          values: [150, 250],
+          stackedSeries: [
+            { label: 'Capital', values: [100, 100], fill: '#cae0f2' },
+            { label: 'Expense', values: [50, 150], fill: '#ead9bc' },
+          ],
+          valueFormatter: (value) => `$${value}`,
+        }}
+      >
+        <TableRow>
+          <AssignmentsGridCell>Total</AssignmentsGridCell>
+          <AssignmentsGridCell>$</AssignmentsGridCell>
+          <AssignmentsGridCell>150</AssignmentsGridCell>
+          <AssignmentsGridCell>250</AssignmentsGridCell>
+        </TableRow>
+      </AssignmentsGrid>
+    )
+
+    expect(screen.getByText('Capital')).toBeInTheDocument()
+    expect(screen.getByText('Expense')).toBeInTheDocument()
+    expect(screen.queryByText('Total forecast')).not.toBeInTheDocument()
+    expect(screen.getByRole('img', {
+      name: 'Non-Labor forecast over time: Stacked cash-flow amounts',
+    })).toHaveTextContent(
+      'Month: January 2026: $150 total · Capital $100 · Expense $50',
+    )
+  })
+
   it('provides shared tabbing, type-to-edit, and dirty highlighting mechanics', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

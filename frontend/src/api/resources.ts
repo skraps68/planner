@@ -1,5 +1,6 @@
 import apiClient from './client'
 import { Resource, PaginatedResponse } from '../types'
+import type { ExternalReferenceInput } from './nonlaborPlans'
 
 export interface ResourceCreateInput {
   name: string
@@ -7,6 +8,7 @@ export interface ResourceCreateInput {
   description?: string
   worker_id?: string
   resource_role_id?: string
+  external_references?: ExternalReferenceInput[]
 }
 
 export interface ResourceUpdateInput {
@@ -14,6 +16,7 @@ export interface ResourceUpdateInput {
   description?: string
   worker_id?: string
   resource_role_id?: string
+  external_references?: ExternalReferenceInput[]
   version: number
 }
 

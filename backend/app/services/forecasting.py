@@ -9,6 +9,12 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.resource import ResourceType
+from app.models.nonlabor_plan import (
+    NonLaborCostTreatment,
+    NonLaborPlanLine,
+    NonLaborPlanOccurrence,
+    NonLaborPlanStatus,
+)
 from app.repositories.project import project_repository, project_phase_repository
 from app.repositories.program import program_repository
 from app.repositories.portfolio import portfolio_repository
@@ -271,6 +277,7 @@ class ForecastingService:
         actual_labor_expense = Decimal('0.00')
         actual_nonlabor_capital = Decimal('0.00')
         actual_nonlabor_expense = Decimal('0.00')
+        actual_nonlabor_by_resource_treatment = {}
         for a in actuals:
             if a.resource and a.resource.resource_type == ResourceType.LABOR:
                 actual_labor_capital += a.capital_amount
@@ -278,6 +285,27 @@ class ForecastingService:
             else:
                 actual_nonlabor_capital += a.capital_amount
                 actual_nonlabor_expense += a.expense_amount
+                if a.resource:
+                    capital_key = (
+                        a.resource_id,
+                        NonLaborCostTreatment.CAPITAL,
+                    )
+                    expense_key = (
+                        a.resource_id,
+                        NonLaborCostTreatment.EXPENSE,
+                    )
+                    actual_nonlabor_by_resource_treatment[capital_key] = (
+                        actual_nonlabor_by_resource_treatment.get(
+                            capital_key, Decimal("0")
+                        )
+                        + a.capital_amount
+                    )
+                    actual_nonlabor_by_resource_treatment[expense_key] = (
+                        actual_nonlabor_by_resource_treatment.get(
+                            expense_key, Decimal("0")
+                        )
+                        + a.expense_amount
+                    )
         
         # Calculate forecast from resource assignments (future work)
         assignments = resource_assignment_repository.get_by_project(db, project_id)
@@ -324,6 +352,11 @@ class ForecastingService:
 
                 if result:
                     assignment_cost, resource_type = result
+                    # Percentage assignments are the labor forecast source.
+                    # Non-labor forecasts are sourced from exact plan
+                    # occurrences below.
+                    if resource_type != ResourceType.LABOR:
+                        continue
                     forecast_cost += assignment_cost
 
                     # Apply capital/expense split from assignment
@@ -333,16 +366,66 @@ class ForecastingService:
                     forecast_capital += capital_portion
                     forecast_expense += expense_portion
 
-                    if resource_type == ResourceType.LABOR:
-                        forecast_labor_capital += capital_portion
-                        forecast_labor_expense += expense_portion
-                    else:
-                        forecast_nonlabor_capital += capital_portion
-                        forecast_nonlabor_expense += expense_portion
+                    forecast_labor_capital += capital_portion
+                    forecast_labor_expense += expense_portion
 
             except Exception:
                 # If we can't calculate cost for this assignment, skip it
                 continue
+
+        # Exact non-labor cash forecast occurrences. Future values are always
+        # forecast. Past-due values remain forecast until actuals for the same
+        # resource and treatment consume them; this keeps an unactualized cost
+        # plan from silently disappearing after its scheduled date.
+        occurrence_query = (
+            db.query(NonLaborPlanOccurrence, NonLaborPlanLine)
+            .join(
+                NonLaborPlanLine,
+                NonLaborPlanOccurrence.plan_line_id == NonLaborPlanLine.id,
+            )
+            .filter(
+                NonLaborPlanLine.project_id == project_id,
+                NonLaborPlanLine.status == NonLaborPlanStatus.ACTIVE,
+            )
+        )
+        if phase_id:
+            occurrence_query = occurrence_query.filter(
+                NonLaborPlanOccurrence.occurrence_date >= phase_start_date,
+                NonLaborPlanOccurrence.occurrence_date <= phase_end_date,
+            )
+
+        future_nonlabor = {}
+        overdue_nonlabor = {}
+        for occurrence, plan_line in occurrence_query.all():
+            key = (plan_line.resource_id, plan_line.cost_treatment)
+            bucket = (
+                future_nonlabor
+                if occurrence.occurrence_date > as_of_date
+                else overdue_nonlabor
+            )
+            bucket[key] = (
+                bucket.get(key, Decimal("0"))
+                + occurrence.effective_amount
+            )
+
+        all_nonlabor_keys = set(future_nonlabor) | set(overdue_nonlabor)
+        for key in all_nonlabor_keys:
+            future_amount = future_nonlabor.get(key, Decimal("0"))
+            overdue_amount = overdue_nonlabor.get(key, Decimal("0"))
+            actual_amount = actual_nonlabor_by_resource_treatment.get(
+                key, Decimal("0")
+            )
+            amount = future_amount + max(
+                overdue_amount - actual_amount,
+                Decimal("0"),
+            )
+            forecast_cost += amount
+            if key[1] == NonLaborCostTreatment.CAPITAL:
+                forecast_capital += amount
+                forecast_nonlabor_capital += amount
+            else:
+                forecast_expense += amount
+                forecast_nonlabor_expense += amount
 
         # Total forecast = actuals to date + forecast for future
         # Note: We return the future forecast separately, not the total

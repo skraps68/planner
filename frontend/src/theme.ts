@@ -22,6 +22,7 @@ export const COLOR_GOOD = '#1f8a54'
 export const COLOR_WARN = '#b7791f'
 export const COLOR_BAD = '#c0392f'
 // Density / tables
+export const APP_HEADER_HEIGHT = 48
 export const TABLE_CELL_PADDING = '4px 12px'
 export const TABLE_ROW_HEIGHT = 30
 export const TABLE_HEADER_HEIGHT = 34
@@ -70,7 +71,7 @@ const theme = createTheme({
     MuiToolbar: {
       styleOverrides: {
         root: {
-          minHeight: '48px !important',
+          minHeight: `${APP_HEADER_HEIGHT}px !important`,
           paddingLeft: '12px !important',
           paddingRight: '12px !important',
         },

@@ -3,6 +3,7 @@ import {
   Box, Button, IconButton, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, CircularProgress, Alert, Snackbar,
   Dialog, DialogActions, DialogContent, DialogTitle, Collapse, Tooltip, Grid,
+  Chip, Switch, FormControlLabel,
 } from '@mui/material'
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
@@ -13,7 +14,8 @@ import { format } from 'date-fns'
 import { workerTypesApi } from '../../api/workers'
 import { ratesApi } from '../../api/rates'
 import { resourceRolesApi } from '../../api/resourceRoles'
-import { WorkerType, ResourceRole } from '../../types'
+import { externalReferenceTypesApi } from '../../api/externalReferenceTypes'
+import { WorkerType, ResourceRole, ExternalReferenceType } from '../../types'
 
 type Severity = 'success' | 'error'
 type Notify = (message: string, severity: Severity) => void
@@ -26,7 +28,10 @@ const contentCellSx = { whiteSpace: 'nowrap' }
 const formatRate = (rate?: string | number | null) =>
   rate !== undefined && rate !== null && rate !== '' ? `$${rate}` : '—'
 const today = () => format(new Date(), 'yyyy-MM-dd')
-const errText = (e: any, fallback: string) => e?.response?.data?.detail || fallback
+const errText = (error: unknown, fallback: string) =>
+  (error as { response?: { data?: { detail?: string } } })
+    ?.response?.data?.detail
+    || fallback
 
 // ---------- Worker Types panel ----------
 const WorkerTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
@@ -49,13 +54,13 @@ const WorkerTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
       qc.invalidateQueries({ queryKey: ['worker-types'] })
       setDialogOpen(false)
     },
-    onError: (e: any) => notify(errText(e, 'Failed to save worker type'), 'error'),
+    onError: (e) => notify(errText(e, 'Failed to save worker type'), 'error'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (wt: WorkerType) => workerTypesApi.delete(wt.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['worker-types'] }),
-    onError: (e: any) => notify(errText(e, 'Failed to delete worker type'), 'error'),
+    onError: (e) => notify(errText(e, 'Failed to delete worker type'), 'error'),
   })
 
   const openCreate = () => { setEditing(null); setForm({ type: '', description: '' }); setDialogOpen(true) }
@@ -196,7 +201,7 @@ const RatesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
       qc.invalidateQueries({ queryKey: ['rates'] })
       setDialogOpen(false)
     },
-    onError: (e: any) => notify(errText(e, 'Failed to set rate'), 'error'),
+    onError: (e) => notify(errText(e, 'Failed to set rate'), 'error'),
   })
 
   const openSetRate = (wt: WorkerType) => {
@@ -307,13 +312,13 @@ const ResourceRolesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
       qc.invalidateQueries({ queryKey: ['resource-roles'] })
       setDialogOpen(false)
     },
-    onError: (e: any) => notify(errText(e, 'Failed to save resource role'), 'error'),
+    onError: (e) => notify(errText(e, 'Failed to save resource role'), 'error'),
   })
 
   const deleteMut = useMutation({
     mutationFn: (role: ResourceRole) => resourceRolesApi.delete(role.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['resource-roles'] }),
-    onError: (e: any) => notify(errText(e, 'Failed to delete resource role'), 'error'),
+    onError: (e) => notify(errText(e, 'Failed to delete resource role'), 'error'),
   })
 
   const openCreate = () => { setEditing(null); setForm({ name: '', description: '' }); setDialogOpen(true) }
@@ -406,6 +411,168 @@ const ResourceRolesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
   )
 }
 
+// ---------- External Reference Types panel ----------
+const ExternalReferenceTypesPanel: React.FC<{ notify: Notify }> = ({ notify }) => {
+  const qc = useQueryClient()
+  const { data: types = [], isLoading } = useQuery({
+    queryKey: ['external-reference-types'],
+    queryFn: () => externalReferenceTypesApi.list(),
+  })
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<ExternalReferenceType | null>(null)
+  const [form, setForm] = useState({ name: '', description: '', is_active: true })
+
+  const saveMut = useMutation({
+    mutationFn: () => editing
+      ? externalReferenceTypesApi.update(editing.id, {
+          name: form.name,
+          description: form.description,
+          is_active: form.is_active,
+          version: editing.version,
+        })
+      : externalReferenceTypesApi.create({
+          name: form.name,
+          description: form.description,
+        }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['external-reference-types'] })
+      setDialogOpen(false)
+    },
+    onError: (e) => notify(errText(e, 'Failed to save external reference type'), 'error'),
+  })
+
+  const openCreate = () => {
+    setEditing(null)
+    setForm({ name: '', description: '', is_active: true })
+    setDialogOpen(true)
+  }
+  const openEdit = (item: ExternalReferenceType) => {
+    setEditing(item)
+    setForm({
+      name: item.name,
+      description: item.description,
+      is_active: item.is_active,
+    })
+    setDialogOpen(true)
+  }
+
+  return (
+    <Paper component="section" role="region" aria-label="External Reference Types" sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+        <Box>
+          <Typography variant="h6">External Reference Types</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Types available for non-labor resources and cost plans.
+          </Typography>
+        </Box>
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={openCreate}>
+          Add Reference Type
+        </Button>
+      </Box>
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
+      ) : (
+        <TableContainer>
+          <Table size="small" sx={{ tableLayout: 'auto' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', ...contentCellSx }}>Type</TableCell>
+                <TableCell sx={descriptionHeaderSx}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>References</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {types.length === 0 ? (
+                <TableRow><TableCell colSpan={5} align="center">No external reference types found</TableCell></TableRow>
+              ) : types.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell sx={contentCellSx}>
+                    <Typography variant="body2" fontWeight="medium">{item.name}</Typography>
+                  </TableCell>
+                  <TableCell sx={descriptionCellSx}>
+                    <Typography variant="body2" noWrap title={item.description}>
+                      {item.description}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{item.reference_count}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={item.is_active ? 'Active' : 'Inactive'}
+                      color={item.is_active ? 'success' : 'default'}
+                      variant={item.is_active ? 'filled' : 'outlined'}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" aria-label={`Edit ${item.name}`} onClick={() => openEdit(item)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.25 }}>
+        Reference values accept 1–32 alphanumeric characters. Internal IDs are generated automatically.
+      </Typography>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{editing ? 'Edit Reference Type' : 'Add Reference Type'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
+            <TextField
+              label="Name"
+              value={form.name}
+              required
+              fullWidth
+              InputLabelProps={{ required: false }}
+              onChange={(e) => setForm((previous) => ({ ...previous, name: e.target.value }))}
+            />
+            <TextField
+              label="Description"
+              value={form.description}
+              required
+              fullWidth
+              multiline
+              rows={3}
+              InputLabelProps={{ required: false }}
+              onChange={(e) => setForm((previous) => ({ ...previous, description: e.target.value }))}
+            />
+            {editing && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.is_active}
+                    onChange={(e) => setForm((previous) => ({
+                      ...previous,
+                      is_active: e.target.checked,
+                    }))}
+                  />
+                }
+                label="Active"
+              />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!form.name || !form.description || saveMut.isPending}
+            onClick={() => saveMut.mutate()}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Paper>
+  )
+}
+
 // ---------- Page ----------
 const ReferenceDataPage: React.FC = () => {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: Severity }>({
@@ -420,6 +587,7 @@ const ReferenceDataPage: React.FC = () => {
         <Grid item xs={12} md={6}><WorkerTypesPanel notify={notify} /></Grid>
         <Grid item xs={12} md={6}><RatesPanel notify={notify} /></Grid>
         <Grid item xs={12}><ResourceRolesPanel notify={notify} /></Grid>
+        <Grid item xs={12}><ExternalReferenceTypesPanel notify={notify} /></Grid>
       </Grid>
 
       <Snackbar open={snackbar.open} autoHideDuration={6000}

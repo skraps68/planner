@@ -80,6 +80,7 @@ async def create_project(
             start_date=project_in.start_date,
             end_date=project_in.end_date,
             cost_center_code=project_in.cost_center_code,
+            currency_code=project_in.currency_code,
             description=project_in.description,
             execution_capital_budget=execution_capital_budget,
             execution_expense_budget=execution_expense_budget,
@@ -289,6 +290,7 @@ async def update_project(
             start_date=project_in.start_date,
             end_date=project_in.end_date,
             cost_center_code=project_in.cost_center_code,
+            currency_code=project_in.currency_code,
             description=project_in.description
         )
         
