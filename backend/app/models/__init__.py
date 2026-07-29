@@ -8,7 +8,8 @@ from app.models.project import Project, ProjectPhase
 from app.models.resource import Resource, Worker, WorkerType, ResourceType, ResourceRole
 from app.models.rate import Rate
 from app.models.resource_assignment import ResourceAssignment
-from app.models.actual import Actual
+from app.models.actual import Actual, ActualImportBatch
+from app.models.temporal import EntityRevision
 from app.models.user import User, UserRole, ScopeAssignment, RoleType, ScopeType
 from app.models.user_settings import UserSettings
 from app.models.audit import AuditLog
@@ -45,6 +46,8 @@ __all__ = [
     "Rate",
     "ResourceAssignment",
     "Actual",
+    "ActualImportBatch",
+    "EntityRevision",
     "User",
     "UserRole",
     "ScopeAssignment",

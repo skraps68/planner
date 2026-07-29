@@ -9,6 +9,7 @@ import {
 } from 'react'
 import {
   Box,
+  Chip,
   Table,
   TableBody,
   TableCell,
@@ -30,6 +31,7 @@ import {
 } from '../../theme'
 import { validatePercentage } from '../../utils/cellValidation'
 import type { AssignmentPeriod, AssignmentViewMode } from './assignmentPeriods'
+import type { AssignmentDisplayMode } from './assignmentActuals'
 import {
   AssignmentUsageChart,
   type AssignmentUsageChartConfig,
@@ -42,6 +44,7 @@ import {
   ASSIGNMENTS_GRID_MAX_HEIGHT,
   ASSIGNMENTS_GRID_MONTH_WIDTH,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
   ASSIGNMENTS_GRID_ROW_HEIGHT,
   ASSIGNMENTS_GRID_TYPE_WIDTH,
   ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
@@ -57,6 +60,7 @@ export {
   ASSIGNMENTS_GRID_MAX_HEIGHT,
   ASSIGNMENTS_GRID_MONTH_WIDTH,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
   ASSIGNMENTS_GRID_ROW_HEIGHT,
   ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
   ASSIGNMENTS_GRID_TYPE_WIDTH,
@@ -76,6 +80,12 @@ export const getAssignmentsGridPeriodSx = (period: AssignmentPeriod) => ({
     borderRight: `2px solid ${ASSIGNMENTS_GRID_BOUNDARY_COLOR} !important`,
   }),
 })
+
+const localDateKey = (date: Date): string => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0'),
+].join('-')
 
 export const AssignmentsGridCell = styled(TableCell)({
   height: ASSIGNMENTS_GRID_ROW_HEIGHT,
@@ -110,6 +120,10 @@ interface AssignmentsGridProps {
   toolbarActions?: ReactNode
   viewSummary?: string
   periodWidthOverride?: number
+  displayMode?: AssignmentDisplayMode
+  onDisplayModeChange?: (mode: AssignmentDisplayMode) => void
+  disableDisplayModeChange?: boolean
+  actualsStatus?: ReactNode
 }
 
 const DailyViewIcon = () => (
@@ -181,6 +195,10 @@ export const AssignmentsGrid = ({
   toolbarActions,
   viewSummary,
   periodWidthOverride,
+  displayMode,
+  onDisplayModeChange,
+  disableDisplayModeChange = isEditMode,
+  actualsStatus,
 }: AssignmentsGridProps) => {
   const [internalChartVisible, setInternalChartVisible] = useState(true)
   const isChartVisible = chartVisible ?? internalChartVisible
@@ -194,6 +212,15 @@ export const AssignmentsGrid = ({
   const tableWidth =
     identityWidth
     + periods.length * periodWidth
+  const reportingDate = chartConfig?.reportingDate ?? localDateKey(new Date())
+  const reportingPeriodIndex = periods.findIndex((period) =>
+    period.dates.some(
+      (date) => date.toISOString().slice(0, 10) === reportingDate,
+    ),
+  )
+  const reportingColumnNumber = reportingPeriodIndex >= 0
+    ? reportingPeriodIndex + 3
+    : null
 
   return (
     <Box>
@@ -291,13 +318,83 @@ export const AssignmentsGrid = ({
             </Tooltip>
           )}
         </Box>
+        {displayMode && onDisplayModeChange && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: identityWidth + 8,
+              top: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              height: 27,
+            }}
+          >
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={displayMode}
+              onChange={(_event, nextMode: AssignmentDisplayMode | null) => {
+                if (nextMode) onDisplayModeChange(nextMode)
+              }}
+              aria-label="Plan and actual display"
+              sx={{
+                height: 27,
+                '& .MuiToggleButton-root': {
+                  minWidth: 46,
+                  height: 27,
+                  px: 0.75,
+                  borderColor: '#b8c1cb',
+                  color: 'text.secondary',
+                  fontSize: '0.61rem',
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  '&.Mui-selected': {
+                    backgroundColor: COLOR_ACCENT,
+                    color: '#fff',
+                    '&:hover': { backgroundColor: COLOR_ACCENT },
+                  },
+                },
+              }}
+            >
+              {([
+                ['combined', 'Combined'],
+                ['plan', 'Plan'],
+                ['actual', 'Actual'],
+                ['variance', 'Variance'],
+              ] as Array<[AssignmentDisplayMode, string]>).map(([mode, label]) => (
+                <ToggleButton
+                  key={mode}
+                  value={mode}
+                  disabled={disableDisplayModeChange && mode !== 'plan'}
+                  aria-label={`${label} values`}
+                >
+                  {label}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            {actualsStatus}
+            <Tooltip
+              arrow
+              title="◷: actual pending · !: expected actual missing · +: unplanned actual"
+            >
+              <Chip
+                size="small"
+                variant="outlined"
+                label="◷ · ! · +"
+                aria-label="Status key: clock actual pending, exclamation expected actual missing, plus unplanned actual"
+                sx={{ height: 22, fontSize: '0.58rem' }}
+              />
+            </Tooltip>
+          </Box>
+        )}
         <Typography
           sx={{
             position: 'absolute',
             left: identityWidth,
             right: toolbarActions ? 140 : 0,
             top: 0,
-            display: 'flex',
+            display: displayMode ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             height: 27,
@@ -350,7 +447,7 @@ export const AssignmentsGrid = ({
             periods={periods}
             periodWidth={periodWidth}
             identityWidth={identityWidth}
-            config={chartConfig}
+            config={{ ...chartConfig, reportingDate }}
           />
         )}
         <Table
@@ -379,6 +476,11 @@ export const AssignmentsGrid = ({
             height: `${ASSIGNMENTS_GRID_HEADER_HEIGHT}px !important`,
             padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
           },
+          ...(reportingColumnNumber && {
+            [`& .MuiTableCell-root:nth-of-type(${reportingColumnNumber})`]: {
+              borderLeft: `2px solid ${ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR} !important`,
+            },
+          }),
         }}
       >
         <TableHead>

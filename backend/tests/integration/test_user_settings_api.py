@@ -17,7 +17,17 @@ def test_user_settings_lifecycle(client, auth_headers):
                     "landingDestination": "resources",
                 },
                 "assignmentGrids": {
-                    "project": {"period": "weekly", "chartVisible": False},
+                    "projectPerspective": "non_labor",
+                    "project": {
+                        "period": "weekly",
+                        "chartVisible": False,
+                        "displayMode": "variance",
+                    },
+                    "nonLaborProject": {
+                        "period": "monthly",
+                        "chartVisible": True,
+                        "displayMode": "combined",
+                    },
                 },
             },
         },
@@ -28,6 +38,13 @@ def test_user_settings_lifecycle(client, auth_headers):
     assert body["settings"]["assignmentGrids"]["project"] == {
         "period": "weekly",
         "chartVisible": False,
+        "displayMode": "variance",
+    }
+    assert body["settings"]["assignmentGrids"]["projectPerspective"] == "non_labor"
+    assert body["settings"]["assignmentGrids"]["nonLaborProject"] == {
+        "period": "monthly",
+        "chartVisible": True,
+        "displayMode": "combined",
     }
 
     partial = client.patch(

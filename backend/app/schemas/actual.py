@@ -1,7 +1,7 @@
 """
 Actual-related Pydantic schemas.
 """
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
@@ -15,6 +15,8 @@ class ActualBase(BaseSchema):
     """Base actual schema with common fields."""
 
     project_id: UUID = Field(description="Project ID")
+    resource_id: UUID = Field(description="Resource ID")
+    import_batch_id: Optional[UUID] = Field(default=None, description="Atomic import batch ID")
     external_worker_id: Optional[str] = Field(default=None, min_length=1, max_length=100, description="External worker ID")
     worker_name: Optional[str] = Field(default=None, min_length=1, max_length=255, description="Worker name")
     actual_date: date = Field(description="Actual work date")
@@ -72,6 +74,7 @@ class ActualResponse(ActualBase, TimestampMixin, VersionedSchema):
     """Schema for actual response."""
     
     project_name: Optional[str] = Field(default=None, description="Project name")
+    resource_name: Optional[str] = Field(default=None, description="Resource name")
     program_name: Optional[str] = Field(default=None, description="Program name")
     cost_center_code: Optional[str] = Field(default=None, description="Project cost center code")
 
@@ -129,6 +132,26 @@ class ActualImportResponse(BaseSchema):
     failed_imports: int = Field(description="Number of failed imports")
     results: List[ActualImportResult] = Field(description="Detailed results for each row")
     validation_only: bool = Field(description="Whether this was validation only")
+    import_batch_id: Optional[UUID] = Field(default=None, description="Created atomic import batch")
+    actuals_through_date: Optional[date] = Field(
+        default=None,
+        description="Completeness boundary recorded for this import",
+    )
+
+
+class ActualsWatermarks(BaseSchema):
+    labor: Optional[date] = None
+    non_labor: Optional[date] = None
+
+
+class ActualsTimelineResponse(BaseSchema):
+    """Current-context actuals and explicit completeness metadata."""
+
+    plan_context: str = "current"
+    knowledge_time: datetime
+    reporting_date: date
+    watermarks: ActualsWatermarks
+    items: List[ActualResponse]
 
 
 class AllocationConflict(BaseSchema):

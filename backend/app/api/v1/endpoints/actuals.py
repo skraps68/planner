@@ -1,7 +1,7 @@
 """
 Actuals API endpoints.
 """
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -18,6 +18,8 @@ from app.schemas.actual import (
     ActualListResponse,
     ActualImportResponse,
     ActualImportResult,
+    ActualsTimelineResponse,
+    ActualsWatermarks,
     AllocationConflictResponse,
     AllocationConflict
 )
@@ -81,6 +83,8 @@ async def create_actual(
         
         # Convert to response model
         response = ActualResponse.model_validate(actual)
+        if actual.resource:
+            response.resource_name = actual.resource.name
         if actual.project:
             response.project_name = actual.project.name
             response.cost_center_code = actual.project.cost_center_code
@@ -106,6 +110,7 @@ async def create_actual(
 async def list_actuals(
     pagination: PaginationParams = Depends(),
     project_id: Optional[UUID] = Query(None, description="Filter by project"),
+    resource_id: Optional[UUID] = Query(None, description="Filter by resource"),
     external_worker_id: Optional[str] = Query(None, description="Filter by worker"),
     start_date: Optional[date] = Query(None, description="Filter by start date"),
     end_date: Optional[date] = Query(None, description="Filter by end date"),
@@ -130,6 +135,13 @@ async def list_actuals(
                 project_id=project_id,
                 start_date=start_date,
                 end_date=end_date
+            )
+        elif resource_id:
+            actuals = actuals_service.get_actuals_by_resource(
+                db=db,
+                resource_id=resource_id,
+                start_date=start_date,
+                end_date=end_date,
             )
         elif external_worker_id:
             actuals = actuals_service.get_actuals_by_worker(
@@ -163,6 +175,8 @@ async def list_actuals(
         actual_responses = []
         for actual in paginated_actuals:
             response = ActualResponse.model_validate(actual)
+            if actual.resource:
+                response.resource_name = actual.resource.name
             if actual.project:
                 response.project_name = actual.project.name
                 response.cost_center_code = actual.project.cost_center_code
@@ -185,6 +199,59 @@ async def list_actuals(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list actuals: {str(e)}"
         )
+
+
+@router.get(
+    "/timeline",
+    response_model=ActualsTimelineResponse,
+    summary="Get current-context actuals for an assignment timeline",
+)
+async def get_actuals_timeline(
+    project_id: Optional[UUID] = Query(None),
+    resource_id: Optional[UUID] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return actuals plus the completeness boundary used by grid states."""
+    if bool(project_id) == bool(resource_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide exactly one of project_id or resource_id",
+        )
+
+    if project_id:
+        actuals = actuals_service.get_actuals_by_project(
+            db,
+            project_id,
+            start_date,
+            end_date,
+        )
+    else:
+        actuals = actuals_service.get_actuals_by_resource(
+            db,
+            resource_id,
+            start_date,
+            end_date,
+        )
+
+    from app.repositories.actual import actual_repository
+    items = []
+    for actual in actuals:
+        response = ActualResponse.model_validate(actual)
+        if actual.resource:
+            response.resource_name = actual.resource.name
+        if actual.project:
+            response.project_name = actual.project.name
+        items.append(response)
+    watermarks = actual_repository.latest_watermarks(db)
+    return ActualsTimelineResponse(
+        knowledge_time=datetime.now(timezone.utc),
+        reporting_date=date.today(),
+        watermarks=ActualsWatermarks(**watermarks),
+        items=items,
+    )
 
 
 @router.get(
@@ -220,6 +287,8 @@ async def get_actual(
     # TODO: Check scope access when authentication is implemented
     
     response = ActualResponse.model_validate(actual)
+    if actual.resource:
+        response.resource_name = actual.resource.name
     if actual.project:
         response.project_name = actual.project.name
         response.cost_center_code = actual.project.cost_center_code
@@ -259,6 +328,8 @@ async def update_actual(
         )
         
         response = ActualResponse.model_validate(actual)
+        if actual.resource:
+            response.resource_name = actual.resource.name
         if actual.project:
             response.project_name = actual.project.name
             response.cost_center_code = actual.project.cost_center_code
@@ -336,6 +407,10 @@ async def delete_actual(
 async def import_labor_actuals(
     file: UploadFile = File(..., description="CSV file with labor actuals"),
     validate_only: bool = Query(False, description="Only validate, don't import"),
+    actuals_through_date: Optional[date] = Query(
+        None,
+        description="Date through which the source is complete; defaults to the latest row",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -433,7 +508,10 @@ async def import_labor_actuals(
         import_result = actuals_service.import_labor_batch(
             db=db,
             records=valid_records,
-            validate_allocation=True
+            validate_allocation=True,
+            actuals_through_date=actuals_through_date,
+            file_name=file.filename,
+            imported_by_user_id=current_user.id,
         )
 
         # Build response
@@ -453,7 +531,9 @@ async def import_labor_actuals(
             successful_imports=import_result["imported_count"],
             failed_imports=0,
             results=results,
-            validation_only=False
+            validation_only=False,
+            import_batch_id=import_result["batch"].id,
+            actuals_through_date=import_result["batch"].actuals_through_date,
         )
 
     except ActualsImportValidationError as e:
@@ -492,6 +572,10 @@ async def import_labor_actuals(
 async def import_nonlabor_actuals(
     file: UploadFile = File(..., description="CSV file with non-labor actuals"),
     validate_only: bool = Query(False, description="Only validate, don't import"),
+    actuals_through_date: Optional[date] = Query(
+        None,
+        description="Date through which the source is complete; defaults to the latest row",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -580,7 +664,10 @@ async def import_nonlabor_actuals(
         valid_records = [r for r in validated_records if r.is_valid()]
         import_result = actuals_service.import_nonlabor_batch(
             db=db,
-            records=valid_records
+            records=valid_records,
+            actuals_through_date=actuals_through_date,
+            file_name=file.filename,
+            imported_by_user_id=current_user.id,
         )
 
         # Build response
@@ -600,7 +687,9 @@ async def import_nonlabor_actuals(
             successful_imports=import_result["imported_count"],
             failed_imports=0,
             results=results,
-            validation_only=False
+            validation_only=False,
+            import_batch_id=import_result["batch"].id,
+            actuals_through_date=import_result["batch"].actuals_through_date,
         )
 
     except ActualsImportValidationError as e:

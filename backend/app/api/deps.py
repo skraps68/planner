@@ -63,7 +63,13 @@ async def get_current_user(
         
         if user is None:
             raise AuthenticationError("Could not validate credentials")
-        
+
+        # Revision capture runs at flush/commit time; attach the authenticated
+        # actor to this request's session so every planning snapshot is
+        # attributable without coupling repositories to HTTP concerns.
+        from app.temporal import ACTOR_KEY
+        db.info[ACTOR_KEY] = user.id
+
         return user
         
     except AuthenticationError:

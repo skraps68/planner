@@ -39,7 +39,7 @@ from app.services.audit import audit_service
 from app.core.exceptions import ConflictError
 
 router = APIRouter()
-USER_SETTINGS_SCHEMA_VERSION = 1
+USER_SETTINGS_SCHEMA_VERSION = 2
 
 
 def check_admin_access(current_user: User, db: Session):

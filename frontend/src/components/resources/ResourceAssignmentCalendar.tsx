@@ -11,6 +11,7 @@ import {
   Button,
   Stack,
   Snackbar,
+  Chip,
 } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import { assignmentsApi, BulkUpdateFailure } from '../../api/assignments'
@@ -41,7 +42,6 @@ import {
   getAssignmentsGridPeriodWidth,
 } from './AssignmentsGrid'
 import {
-  averageAssignmentPeriod,
   buildAssignmentPeriods,
   formatAssignmentAverage,
   type AssignmentViewMode,
@@ -53,6 +53,16 @@ import {
 import { useUserSettings } from '../../contexts/UserSettingsContext'
 import { AssignmentEntityAutocomplete } from './AssignmentEntityAutocomplete'
 import { AssignmentDraftRows } from './AssignmentDraftRows'
+import { useProjectActualsTimeline } from '../../hooks/useActualsTimeline'
+import { AssignmentComparisonValue } from './AssignmentComparisonValue'
+import {
+  actualRecordKey,
+  buildActualTotals,
+  compareAssignmentPeriod,
+  comparisonValue,
+  getActualCellSx,
+  type AssignmentDisplayMode,
+} from './assignmentActuals'
 
 // Memoized cell wrapper to prevent unnecessary re-renders
 interface CellWrapperProps {
@@ -160,6 +170,10 @@ const ResourceAssignmentCalendar = ({
   
   // Use React Query hook for assignments data
   const { data: assignments = [], isLoading, error: queryError, refetch } = useProjectAssignments(projectId)
+  const {
+    data: actualsContext,
+    error: actualsError,
+  } = useProjectActualsTimeline(projectId, projectStartDate, projectEndDate)
   const { invalidateProject } = useInvalidateAssignments()
   
   // Use persisted edits hook to maintain unsaved changes across navigation
@@ -177,6 +191,9 @@ const ResourceAssignmentCalendar = ({
     () => loadProjectAssignmentView(projectId, preferredAssignmentView),
   )
   const { viewMode, chartVisible } = assignmentView
+  const [displayMode, setDisplayMode] = useState<AssignmentDisplayMode>(
+    () => settings.assignmentGrids?.project?.displayMode ?? 'combined',
+  )
   const updateAssignmentView = useCallback((
     update: Partial<{ viewMode: AssignmentViewMode; chartVisible: boolean }>,
     persistPreference = true,
@@ -219,7 +236,8 @@ const ResourceAssignmentCalendar = ({
 
   useEffect(() => {
     setAssignmentView(loadProjectAssignmentView(projectId, preferredAssignmentView))
-  }, [preferredAssignmentView, projectId])
+    setDisplayMode(settings.assignmentGrids?.project?.displayMode ?? 'combined')
+  }, [preferredAssignmentView, projectId, settings.assignmentGrids?.project?.displayMode])
 
   // Check if user has permission to edit resources
   const canEdit = useMemo(() => {
@@ -257,6 +275,7 @@ const ResourceAssignmentCalendar = ({
   useEffect(() => {
     if (editedCells.size > 0 && !isEditMode && canEdit) {
       setViewMode('daily')
+      setDisplayMode('plan')
       setIsEditMode(true)
     }
   }, [editedCells.size, isEditMode, canEdit, setViewMode])
@@ -270,6 +289,7 @@ const ResourceAssignmentCalendar = ({
     const scrollTop = scrollContainerRef.current?.scrollTop || 0
     
     setViewMode('daily')
+    setDisplayMode('plan')
     setIsEditMode(true)
     
     // Restore scroll position after state update
@@ -284,6 +304,7 @@ const ResourceAssignmentCalendar = ({
   const handleAddResource = useCallback(() => {
     if (!canEdit) return
     setViewMode('daily')
+    setDisplayMode('plan')
     setIsEditMode(true)
     setIsAddingResource(true)
     setDraftResource(null)
@@ -614,6 +635,14 @@ const ResourceAssignmentCalendar = ({
         parseUTCDate(projectStartDate),
         parseUTCDate(projectEndDate)
       )
+      actualsContext?.items.forEach((actual) => {
+        if (!result.resources.some((resource) => resource.resourceId === actual.resource_id)) {
+          result.resources.push({
+            resourceId: actual.resource_id,
+            resourceName: actual.resource_name || actual.resource_id,
+          })
+        }
+      })
 
       if (
         draftResource
@@ -630,7 +659,12 @@ const ResourceAssignmentCalendar = ({
       console.error('Error transforming grid data:', err)
       return null
     }
-  }, [assignments, draftResource, projectStartDate, projectEndDate])
+  }, [actualsContext?.items, assignments, draftResource, projectStartDate, projectEndDate])
+
+  const actualTotals = useMemo(
+    () => buildActualTotals(actualsContext?.items ?? []),
+    [actualsContext?.items],
+  )
 
   const periods = useMemo(
     () => buildAssignmentPeriods(gridData?.dates ?? [], viewMode),
@@ -789,14 +823,36 @@ const ResourceAssignmentCalendar = ({
     )
   }
 
-  const laborChartValues = periods.map((period) =>
-    averageAssignmentPeriod(period, (date) =>
-      gridData.resources.reduce((sum, resource) => (
-        sum
-        + getDisplayValue(resource.resourceId, date, 'capital')
-        + getDisplayValue(resource.resourceId, date, 'expense')
-      ), 0) / 100,
+  const laborWatermark = actualsContext?.watermarks.labor
+  const effectiveDisplayMode: AssignmentDisplayMode = actualsContext
+    ? displayMode
+    : 'plan'
+  const laborComparisons = periods.map((period) =>
+    compareAssignmentPeriod(
+      period,
+      (date) =>
+        gridData.resources.reduce((sum, resource) => (
+          sum
+          + getDisplayValue(resource.resourceId, date, 'capital')
+          + getDisplayValue(resource.resourceId, date, 'expense')
+        ), 0) / 100,
+      (date) => {
+        const values = gridData.resources.map((resource) =>
+          actualTotals.get(actualRecordKey(projectId, resource.resourceId, date.toISOString().slice(0, 10)))
+        )
+        return {
+          value: values.reduce((sum, actual) => sum + (actual?.allocation ?? 0), 0) / 100,
+          present: values.some((actual) => Boolean(actual?.count)),
+        }
+      },
+      {
+        watermark: laborWatermark,
+        reportingDate: actualsContext?.reporting_date,
+      },
     ),
+  )
+  const laborChartValues = laborComparisons.map(
+    (comparison) => comparisonValue(comparison, effectiveDisplayMode) ?? 0,
   )
 
   return (
@@ -857,6 +913,11 @@ const ResourceAssignmentCalendar = ({
         Current implementation handles up to ~365 days efficiently with memoization.
       */}
       <Paper sx={{ p: 1 }}>
+        {actualsError && (
+          <Alert severity="warning" sx={{ mb: 1 }}>
+            Actuals are temporarily unavailable; showing plan values.
+          </Alert>
+        )}
         <AssignmentsGrid
           ariaLabel="Resource assignment calendar"
           periods={periods}
@@ -871,13 +932,37 @@ const ResourceAssignmentCalendar = ({
           }
           scrollContainerRef={scrollContainerRef}
           isEditMode={isEditMode}
+          displayMode={displayMode}
+          onDisplayModeChange={(mode) => {
+            setDisplayMode(mode)
+            updateSettings({
+              assignmentGrids: { project: { displayMode: mode } },
+            })
+          }}
+          disableDisplayModeChange={isEditMode}
+          actualsStatus={(
+            <Chip
+              size="small"
+              variant="outlined"
+              label={laborWatermark
+                ? `Actuals through ${laborWatermark}`
+                : 'Actuals completeness unavailable'}
+              sx={{ height: 22, fontSize: '0.58rem' }}
+            />
+          )}
           chartConfig={{
             title: 'Labor usage over time',
             subtitle: viewMode === 'daily' ? 'Assigned labor heads' : 'Average Heads/Day',
             seriesLabel: 'Assigned labor',
             values: laborChartValues,
+            comparisons: laborComparisons,
+            displayMode: effectiveDisplayMode,
+            actualsThroughDate: laborWatermark,
+            reportingDate: actualsContext?.reporting_date,
             valueFormatter: (value) =>
               `${value.toFixed(1)} ${viewMode === 'daily' ? 'heads' : 'heads/day'}`,
+            deltaFormatter: (value) =>
+              `${value > 0 ? '+' : ''}${value.toFixed(1)}`,
           }}
           chartVisible={chartVisible}
           onChartVisibilityChange={(visible) =>
@@ -985,7 +1070,7 @@ const ResourceAssignmentCalendar = ({
                 {viewMode === 'daily' ? 'Heads' : 'Heads/Day'}
               </TableCell>
               {periods.map((period, index) => {
-                const total = laborChartValues[index]
+                const comparison = laborComparisons[index]
                 return (
                   <TableCell
                     key={period.key}
@@ -993,11 +1078,16 @@ const ResourceAssignmentCalendar = ({
                     sx={{
                       backgroundColor: period.isWeekend ? ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG : '#e8f5e9',
                       fontWeight: 'bold',
+                      ...getActualCellSx(comparison),
                       ...getAssignmentsGridPeriodSx(period),
                     }}
                     role="gridcell"
                   >
-                    {total > 0 ? total.toFixed(1) : ''}
+                    <AssignmentComparisonValue
+                      comparison={comparison}
+                      mode={effectiveDisplayMode}
+                      formatValue={(value) => value ? value.toFixed(1) : ''}
+                    />
                   </TableCell>
                 )
               })}
@@ -1089,10 +1179,26 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {periods.map((period) => {
-                    const value = averageAssignmentPeriod(
+                    const comparison = compareAssignmentPeriod(
                       period,
                       (date) => getDisplayValue(resource.resourceId, date, 'capital'),
+                      (date) => {
+                        const actual = actualTotals.get(actualRecordKey(
+                          projectId,
+                          resource.resourceId,
+                          date.toISOString().slice(0, 10),
+                        ))
+                        return {
+                          value: actual?.capitalAllocation ?? 0,
+                          present: Boolean(actual?.count),
+                        }
+                      },
+                      {
+                        watermark: laborWatermark,
+                        reportingDate: actualsContext?.reporting_date,
+                      },
                     )
+                    const value = comparisonValue(comparison, effectiveDisplayMode) ?? 0
                     const date = period.dates[0]
                     
                     return (
@@ -1103,12 +1209,13 @@ const ResourceAssignmentCalendar = ({
                           backgroundColor: period.isWeekend
                             ? ASSIGNMENTS_GRID_WEEKEND_BG
                             : value > 0 ? 'action.hover' : 'background.paper',
+                          ...getActualCellSx(comparison),
                           ...getAssignmentsGridPeriodSx(period),
                         }}
                         role="gridcell"
                         aria-label={`${resource.resourceName} capital allocation for ${period.ariaLabel}: ${formatAssignmentAverage(value)}%`}
                       >
-                        {viewMode === 'daily' ? (
+                        {viewMode === 'daily' && isEditMode ? (
                           <CellWrapper
                             resourceId={resource.resourceId}
                             resourceName={resource.resourceName}
@@ -1121,7 +1228,13 @@ const ResourceAssignmentCalendar = ({
                             onCellChange={handleCellChange}
                             onCellBlur={handleCellBlur}
                           />
-                        ) : formatAssignmentAverage(value)}
+                        ) : (
+                          <AssignmentComparisonValue
+                            comparison={comparison}
+                            mode={effectiveDisplayMode}
+                            formatValue={formatAssignmentAverage}
+                          />
+                        )}
                       </TableCell>
                     )
                   })}
@@ -1149,10 +1262,26 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {periods.map((period) => {
-                    const value = averageAssignmentPeriod(
+                    const comparison = compareAssignmentPeriod(
                       period,
                       (date) => getDisplayValue(resource.resourceId, date, 'expense'),
+                      (date) => {
+                        const actual = actualTotals.get(actualRecordKey(
+                          projectId,
+                          resource.resourceId,
+                          date.toISOString().slice(0, 10),
+                        ))
+                        return {
+                          value: actual?.expenseAllocation ?? 0,
+                          present: Boolean(actual?.count),
+                        }
+                      },
+                      {
+                        watermark: laborWatermark,
+                        reportingDate: actualsContext?.reporting_date,
+                      },
                     )
+                    const value = comparisonValue(comparison, effectiveDisplayMode) ?? 0
                     const date = period.dates[0]
                     
                     return (
@@ -1163,13 +1292,14 @@ const ResourceAssignmentCalendar = ({
                           backgroundColor: period.isWeekend
                             ? ASSIGNMENTS_GRID_WEEKEND_BG
                             : value > 0 ? 'action.hover' : 'background.paper',
+                          ...getActualCellSx(comparison),
                           borderColor: 'divider',
                           ...getAssignmentsGridPeriodSx(period),
                         }}
                         role="gridcell"
                         aria-label={`${resource.resourceName} expense allocation for ${period.ariaLabel}: ${formatAssignmentAverage(value)}%`}
                       >
-                        {viewMode === 'daily' ? (
+                        {viewMode === 'daily' && isEditMode ? (
                           <CellWrapper
                             resourceId={resource.resourceId}
                             resourceName={resource.resourceName}
@@ -1182,7 +1312,13 @@ const ResourceAssignmentCalendar = ({
                             onCellChange={handleCellChange}
                             onCellBlur={handleCellBlur}
                           />
-                        ) : formatAssignmentAverage(value)}
+                        ) : (
+                          <AssignmentComparisonValue
+                            comparison={comparison}
+                            mode={effectiveDisplayMode}
+                            formatValue={formatAssignmentAverage}
+                          />
+                        )}
                       </TableCell>
                     )
                   })}

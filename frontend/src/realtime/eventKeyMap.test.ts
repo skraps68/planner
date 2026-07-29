@@ -52,4 +52,7 @@ describe('queryKeyPrefixesFor', () => {
       expect.arrayContaining([['nonlabor-plans']]),
     )
   })
+  it('refreshes actual timelines when an import batch commits', () => {
+    expect(queryKeyPrefixesFor('actual_import_batch')).toEqual([['actuals']])
+  })
 })

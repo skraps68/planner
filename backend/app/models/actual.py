@@ -1,11 +1,9 @@
-"""
-Actual model for tracking actual work performed.
-"""
+"""Actual models for imported labor and non-labor results."""
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Date, String, Numeric, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Date, String, Numeric, ForeignKey, CheckConstraint, Integer
 from sqlalchemy.orm import relationship
 
 from app.models.base import BaseModel, GUID
@@ -13,6 +11,26 @@ from app.models.base import BaseModel, GUID
 if TYPE_CHECKING:
     from app.models.project import Project
     from app.models.resource import Resource
+
+
+class ActualImportBatch(BaseModel):
+    """One atomic actuals load and its explicit completeness boundary."""
+
+    __tablename__ = "actual_import_batches"
+
+    source_type = Column(String(20), nullable=False, index=True)
+    actuals_through_date = Column(Date, nullable=False, index=True)
+    file_name = Column(String(255), nullable=True)
+    imported_by_user_id = Column(
+        GUID(),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    transaction_id = Column(GUID(), nullable=False, unique=True, index=True)
+    record_count = Column(Integer, nullable=False, default=0)
+
+    actuals = relationship("Actual", back_populates="import_batch")
 
 
 class Actual(BaseModel):
@@ -23,6 +41,12 @@ class Actual(BaseModel):
     # Foreign keys
     project_id = Column(GUID(), ForeignKey("projects.id"), nullable=False, index=True)
     resource_id = Column(GUID(), ForeignKey("resources.id"), nullable=False, index=True)
+    import_batch_id = Column(
+        GUID(),
+        ForeignKey("actual_import_batches.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Labor columns (nullable for non-labor actuals)
     external_worker_id = Column(String(100), nullable=True, index=True)
@@ -36,6 +60,7 @@ class Actual(BaseModel):
     # Relationships
     project = relationship("Project", back_populates="actuals")
     resource = relationship("Resource")
+    import_batch = relationship("ActualImportBatch", back_populates="actuals")
     
     # Constraints
     __table_args__ = (

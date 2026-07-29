@@ -12,6 +12,7 @@ import {
   ASSIGNMENTS_GRID_MAX_HEIGHT,
   ASSIGNMENTS_GRID_ROW_HEIGHT,
 } from './AssignmentsGrid'
+import { AssignmentComparisonValue } from './AssignmentComparisonValue'
 import { buildAssignmentPeriods } from './assignmentPeriods'
 
 describe('AssignmentsGrid', () => {
@@ -100,12 +101,132 @@ describe('AssignmentsGrid', () => {
     expect(onViewModeChange).toHaveBeenCalledWith('monthly')
   })
 
+  it('provides the shared plan/actual mode selector and status key', async () => {
+    const user = userEvent.setup()
+    const onDisplayModeChange = vi.fn()
+    const periods = buildAssignmentPeriods([
+      new Date(Date.UTC(2026, 6, 28)),
+    ], 'daily')
+
+    render(
+      <AssignmentsGrid
+        ariaLabel="Actual comparison assignments"
+        periods={periods}
+        viewMode="daily"
+        onViewModeChange={vi.fn()}
+        primaryHeader="Resource"
+        primaryHeaderAriaLabel="Resource name"
+        displayMode="combined"
+        onDisplayModeChange={onDisplayModeChange}
+        actualsStatus={<span>Actuals through 7/27</span>}
+      >
+        <TableRow>
+          <AssignmentsGridCell>Total</AssignmentsGridCell>
+          <AssignmentsGridCell>%</AssignmentsGridCell>
+          <AssignmentsGridCell>75</AssignmentsGridCell>
+        </TableRow>
+      </AssignmentsGrid>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Combined values' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByText('Actuals through 7/27')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Status key:/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Variance values' }))
+    expect(onDisplayModeChange).toHaveBeenCalledWith('variance')
+  })
+
+  it('uses the value itself rather than an A marker for loaded actuals', () => {
+    const comparison = {
+      plan: 75,
+      actual: 70,
+      combined: 70,
+      variance: -5,
+      state: 'actualized' as const,
+      actualDays: 1,
+      missingDays: 0,
+      pendingDays: 0,
+      totalDays: 1,
+    }
+    const { rerender } = render(
+      <AssignmentComparisonValue
+        comparison={comparison}
+        mode="plan"
+        formatValue={(value) => String(value)}
+        suffix="%"
+      />,
+    )
+
+    expect(screen.getByText('75%')).toBeInTheDocument()
+    expect(screen.queryByText('A')).not.toBeInTheDocument()
+
+    rerender(
+      <AssignmentComparisonValue
+        comparison={comparison}
+        mode="actual"
+        formatValue={(value) => String(value)}
+        suffix="%"
+      />,
+    )
+    expect(screen.getByText('70%')).toBeInTheDocument()
+    expect(screen.queryByText('A')).not.toBeInTheDocument()
+
+    rerender(
+      <AssignmentComparisonValue
+        comparison={comparison}
+        mode="combined"
+        formatValue={(value) => String(value)}
+        suffix="%"
+      />,
+    )
+    expect(screen.getByText('70%')).toBeInTheDocument()
+    expect(screen.queryByText(/Δ/)).not.toBeInTheDocument()
+  })
+
+  it('uses the reporting boundary instead of an F marker for future values', () => {
+    render(
+      <AssignmentComparisonValue
+        comparison={{
+          plan: 50,
+          actual: 0,
+          combined: 50,
+          variance: 0,
+          state: 'future',
+          actualDays: 0,
+          missingDays: 0,
+          pendingDays: 0,
+          totalDays: 1,
+        }}
+        mode="actual"
+        formatValue={(value) => String(value)}
+        suffix="%"
+      />,
+    )
+
+    expect(screen.queryByText('F')).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/Future forecast/)).toBeInTheDocument()
+  })
+
   it('aligns a shared usage chart with the grid and toggles it from the outer toolbar', async () => {
     const user = userEvent.setup()
     const periods = buildAssignmentPeriods([
       new Date(Date.UTC(2026, 0, 4)),
       new Date(Date.UTC(2026, 0, 10)),
     ], 'daily')
+    const comparisons = periods.map((_period, index) => ({
+      plan: index === 0 ? 70 : 0,
+      actual: index === 0 ? 80 : 0,
+      combined: index === 0 ? 80 : 0,
+      variance: index === 0 ? 10 : 0,
+      state: index === 0 ? 'actualized' as const : 'empty' as const,
+      actualDays: index === 0 ? 1 : 0,
+      missingDays: 0,
+      pendingDays: 0,
+      totalDays: 1,
+    }))
 
     render(
       <AssignmentsGrid
@@ -119,9 +240,13 @@ describe('AssignmentsGrid', () => {
           title: 'Allocation over time',
           subtitle: 'Total Allocation %',
           seriesLabel: 'Total allocation',
-          values: [70, 80, 90, 110, 105, 85, 60],
+          values: [80, 80, 90, 110, 105, 85, 60],
+          comparisons,
+          displayMode: 'combined',
+          deltaFormatter: (value) => `${value > 0 ? '+' : ''}${value}%`,
           capacityLimit: 100,
           availableCapacityLabel: 'Available capacity',
+          reportingDate: '2026-01-07',
         }}
         toolbarActions={<button type="button">Edit</button>}
       >
@@ -146,14 +271,35 @@ describe('AssignmentsGrid', () => {
       left: '10px',
       top: '61px',
     })
-    expect(screen.getByText('Available capacity').parentElement).toHaveStyle({
+    expect(screen.getByText('Plan').parentElement).toHaveStyle({
       left: '10px',
       top: '82px',
     })
-    expect(screen.getByText('Capacity limit').parentElement).toHaveStyle({
+    expect(screen.getByText('Actual').parentElement).toHaveStyle({
       left: '10px',
       top: '103px',
     })
+    expect(screen.getByText('Available capacity').parentElement).toHaveStyle({
+      left: '10px',
+      top: '124px',
+    })
+    expect(screen.getByText('Capacity limit').parentElement).toHaveStyle({
+      left: '10px',
+      top: '145px',
+    })
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: January 7, 2026',
+    })).toHaveStyle({
+      borderLeft: '2px solid #d32f2f',
+    })
+    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute('x1', '126')
+    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute('x2', '126')
+    const delta = screen.getByTestId('assignment-delta-label')
+    const actualPoint = screen.getByTestId('assignment-actual-point')
+    expect(delta).toHaveTextContent('Δ+10%')
+    expect(Number(delta.getAttribute('y'))).toBeLessThan(
+      Number(actualPoint.getAttribute('cy')),
+    )
 
     await user.click(screen.getByRole('button', { name: 'Hide allocation chart' }))
 

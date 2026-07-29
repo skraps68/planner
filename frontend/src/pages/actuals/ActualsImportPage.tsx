@@ -19,6 +19,7 @@ import {
   Link,
   ToggleButtonGroup,
   ToggleButton,
+  TextField,
 } from '@mui/material'
 import {
   CloudUpload as UploadIcon,
@@ -46,6 +47,7 @@ const ActualsImportPage = () => {
   const [conflictResult, setConflictResult] = useState<AllocationConflictResponse | null>(null)
   const [importResult, setImportResult] = useState<ActualImportResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [actualsThroughDate, setActualsThroughDate] = useState('')
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -74,6 +76,19 @@ const ActualsImportPage = () => {
     }
     setSelectedFile(file)
     setError(null)
+    void file.text().then((content) => {
+      const rows = content.split(/\r?\n/).filter(Boolean)
+      const headers = rows[0]?.split(',').map((value) => value.trim().toLowerCase()) ?? []
+      const dateIndex = headers.findIndex((header) =>
+        header === 'date' || header === 'actual_date'
+      )
+      if (dateIndex < 0) return
+      const dates = rows.slice(1)
+        .map((row) => row.split(',')[dateIndex]?.trim())
+        .filter((value): value is string => Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value)))
+        .sort()
+      if (dates.length) setActualsThroughDate(dates[dates.length - 1])
+    })
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,8 +106,8 @@ const ActualsImportPage = () => {
     try {
       // First validate the file
       const validation = importType === 'labor'
-        ? await actualsApi.importLaborActuals(selectedFile, true)
-        : await actualsApi.importNonLaborActuals(selectedFile, true)
+        ? await actualsApi.importLaborActuals(selectedFile, true, actualsThroughDate)
+        : await actualsApi.importNonLaborActuals(selectedFile, true, actualsThroughDate)
       setValidationResult(validation)
 
       // Allocation conflicts only apply to percentage-based labor actuals
@@ -119,8 +134,8 @@ const ActualsImportPage = () => {
 
     try {
       const result = importType === 'labor'
-        ? await actualsApi.importLaborActuals(selectedFile, false)
-        : await actualsApi.importNonLaborActuals(selectedFile, false)
+        ? await actualsApi.importLaborActuals(selectedFile, false, actualsThroughDate)
+        : await actualsApi.importNonLaborActuals(selectedFile, false, actualsThroughDate)
       setImportResult(result)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['actuals'] }),
@@ -140,6 +155,7 @@ const ActualsImportPage = () => {
     setValidationResult(null)
     setConflictResult(null)
     setImportResult(null)
+    setActualsThroughDate('')
     setError(null)
   }
 
@@ -237,10 +253,20 @@ const ActualsImportPage = () => {
       </Paper>
 
       {selectedFile && (
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2, display: 'grid', gap: 1.5 }}>
           <Alert severity="info">
             File selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
           </Alert>
+          <TextField
+            label="Actuals loaded through"
+            type="date"
+            size="small"
+            value={actualsThroughDate}
+            onChange={(event) => setActualsThroughDate(event.target.value)}
+            InputLabelProps={{ shrink: true }}
+            helperText="Dates on or before this boundary without a reported actual will be identified as missing. The latest file date is selected automatically."
+            sx={{ maxWidth: 420 }}
+          />
         </Box>
       )}
 
@@ -419,6 +445,9 @@ const ActualsImportPage = () => {
           <Typography variant="body2">
             Valid Records: <strong>{validationResult?.successful_imports}</strong>
           </Typography>
+          <Typography variant="body2">
+            Actuals loaded through: <strong>{actualsThroughDate || 'latest date in file'}</strong>
+          </Typography>
         </Box>
       </Paper>
 
@@ -472,6 +501,11 @@ const ActualsImportPage = () => {
             />
           )}
         </Box>
+        {importResult.actuals_through_date && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Completeness recorded through {importResult.actuals_through_date}.
+          </Alert>
+        )}
 
         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
           <Button onClick={handleReset}>Import Another File</Button>

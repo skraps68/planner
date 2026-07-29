@@ -13,6 +13,7 @@ from app.api.middleware import (
 from app.core.config import settings
 from app.core.error_handlers import register_error_handlers
 from app.realtime.listeners import install_listeners
+from app.temporal import install_temporal_listeners
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -155,6 +156,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Wire up SQLAlchemy commit listeners to auto-publish realtime change events
 install_listeners()
+install_temporal_listeners()
 
 
 @app.get("/")

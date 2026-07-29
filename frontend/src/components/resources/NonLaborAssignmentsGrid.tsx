@@ -46,6 +46,20 @@ import {
   type AssignmentViewMode,
 } from './assignmentPeriods'
 import NonLaborPlanDrawer from './NonLaborPlanDrawer'
+import {
+  useProjectActualsTimeline,
+  useResourceActualsTimeline,
+} from '../../hooks/useActualsTimeline'
+import { AssignmentComparisonValue } from './AssignmentComparisonValue'
+import {
+  actualRecordKey,
+  buildActualTotals,
+  compareAssignmentPeriod,
+  comparisonValue,
+  getActualCellSx,
+  type AssignmentComparison,
+  type AssignmentDisplayMode,
+} from './assignmentActuals'
 
 
 interface NonLaborAssignmentsGridProps {
@@ -85,6 +99,14 @@ const inclusiveDates = (start: Date, end: Date) => {
 
 const formatAmount = (value: number) =>
   Math.round(value).toLocaleString('en-US', { maximumFractionDigits: 0 })
+
+const formatDeltaAmount = (value: number) => {
+  const amount = new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(Math.abs(value))
+  return `${value > 0 ? '+' : value < 0 ? '-' : ''}$${amount}`
+}
 
 const methodLabel = (line: NonLaborPlanLine) => {
   if (line.method === 'MANUAL') return 'Manual'
@@ -139,6 +161,9 @@ export default function NonLaborAssignmentsGrid({
   const [chartVisible, setChartVisible] = useState(
     () => preference?.chartVisible ?? true,
   )
+  const [displayMode, setDisplayMode] = useState<AssignmentDisplayMode>(
+    () => preference?.displayMode ?? 'combined',
+  )
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<NonLaborPlanLine | undefined>()
@@ -152,7 +177,30 @@ export default function NonLaborAssignmentsGrid({
   useEffect(() => {
     setViewMode(preference?.period ?? 'daily')
     setChartVisible(preference?.chartVisible ?? true)
-  }, [preference?.period, preference?.chartVisible])
+    setDisplayMode(preference?.displayMode ?? 'combined')
+  }, [preference?.period, preference?.chartVisible, preference?.displayMode])
+
+  const projectActuals = useProjectActualsTimeline(
+    perspective === 'project' ? project?.id : undefined,
+  )
+  const resourceActuals = useResourceActualsTimeline(
+    perspective === 'resource' ? resource?.id : undefined,
+  )
+  const actualsContext = perspective === 'project'
+    ? projectActuals.data
+    : resourceActuals.data
+  const actualsError = perspective === 'project'
+    ? projectActuals.error
+    : resourceActuals.error
+  const actualTotals = useMemo(
+    () => buildActualTotals(
+      (actualsContext?.items ?? []).filter(
+        (actual) => actual.allocation_percentage === null
+          || actual.allocation_percentage === undefined,
+      ),
+    ),
+    [actualsContext?.items],
+  )
 
   const queryParams = perspective === 'project'
     ? { project_id: project?.id }
@@ -177,32 +225,47 @@ export default function NonLaborAssignmentsGrid({
       group.lines.push(line)
       map.set(id, group)
     })
+    actualsContext?.items.forEach((actual) => {
+      if (actual.allocation_percentage !== null
+        && actual.allocation_percentage !== undefined) return
+      const id = perspective === 'project' ? actual.resource_id : actual.project_id
+      const name = perspective === 'project'
+        ? actual.resource_name || actual.resource_id
+        : actual.project_name || actual.project_id
+      if (!map.has(id)) map.set(id, { id, name, lines: [] })
+    })
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
-  }, [lines, perspective])
+  }, [actualsContext?.items, lines, perspective])
 
   const dates = useMemo(() => {
     const occurrenceDates = lines.flatMap((line) =>
       line.occurrences.map((occurrence) => parseDate(occurrence.occurrence_date))
     )
+    const actualDates = (actualsContext?.items ?? [])
+      .filter((actual) => actual.allocation_percentage === null
+        || actual.allocation_percentage === undefined)
+      .map((actual) => parseDate(actual.actual_date))
     let start: Date
     let end: Date
     if (perspective === 'project' && project) {
       start = parseDate(project.start_date)
       end = parseDate(project.end_date)
-    } else if (occurrenceDates.length) {
-      start = new Date(Math.min(...occurrenceDates.map((value) => value.getTime())))
-      end = new Date(Math.max(...occurrenceDates.map((value) => value.getTime())))
+    } else if (occurrenceDates.length || actualDates.length) {
+      const availableDates = [...occurrenceDates, ...actualDates]
+      start = new Date(Math.min(...availableDates.map((value) => value.getTime())))
+      end = new Date(Math.max(...availableDates.map((value) => value.getTime())))
     } else {
       const now = new Date()
       start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
       end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 12, 0))
     }
-    if (occurrenceDates.length) {
-      start = new Date(Math.min(start.getTime(), ...occurrenceDates.map((value) => value.getTime())))
-      end = new Date(Math.max(end.getTime(), ...occurrenceDates.map((value) => value.getTime())))
+    const dataDates = [...occurrenceDates, ...actualDates]
+    if (dataDates.length) {
+      start = new Date(Math.min(start.getTime(), ...dataDates.map((value) => value.getTime())))
+      end = new Date(Math.max(end.getTime(), ...dataDates.map((value) => value.getTime())))
     }
     return inclusiveDates(start, end)
-  }, [lines, perspective, project])
+  }, [actualsContext?.items, lines, perspective, project])
 
   const periods = useMemo(
     () => buildAssignmentPeriods(dates, viewMode),
@@ -236,6 +299,94 @@ export default function NonLaborAssignmentsGrid({
     Math.max(getAssignmentsGridPeriodWidth(viewMode), maxFormattedLength * 7 + 12),
   )
   const warnings = [...new Set(lines.flatMap((line) => line.warnings))]
+  const nonLaborWatermark = actualsContext?.watermarks.non_labor
+  const effectiveDisplayMode: AssignmentDisplayMode = actualsContext
+    ? displayMode
+    : 'plan'
+  const actualForGroup = useCallback((
+    groupId: string,
+    actualDate: Date,
+    treatment?: NonLaborCostTreatment,
+  ) => {
+    const projectId = perspective === 'project' ? project?.id : groupId
+    const resourceId = perspective === 'project' ? groupId : resource?.id
+    if (!projectId || !resourceId) return { value: 0, present: false }
+    const actual = actualTotals.get(actualRecordKey(
+      projectId,
+      resourceId,
+      dateKey(actualDate),
+    ))
+    return {
+      value: treatment === 'CAPITAL'
+        ? actual?.capitalAmount ?? 0
+        : treatment === 'EXPENSE'
+          ? actual?.expenseAmount ?? 0
+          : actual?.actualCost ?? 0,
+      present: Boolean(actual?.count),
+    }
+  }, [actualTotals, perspective, project?.id, resource?.id])
+  const compareGroupPeriod = useCallback((
+    group: Group,
+    period: AssignmentPeriod,
+    treatment?: NonLaborCostTreatment,
+  ): AssignmentComparison => compareAssignmentPeriod(
+    period,
+    (date) => periodValue(
+      group.lines,
+      {
+        ...period,
+        dates: [date],
+      },
+      treatment,
+      changes,
+    ),
+    (date) => actualForGroup(group.id, date, treatment),
+    {
+      aggregation: 'sum',
+      watermark: nonLaborWatermark,
+      reportingDate: actualsContext?.reporting_date,
+    },
+  ), [
+    actualForGroup,
+    actualsContext?.reporting_date,
+    changes,
+    nonLaborWatermark,
+  ])
+  const totalComparisons = useMemo(
+    () => periods.map((period) => compareAssignmentPeriod(
+      period,
+      (date) => periodValue(
+        lines,
+        { ...period, dates: [date] },
+        undefined,
+        changes,
+      ),
+      (date) => {
+        const values = groups.map((group) => actualForGroup(group.id, date))
+        return {
+          value: values.reduce((sum, item) => sum + item.value, 0),
+          present: values.some((item) => item.present),
+        }
+      },
+      {
+        aggregation: 'sum',
+        watermark: nonLaborWatermark,
+        reportingDate: actualsContext?.reporting_date,
+      },
+    )),
+    [
+      actualForGroup,
+      actualsContext?.reporting_date,
+      changes,
+      groups,
+      lines,
+      nonLaborWatermark,
+      periods,
+    ],
+  )
+  const selectedTotalValues = totalComparisons.map(
+    (comparison) => comparisonValue(comparison, effectiveDisplayMode) ?? 0,
+  )
 
   const refreshPlansAndForecasts = useCallback(async () => {
     await Promise.all([
@@ -264,6 +415,7 @@ export default function NonLaborAssignmentsGrid({
 
   const handleEdit = () => {
     setViewMode('daily')
+    setDisplayMode('plan')
     setChanges(new Map())
     setIsEditMode(true)
   }
@@ -316,6 +468,11 @@ export default function NonLaborAssignmentsGrid({
         <Alert key={warning} severity="warning" sx={{ mb: 1 }}>{warning}</Alert>
       ))}
       {saveError && <Alert severity="error" sx={{ mb: 1 }}>{saveError}</Alert>}
+      {actualsError && (
+        <Alert severity="warning" sx={{ mb: 1 }}>
+          Actuals are temporarily unavailable; showing plan values.
+        </Alert>
+      )}
       <Paper sx={{ p: 1 }}>
         <AssignmentsGrid
           ariaLabel="Non-labor assignment calendar"
@@ -329,6 +486,26 @@ export default function NonLaborAssignmentsGrid({
           typeColumnWidth={68}
           scrollContainerRef={scrollRef}
           isEditMode={isEditMode}
+          displayMode={displayMode}
+          onDisplayModeChange={(mode) => {
+            setDisplayMode(mode)
+            updateSettings({
+              assignmentGrids: {
+                [preferenceKey]: { displayMode: mode },
+              },
+            })
+          }}
+          disableDisplayModeChange={isEditMode}
+          actualsStatus={(
+            <Chip
+              size="small"
+              variant="outlined"
+              label={nonLaborWatermark
+                ? `Actuals through ${nonLaborWatermark}`
+                : 'Actuals completeness unavailable'}
+              sx={{ height: 22, fontSize: '0.58rem' }}
+            />
+          )}
           disableViewModeChange={isEditMode}
           periodWidthOverride={periodWidth}
           viewSummary={`${viewMode.toUpperCase()} VIEW · SUM OF CASH FLOWS`}
@@ -336,8 +513,12 @@ export default function NonLaborAssignmentsGrid({
             title: 'Non-Labor forecast over time',
             subtitle: 'Stacked cash-flow amounts',
             seriesLabel: 'Total forecast',
-            values: totalValues,
-            stackedSeries: [
+            values: selectedTotalValues,
+            comparisons: totalComparisons,
+            displayMode: effectiveDisplayMode,
+            actualsThroughDate: nonLaborWatermark,
+            reportingDate: actualsContext?.reporting_date,
+            stackedSeries: effectiveDisplayMode === 'plan' ? [
               {
                 label: 'Capital',
                 values: capitalValues,
@@ -348,8 +529,9 @@ export default function NonLaborAssignmentsGrid({
                 values: expenseValues,
                 fill: 'rgba(183, 121, 31, 0.24)',
               },
-            ],
+            ] : undefined,
             valueFormatter: (value) => `$${formatAmount(value)}`,
+            deltaFormatter: formatDeltaAmount,
           }}
           chartVisible={chartVisible}
           onChartVisibilityChange={handleChartVisibility}
@@ -414,7 +596,7 @@ export default function NonLaborAssignmentsGrid({
               fontWeight: 'bold',
               textAlign: 'left !important',
             }}>
-              Total Forecast
+              {effectiveDisplayMode === 'plan' ? 'Total Forecast' : 'Total'}
             </TableCell>
             <TableCell sx={{
               position: 'sticky',
@@ -426,18 +608,26 @@ export default function NonLaborAssignmentsGrid({
             }}>
               $
             </TableCell>
-            {periods.map((period, index) => (
-              <TableCell
-                key={period.key}
-                sx={{
-                  backgroundColor: period.isWeekend ? '#dfeae3' : '#e8f5e9',
-                  fontWeight: 'bold',
-                  ...getAssignmentsGridPeriodSx(period),
-                }}
-              >
-                {totalValues[index] ? formatAmount(totalValues[index]) : ''}
-              </TableCell>
-            ))}
+            {periods.map((period, index) => {
+              const comparison = totalComparisons[index]
+              return (
+                <TableCell
+                  key={period.key}
+                  sx={{
+                    backgroundColor: period.isWeekend ? '#dfeae3' : '#e8f5e9',
+                    fontWeight: 'bold',
+                    ...getActualCellSx(comparison),
+                    ...getAssignmentsGridPeriodSx(period),
+                  }}
+                >
+                  <AssignmentComparisonValue
+                    comparison={comparison}
+                    mode={effectiveDisplayMode}
+                    formatValue={formatAmount}
+                  />
+                </TableCell>
+              )
+            })}
           </TableRow>
 
           {groups.map((group) => {
@@ -500,10 +690,18 @@ export default function NonLaborAssignmentsGrid({
                       {treatmentValue === 'CAPITAL' ? 'Cap $' : 'Exp $'}
                     </TableCell>
                     {periods.map((period) => {
-                      const value = periodValue(group.lines, period, treatmentValue, changes)
+                      const comparison = compareGroupPeriod(group, period, treatmentValue)
+                      const value = comparisonValue(comparison, effectiveDisplayMode) ?? 0
                       return (
-                        <TableCell key={period.key} sx={amountCellSx(period, value)}>
-                          {value ? formatAmount(value) : ''}
+                        <TableCell key={period.key} sx={{
+                          ...amountCellSx(period, value),
+                          ...getActualCellSx(comparison),
+                        }}>
+                          <AssignmentComparisonValue
+                            comparison={comparison}
+                            mode={effectiveDisplayMode}
+                            formatValue={formatAmount}
+                          />
                         </TableCell>
                       )
                     })}
@@ -608,12 +806,71 @@ export default function NonLaborAssignmentsGrid({
                                 },
                               }}
                             />
-                          ) : value ? formatAmount(value) : ''}
+                          ) : effectiveDisplayMode === 'plan'
+                            ? value ? formatAmount(value) : ''
+                            : (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                title="Actuals are reconciled at the resource/project group because no cost-plan line reference is present."
+                              >
+                                Plan detail
+                              </Typography>
+                            )}
                         </TableCell>
                       )
                     })}
                   </TableRow>
                 ))}
+                {open
+                  && effectiveDisplayMode !== 'plan'
+                  && periods.some((period) =>
+                    period.dates.some((date) => actualForGroup(group.id, date).present)
+                  )
+                  && (
+                  <TableRow key={`${group.id}-unmatched-actuals`}>
+                    <TableCell sx={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 2,
+                      backgroundColor: 'rgba(112, 74, 151, 0.08)',
+                      pl: '28px !important',
+                      textAlign: 'left !important',
+                    }}>
+                      <Typography variant="caption" fontWeight={700}>
+                        Unmatched actuals
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{
+                      position: 'sticky',
+                      left: ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+                      zIndex: 2,
+                      backgroundColor: 'rgba(112, 74, 151, 0.08)',
+                      textAlign: 'left !important',
+                    }}>
+                      Actual $
+                    </TableCell>
+                    {periods.map((period) => {
+                      const actual = period.dates.reduce(
+                        (sum, date) => sum + actualForGroup(group.id, date).value,
+                        0,
+                      )
+                      return (
+                        <TableCell
+                          key={period.key}
+                          sx={{
+                            backgroundColor: actual
+                              ? 'rgba(112, 74, 151, 0.14)'
+                              : 'background.paper',
+                            ...getAssignmentsGridPeriodSx(period),
+                          }}
+                        >
+                          {actual ? `${formatAmount(actual)} +` : ''}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                )}
               </React.Fragment>
             )
           })}

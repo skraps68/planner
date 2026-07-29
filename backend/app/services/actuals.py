@@ -4,11 +4,11 @@ ActualsService for managing actual work records with cost calculation.
 from datetime import date
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
 
-from app.models.actual import Actual
+from app.models.actual import Actual, ActualImportBatch
 from app.models.resource import ResourceType
 from app.repositories.actual import actual_repository
 from app.repositories.resource import worker_repository, resource_repository
@@ -26,6 +26,7 @@ from app.core.exceptions import (
     ResourceNotFoundError,
     ImportError as ImportException
 )
+from app.temporal import TRANSACTION_KEY
 
 
 class ActualsService:
@@ -42,7 +43,10 @@ class ActualsService:
         worker_name: str,
         actual_date: date,
         allocation_percentage: Decimal,
-        validate_allocation: bool = True
+        validate_allocation: bool = True,
+        *,
+        commit: bool = True,
+        import_batch_id: Optional[UUID] = None,
     ) -> Actual:
         """
         Create a new actual record with automatic cost calculation.
@@ -126,8 +130,12 @@ class ActualsService:
             "capital_amount": cost_data["capital_amount"],
             "expense_amount": cost_data["expense_amount"]
         }
+        if import_batch_id is not None:
+            actual_data["import_batch_id"] = import_batch_id
 
-        return actual_repository.create(db, obj_in=actual_data)
+        if commit:
+            return actual_repository.create(db, obj_in=actual_data)
+        return actual_repository.create_in_transaction(db, obj_in=actual_data)
 
     def _calculate_cost(
         self,
@@ -218,7 +226,10 @@ class ActualsService:
         resource_id: UUID,
         actual_date: date,
         capital_amount: Decimal,
-        expense_amount: Decimal
+        expense_amount: Decimal,
+        *,
+        commit: bool = True,
+        import_batch_id: Optional[UUID] = None,
     ) -> Actual:
         """
         Create a non-labor actual directly from dollar amounts.
@@ -263,14 +274,59 @@ class ActualsService:
             "capital_amount": capital_amount,
             "expense_amount": expense_amount,
         }
+        if import_batch_id is not None:
+            actual_data["import_batch_id"] = import_batch_id
 
-        return actual_repository.create(db, obj_in=actual_data)
+        if commit:
+            return actual_repository.create(db, obj_in=actual_data)
+        return actual_repository.create_in_transaction(db, obj_in=actual_data)
+
+    def _create_import_batch(
+        self,
+        db: Session,
+        *,
+        source_type: str,
+        actual_dates: List[date],
+        actuals_through_date: Optional[date],
+        file_name: Optional[str],
+        imported_by_user_id: Optional[UUID],
+    ) -> ActualImportBatch:
+        if not actual_dates:
+            raise ImportException("Cannot import an empty actuals batch")
+
+        latest_record_date = max(actual_dates)
+        watermark = actuals_through_date or latest_record_date
+        if watermark < latest_record_date:
+            raise ImportException(
+                "Actuals loaded-through date cannot be earlier than an imported row",
+                details={
+                    "actuals_through_date": str(watermark),
+                    "latest_record_date": str(latest_record_date),
+                },
+            )
+
+        transaction_id = uuid4()
+        db.info[TRANSACTION_KEY] = transaction_id
+        batch = ActualImportBatch(
+            source_type=source_type,
+            actuals_through_date=watermark,
+            file_name=file_name,
+            imported_by_user_id=imported_by_user_id,
+            transaction_id=transaction_id,
+            record_count=len(actual_dates),
+        )
+        db.add(batch)
+        db.flush()
+        return batch
 
     def import_actuals_batch(
         self,
         db: Session,
         records: List[ActualsImportRecord],
-        validate_allocation: bool = True
+        validate_allocation: bool = True,
+        actuals_through_date: Optional[date] = None,
+        file_name: Optional[str] = None,
+        imported_by_user_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         """
         Import a batch of actuals from validated import records.
@@ -293,7 +349,7 @@ class ActualsService:
                 f"Cannot import: {len(invalid_records)} records have validation errors",
                 row_errors=[{
                     "row": r.row_number,
-                    "errors": r.errors
+                    "errors": r.validation_errors
                 } for r in invalid_records]
             )
         
@@ -321,11 +377,19 @@ class ActualsService:
                     details={"conflicts": conflict_details}
                 )
         
-        # Import actuals in a transaction
+        # Import actuals and completeness metadata in one transaction.
         created_actuals = []
         errors = []
         
         try:
+            batch = self._create_import_batch(
+                db,
+                source_type="labor",
+                actual_dates=[record.actual_date for record in records],
+                actuals_through_date=actuals_through_date,
+                file_name=file_name,
+                imported_by_user_id=imported_by_user_id,
+            )
             for record in records:
                 try:
                     actual = self.create_actual(
@@ -335,7 +399,9 @@ class ActualsService:
                         worker_name=record.worker_name,
                         actual_date=record.actual_date,
                         allocation_percentage=record.percentage,
-                        validate_allocation=False  # Already validated in batch
+                        validate_allocation=False,  # Already validated in batch
+                        commit=False,
+                        import_batch_id=batch.id,
                     )
                     created_actuals.append(actual)
                 except Exception as e:
@@ -352,13 +418,13 @@ class ActualsService:
                     row_errors=errors
                 )
             
-            # Commit transaction
             db.commit()
             
             return {
                 "status": "success",
                 "imported_count": len(created_actuals),
-                "actuals": created_actuals
+                "actuals": created_actuals,
+                "batch": batch,
             }
             
         except ImportException:
@@ -376,7 +442,10 @@ class ActualsService:
         worker_name: str,
         actual_date: date,
         capital_percentage: Decimal,
-        expense_percentage: Decimal
+        expense_percentage: Decimal,
+        *,
+        commit: bool = True,
+        import_batch_id: Optional[UUID] = None,
     ) -> Actual:
         """
         Create a labor actual whose capital/expense split is given explicitly
@@ -451,14 +520,21 @@ class ActualsService:
             "capital_amount": capital_amount,
             "expense_amount": expense_amount
         }
+        if import_batch_id is not None:
+            actual_data["import_batch_id"] = import_batch_id
 
-        return actual_repository.create(db, obj_in=actual_data)
+        if commit:
+            return actual_repository.create(db, obj_in=actual_data)
+        return actual_repository.create_in_transaction(db, obj_in=actual_data)
 
     def import_labor_batch(
         self,
         db: Session,
         records: List[LaborImportRecord],
-        validate_allocation: bool = True
+        validate_allocation: bool = True,
+        actuals_through_date: Optional[date] = None,
+        file_name: Optional[str] = None,
+        imported_by_user_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         """
         Import a batch of labor actuals from validated LaborImportRecord objects.
@@ -519,11 +595,19 @@ class ActualsService:
                     details={"conflicts": conflict_details}
                 )
 
-        # Import actuals in a transaction
+        # Import actuals and their completeness boundary in one transaction.
         created_actuals = []
         errors = []
 
         try:
+            batch = self._create_import_batch(
+                db,
+                source_type="labor",
+                actual_dates=[record.actual_date for record in records],
+                actuals_through_date=actuals_through_date,
+                file_name=file_name,
+                imported_by_user_id=imported_by_user_id,
+            )
             for record in records:
                 try:
                     if record.percentage is not None:
@@ -534,7 +618,9 @@ class ActualsService:
                             worker_name=record.worker_name,
                             actual_date=record.actual_date,
                             allocation_percentage=record.percentage,
-                            validate_allocation=False  # Already validated in batch
+                            validate_allocation=False,  # Already validated in batch
+                            commit=False,
+                            import_batch_id=batch.id,
                         )
                     else:
                         actual = self._create_labor_split_actual(
@@ -544,7 +630,9 @@ class ActualsService:
                             worker_name=record.worker_name,
                             actual_date=record.actual_date,
                             capital_percentage=record.capital_percentage,
-                            expense_percentage=record.expense_percentage
+                            expense_percentage=record.expense_percentage,
+                            commit=False,
+                            import_batch_id=batch.id,
                         )
                     created_actuals.append(actual)
                 except Exception as e:
@@ -561,13 +649,13 @@ class ActualsService:
                     row_errors=errors
                 )
 
-            # Commit transaction
             db.commit()
 
             return {
                 "status": "success",
                 "imported_count": len(created_actuals),
-                "actuals": created_actuals
+                "actuals": created_actuals,
+                "batch": batch,
             }
 
         except ImportException:
@@ -580,7 +668,10 @@ class ActualsService:
     def import_nonlabor_batch(
         self,
         db: Session,
-        records: List[NonLaborImportRecord]
+        records: List[NonLaborImportRecord],
+        actuals_through_date: Optional[date] = None,
+        file_name: Optional[str] = None,
+        imported_by_user_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         """
         Import a batch of non-labor actuals from validated
@@ -610,11 +701,19 @@ class ActualsService:
                 } for r in invalid_records]
             )
 
-        # Import actuals in a transaction
+        # Import actuals and their completeness boundary in one transaction.
         created_actuals = []
         errors = []
 
         try:
+            batch = self._create_import_batch(
+                db,
+                source_type="non_labor",
+                actual_dates=[record.actual_date for record in records],
+                actuals_through_date=actuals_through_date,
+                file_name=file_name,
+                imported_by_user_id=imported_by_user_id,
+            )
             for record in records:
                 try:
                     actual = self.create_nonlabor_actual(
@@ -623,7 +722,9 @@ class ActualsService:
                         resource_id=record.resource_id,
                         actual_date=record.actual_date,
                         capital_amount=record.capital,
-                        expense_amount=record.expense
+                        expense_amount=record.expense,
+                        commit=False,
+                        import_batch_id=batch.id,
                     )
                     created_actuals.append(actual)
                 except Exception as e:
@@ -640,13 +741,13 @@ class ActualsService:
                     row_errors=errors
                 )
 
-            # Commit transaction
             db.commit()
 
             return {
                 "status": "success",
                 "imported_count": len(created_actuals),
-                "actuals": created_actuals
+                "actuals": created_actuals,
+                "batch": batch,
             }
 
         except ImportException:
@@ -680,6 +781,23 @@ class ActualsService:
     ) -> List[Actual]:
         """Get all actuals for a worker."""
         return actual_repository.get_by_worker(db, external_worker_id)
+
+    def get_actuals_by_resource(
+        self,
+        db: Session,
+        resource_id: UUID,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+    ) -> List[Actual]:
+        """Get actuals for one resource in the requested timeline."""
+        if start_date or end_date:
+            return actual_repository.get_by_date_range(
+                db=db,
+                resource_id=resource_id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        return actual_repository.get_by_resource(db, resource_id)
     
     def get_project_total_cost(
         self,

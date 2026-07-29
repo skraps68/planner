@@ -15,6 +15,19 @@ export interface ActualImportResponse {
   failed_imports: number
   results: ActualImportResult[]
   validation_only: boolean
+  import_batch_id?: string
+  actuals_through_date?: string
+}
+
+export interface ActualsTimelineResponse {
+  plan_context: 'current'
+  knowledge_time: string
+  reporting_date: string
+  watermarks: {
+    labor?: string | null
+    non_labor?: string | null
+  }
+  items: Actual[]
 }
 
 export interface AllocationConflict {
@@ -98,6 +111,7 @@ export const actualsApi = {
     page?: number
     size?: number
     project_id?: string
+    resource_id?: string
     external_worker_id?: string
     start_date?: string
     end_date?: string
@@ -136,14 +150,22 @@ export const actualsApi = {
   },
 
   // Import labor actuals (percentage-based) from CSV
-  importLaborActuals: async (file: File, validateOnly: boolean = false): Promise<ActualImportResponse> => {
+  importLaborActuals: async (
+    file: File,
+    validateOnly: boolean = false,
+    actualsThroughDate?: string,
+  ): Promise<ActualImportResponse> => {
     const formData = new FormData()
     formData.append('file', file)
 
     const response = await apiClient.post(
-      `/actuals/import/labor?validate_only=${validateOnly}`,
+      '/actuals/import/labor',
       formData,
       {
+        params: {
+          validate_only: validateOnly,
+          ...(actualsThroughDate ? { actuals_through_date: actualsThroughDate } : {}),
+        },
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -153,14 +175,22 @@ export const actualsApi = {
   },
 
   // Import non-labor actuals (dollar-based) from CSV
-  importNonLaborActuals: async (file: File, validateOnly: boolean = false): Promise<ActualImportResponse> => {
+  importNonLaborActuals: async (
+    file: File,
+    validateOnly: boolean = false,
+    actualsThroughDate?: string,
+  ): Promise<ActualImportResponse> => {
     const formData = new FormData()
     formData.append('file', file)
 
     const response = await apiClient.post(
-      `/actuals/import/non-labor?validate_only=${validateOnly}`,
+      '/actuals/import/non-labor',
       formData,
       {
+        params: {
+          validate_only: validateOnly,
+          ...(actualsThroughDate ? { actuals_through_date: actualsThroughDate } : {}),
+        },
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -231,6 +261,16 @@ export const actualsApi = {
     if (endDate) params.end_date = endDate
     
     const response = await apiClient.get(`/actuals/project/${projectId}/total-cost`, { params })
+    return response.data
+  },
+
+  getTimeline: async (params: {
+    project_id?: string
+    resource_id?: string
+    start_date?: string
+    end_date?: string
+  }): Promise<ActualsTimelineResponse> => {
+    const response = await apiClient.get('/actuals/timeline', { params })
     return response.data
   },
 }

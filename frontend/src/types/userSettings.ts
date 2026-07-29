@@ -1,5 +1,6 @@
 export type GridDensityPreference = 'compact' | 'standard' | 'comfortable'
 export type AssignmentPeriodPreference = 'daily' | 'weekly' | 'monthly'
+export type AssignmentDisplayPreference = 'combined' | 'plan' | 'actual' | 'variance'
 export type LandingDestination =
   | 'hierarchy'
   | 'workers'
@@ -34,18 +35,22 @@ export interface UserSettings {
     project?: {
       period?: AssignmentPeriodPreference
       chartVisible?: boolean
+      displayMode?: AssignmentDisplayPreference
     }
     resource?: {
       period?: AssignmentPeriodPreference
       chartVisible?: boolean
+      displayMode?: AssignmentDisplayPreference
     }
     nonLaborProject?: {
       period?: AssignmentPeriodPreference
       chartVisible?: boolean
+      displayMode?: AssignmentDisplayPreference
     }
     nonLaborResource?: {
       period?: AssignmentPeriodPreference
       chartVisible?: boolean
+      displayMode?: AssignmentDisplayPreference
     }
   }
   grids?: Record<string, UserGridSettings>
@@ -80,10 +85,10 @@ export const DEFAULT_USER_SETTINGS: Required<
   },
   assignmentGrids: {
     projectPerspective: 'labor',
-    project: { period: 'daily', chartVisible: true },
-    resource: { period: 'daily', chartVisible: true },
-    nonLaborProject: { period: 'daily', chartVisible: true },
-    nonLaborResource: { period: 'daily', chartVisible: true },
+    project: { period: 'daily', chartVisible: true, displayMode: 'combined' },
+    resource: { period: 'daily', chartVisible: true, displayMode: 'combined' },
+    nonLaborProject: { period: 'daily', chartVisible: true, displayMode: 'combined' },
+    nonLaborResource: { period: 'daily', chartVisible: true, displayMode: 'combined' },
   },
   grids: {},
 }

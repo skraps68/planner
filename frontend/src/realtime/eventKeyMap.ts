@@ -14,6 +14,7 @@ const MAP: Record<string, Array<Array<string>>> = {
   portfolio: [['portfolios'], ['portfolio']],
   rate: [['rates'], ['forecast'], ['worker-types']],
   actual: [['actuals'], ['forecast']],
+  actual_import_batch: [['actuals']],
   resource_role: [['resource-roles']],
   presence: [['presence']],
   lock: [['lock']],

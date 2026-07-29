@@ -6,8 +6,13 @@ import {
   COLOR_SLATE_WASH,
 } from '../../theme'
 import type { AssignmentPeriod } from './assignmentPeriods'
+import type {
+  AssignmentComparison,
+  AssignmentDisplayMode,
+} from './assignmentActuals'
 import {
   ASSIGNMENTS_GRID_BOUNDARY_COLOR,
+  ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
   ASSIGNMENTS_GRID_WEEKEND_BG,
 } from './assignmentGridConstants'
 
@@ -29,8 +34,13 @@ export interface AssignmentUsageChartConfig {
     fill: string
   }>
   valueFormatter?: (value: number) => string
+  deltaFormatter?: (value: number) => string
   capacityLimit?: number
   availableCapacityLabel?: string
+  comparisons?: AssignmentComparison[]
+  displayMode?: AssignmentDisplayMode
+  actualsThroughDate?: string | null
+  reportingDate?: string
 }
 
 interface AssignmentUsageChartProps {
@@ -85,7 +95,15 @@ export const AssignmentUsageChart = ({
 }: AssignmentUsageChartProps) => {
   const clipId = useId().replace(/:/g, '')
   const plotWidth = periods.length * periodWidth
-  const peak = Math.max(0, ...config.values)
+  const peak = Math.max(
+    0,
+    ...config.values,
+    ...(config.comparisons?.flatMap((comparison) => [
+      comparison.plan,
+      comparison.actual,
+      comparison.combined,
+    ]) ?? []),
+  )
   const scaleMax = config.capacityLimit === undefined
     ? getProjectScaleMax(peak)
     : Math.max(config.capacityLimit * 1.2, peak * 1.05)
@@ -97,6 +115,11 @@ export const AssignmentUsageChart = ({
   }))
   const usedPath = chartPath(points, PLOT_BOTTOM)
   const line = linePath(points)
+  const planPoints = config.comparisons?.map((comparison, index) => ({
+    x: index * periodWidth + periodWidth / 2,
+    y: y(comparison.plan),
+  })) ?? []
+  const planLine = linePath(planPoints)
   const limitY = config.capacityLimit === undefined ? undefined : y(config.capacityLimit)
   const availablePath = limitY === undefined || points.length === 0
     ? ''
@@ -141,6 +164,18 @@ export const AssignmentUsageChart = ({
     fill: COLOR_SLATE_WASH,
   }]
   const valueFormatter = config.valueFormatter ?? formatAxisValue
+  const deltaFormatter = config.deltaFormatter ?? ((value: number) =>
+    `${value > 0 ? '+' : ''}${formatAxisValue(value)}`)
+  const showPlanLegend = Boolean(
+    config.comparisons
+    && config.displayMode !== 'plan'
+    && planLine,
+  )
+  const showActualLegend = Boolean(
+    config.comparisons?.some((comparison) => comparison.actualDays > 0),
+  )
+  const comparisonLegendCount =
+    Number(showPlanLegend) + Number(showActualLegend)
   const axisLabels = config.capacityLimit === undefined
     ? [
         { value: scaleMax, label: formatAxisValue(scaleMax) },
@@ -207,11 +242,64 @@ export const AssignmentUsageChart = ({
             </Typography>
           </Box>
         ))}
-        {config.capacityLimit !== undefined && config.availableCapacityLabel && (
+        {showPlanLegend && (
           <Box sx={{
             position: 'absolute',
             left: '10px',
             top: `${61 + legendSeries.length * 21}px`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+          }}>
+            <Box sx={{ width: 20, borderTop: '1.5px dashed #6f7f8c' }} />
+            <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>
+              Plan
+            </Typography>
+          </Box>
+        )}
+        {showActualLegend && (
+          <Box sx={{
+            position: 'absolute',
+            left: '10px',
+            top: `${
+              61 + (
+                legendSeries.length + Number(showPlanLegend)
+              ) * 21
+            }px`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+          }}>
+            <Box sx={{ position: 'relative', width: 20, height: 9 }}>
+              {[3, 9, 15].map((left) => (
+                <Box
+                  key={left}
+                  sx={{
+                    position: 'absolute',
+                    left,
+                    top: 2,
+                    width: 5,
+                    height: 5,
+                    border: '1px solid #fff',
+                    borderRadius: '50%',
+                    backgroundColor: '#445968',
+                    boxShadow: '0 0 0 0.5px #445968',
+                  }}
+                />
+              ))}
+            </Box>
+            <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>
+              Actual
+            </Typography>
+          </Box>
+        )}
+        {config.capacityLimit !== undefined && config.availableCapacityLabel && (
+          <Box sx={{
+            position: 'absolute',
+            left: '10px',
+            top: `${
+              61 + (legendSeries.length + comparisonLegendCount) * 21
+            }px`,
             display: 'flex',
             alignItems: 'center',
             gap: 0.75,
@@ -224,7 +312,13 @@ export const AssignmentUsageChart = ({
           <Box sx={{
             position: 'absolute',
             left: '10px',
-            top: `${61 + (legendSeries.length + (config.availableCapacityLabel ? 1 : 0)) * 21}px`,
+            top: `${
+              61 + (
+                legendSeries.length
+                + comparisonLegendCount
+                + (config.availableCapacityLabel ? 1 : 0)
+              ) * 21
+            }px`,
             display: 'flex',
             alignItems: 'center',
             gap: 0.75,
@@ -261,6 +355,21 @@ export const AssignmentUsageChart = ({
         >
           <title>{`${config.title}: ${config.subtitle}`}</title>
           <defs>
+            {usedPath && config.comparisons && (
+              <clipPath id={`${clipId}-selected-area`}>
+                <path d={usedPath} />
+              </clipPath>
+            )}
+            <pattern
+              id={`${clipId}-missing`}
+              width="6"
+              height="6"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(135)"
+            >
+              <rect width="6" height="6" fill="rgba(223, 164, 57, 0.25)" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(160, 99, 0, 0.34)" strokeWidth="2" />
+            </pattern>
             {limitY !== undefined && (
               <>
                 <clipPath id={`${clipId}-over`}>
@@ -297,7 +406,32 @@ export const AssignmentUsageChart = ({
               clipPath={`url(#${clipId}-under)`}
             />
           )}
-          {stackedAreas.length
+          {config.comparisons && usedPath
+            ? config.comparisons.map((comparison, index) => {
+                const fill = comparison.state === 'actualized'
+                  ? COLOR_SLATE_WASH
+                  : comparison.state === 'missing'
+                    ? `url(#${clipId}-missing)`
+                    : comparison.state === 'pending'
+                      ? 'rgba(117, 127, 138, 0.16)'
+                      : comparison.state === 'future'
+                        ? 'rgba(95, 125, 148, 0.16)'
+                        : comparison.state === 'unplanned'
+                          ? 'rgba(112, 74, 151, 0.24)'
+                          : 'transparent'
+                return (
+                  <rect
+                    key={`state-area-${periods[index].key}`}
+                    x={index * periodWidth}
+                    y={PLOT_TOP}
+                    width={periodWidth}
+                    height={PLOT_BOTTOM - PLOT_TOP}
+                    fill={fill}
+                    clipPath={`url(#${clipId}-selected-area)`}
+                  />
+                )
+              })
+            : stackedAreas.length
             ? stackedAreas.map((area) => (
                 <path key={area.label} d={area.path} fill={area.fill} />
               ))
@@ -353,6 +487,95 @@ export const AssignmentUsageChart = ({
               strokeLinecap="round"
             />
           )}
+          {config.comparisons && config.displayMode !== 'plan' && planLine && (
+            <path
+              d={planLine}
+              fill="none"
+              stroke="#6f7f8c"
+              strokeWidth="1.2"
+              strokeDasharray="4 3"
+              strokeLinejoin="round"
+            />
+          )}
+          {config.comparisons?.map((comparison, index) => (
+            comparison.actualDays > 0 && (
+              <circle
+                key={`actual-point-${periods[index].key}`}
+                data-testid="assignment-actual-point"
+                cx={points[index].x}
+                cy={y(comparison.actual)}
+                r="2.3"
+                fill="#445968"
+                stroke="#fff"
+                strokeWidth="0.8"
+              />
+            )
+          ))}
+          {config.displayMode === 'combined' && config.comparisons?.map(
+            (comparison, index) => {
+              if (
+                comparison.actualDays === 0
+                || Math.abs(comparison.variance) < 0.000_001
+              ) return null
+              const labelY = Math.max(
+                9,
+                y(Math.max(comparison.plan, comparison.actual)) - 7,
+              )
+              return (
+                <text
+                  key={`delta-${periods[index].key}`}
+                  data-testid="assignment-delta-label"
+                  x={points[index].x}
+                  y={labelY}
+                  textAnchor="middle"
+                  fill="#334155"
+                  stroke="#fff"
+                  strokeWidth="2.5"
+                  paintOrder="stroke"
+                  fontSize="8"
+                  fontWeight="700"
+                >
+                  {`Δ${deltaFormatter(comparison.variance)}`}
+                </text>
+              )
+            },
+          )}
+          {config.actualsThroughDate && (() => {
+            let index = -1
+            periods.forEach((period, periodIndex) => {
+              if (period.dates.some((date) =>
+                date.toISOString().slice(0, 10) <= config.actualsThroughDate!
+              )) index = periodIndex
+            })
+            if (index < 0) return null
+            const x = (index + 1) * periodWidth
+            return (
+              <g>
+                <line x1={x} y1={0} x2={x} y2={CHART_HEIGHT} stroke="#9a6200" strokeWidth="1.4" strokeDasharray="3 3" />
+                <text x={Math.min(plotWidth - 4, x + 4)} y="11" fontSize="8" fill="#7a5208">ACTUALS THROUGH</text>
+              </g>
+            )
+          })()}
+          {config.reportingDate && (() => {
+            const index = periods.findIndex((period) =>
+              period.dates.some((date) =>
+                date.toISOString().slice(0, 10) === config.reportingDate
+              )
+            )
+            if (index < 0) return null
+            const x = index * periodWidth
+            return (
+              <line
+                data-testid="reporting-date-boundary"
+                x1={x}
+                y1={0}
+                x2={x}
+                y2={CHART_HEIGHT}
+                stroke={ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR}
+                strokeWidth="2"
+              />
+            )
+          })()}
           {config.capacityLimit !== undefined && points.map((point, index) => (
             (config.values[index] ?? 0) > config.capacityLimit! && (
               <circle

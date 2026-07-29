@@ -3,13 +3,13 @@ Actual repository for data access operations.
 """
 from datetime import date
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.actual import Actual
+from app.models.actual import Actual, ActualImportBatch
 from app.repositories.base import BaseRepository
 
 
@@ -29,6 +29,12 @@ class ActualRepository(BaseRepository[Actual]):
         """Get all actuals for a worker (worker ID matched case-insensitively)."""
         return db.query(Actual).filter(
             func.lower(Actual.external_worker_id) == external_worker_id.lower()
+        ).order_by(Actual.actual_date.desc()).all()
+
+    def get_by_resource(self, db: Session, resource_id: UUID) -> List[Actual]:
+        """Get all actuals for a resource."""
+        return db.query(Actual).filter(
+            Actual.resource_id == resource_id
         ).order_by(Actual.actual_date.desc()).all()
     
     def get_by_date(
@@ -67,6 +73,7 @@ class ActualRepository(BaseRepository[Actual]):
         self,
         db: Session,
         project_id: Optional[UUID] = None,
+        resource_id: Optional[UUID] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         eager_resource: bool = False
@@ -85,12 +92,40 @@ class ActualRepository(BaseRepository[Actual]):
 
         if project_id:
             query = query.filter(Actual.project_id == project_id)
+        if resource_id:
+            query = query.filter(Actual.resource_id == resource_id)
         if start_date:
             query = query.filter(Actual.actual_date >= start_date)
         if end_date:
             query = query.filter(Actual.actual_date <= end_date)
 
         return query.order_by(Actual.actual_date).all()
+
+    def create_in_transaction(
+        self,
+        db: Session,
+        *,
+        obj_in: Dict[str, Any],
+    ) -> Actual:
+        """Add and flush an actual without committing the owning transaction."""
+        actual = Actual(**obj_in)
+        db.add(actual)
+        db.flush()
+        return actual
+
+    def latest_watermarks(self, db: Session) -> Dict[str, Optional[date]]:
+        """Return the latest explicitly recorded completeness date per source."""
+        rows = db.query(
+            ActualImportBatch.source_type,
+            func.max(ActualImportBatch.actuals_through_date),
+        ).group_by(ActualImportBatch.source_type).all()
+        watermarks: Dict[str, Optional[date]] = {
+            "labor": None,
+            "non_labor": None,
+        }
+        for source_type, watermark in rows:
+            watermarks[source_type] = watermark
+        return watermarks
     
     def get_project_total_cost(
         self,

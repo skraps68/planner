@@ -217,10 +217,12 @@ export interface ResourceAssignment {
 export interface Actual {
   id: string
   project_id: string
-  external_worker_id: string
-  worker_name: string
+  resource_id: string
+  import_batch_id?: string | null
+  external_worker_id?: string | null
+  worker_name?: string | null
   actual_date: string
-  allocation_percentage: number
+  allocation_percentage?: number | null
   actual_cost: number
   capital_amount: number
   expense_amount: number
@@ -228,6 +230,7 @@ export interface Actual {
   created_at: string
   updated_at: string
   project_name?: string
+  resource_name?: string
   program_name?: string
   cost_center_code?: string
 }

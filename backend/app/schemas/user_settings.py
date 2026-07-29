@@ -40,11 +40,15 @@ class ListSettings(SettingsSchema):
 class AssignmentGridSettings(SettingsSchema):
     period: Optional[Literal["daily", "weekly", "monthly"]] = None
     chartVisible: Optional[bool] = None
+    displayMode: Optional[Literal["combined", "plan", "actual", "variance"]] = None
 
 
 class AssignmentGridCollection(SettingsSchema):
+    projectPerspective: Optional[Literal["labor", "non_labor"]] = None
     project: Optional[AssignmentGridSettings] = None
     resource: Optional[AssignmentGridSettings] = None
+    nonLaborProject: Optional[AssignmentGridSettings] = None
+    nonLaborResource: Optional[AssignmentGridSettings] = None
 
 
 class GridSettings(SettingsSchema):
