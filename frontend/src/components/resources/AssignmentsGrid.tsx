@@ -48,6 +48,7 @@ import {
   ASSIGNMENTS_GRID_ROW_HEIGHT,
   ASSIGNMENTS_GRID_TYPE_WIDTH,
   ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+  ASSIGNMENTS_GRID_WARNING_MARKER_COLOR,
   ASSIGNMENTS_GRID_WEEK_WIDTH,
 } from './assignmentGridConstants'
 
@@ -65,6 +66,7 @@ export {
   ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
   ASSIGNMENTS_GRID_TYPE_WIDTH,
   ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
+  ASSIGNMENTS_GRID_WARNING_MARKER_COLOR,
   ASSIGNMENTS_GRID_WEEKEND_BG,
   ASSIGNMENTS_GRID_WEEK_WIDTH,
 } from './assignmentGridConstants'
@@ -358,10 +360,10 @@ export const AssignmentsGrid = ({
               }}
             >
               {([
-                ['combined', 'Combined'],
                 ['plan', 'Plan'],
                 ['actual', 'Actual'],
                 ['variance', 'Variance'],
+                ['combined', 'Curr Fcst'],
               ] as Array<[AssignmentDisplayMode, string]>).map(([mode, label]) => (
                 <ToggleButton
                   key={mode}
@@ -381,7 +383,29 @@ export const AssignmentsGrid = ({
               <Chip
                 size="small"
                 variant="outlined"
-                label="◷ · ! · +"
+                label={(
+                  <Box
+                    component="span"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.4,
+                      fontWeight: 800,
+                    }}
+                  >
+                    <Box component="span" sx={{ color: ASSIGNMENTS_GRID_WARNING_MARKER_COLOR }}>
+                      ◷
+                    </Box>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>·</Box>
+                    <Box component="span" sx={{ color: ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR }}>
+                      !
+                    </Box>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>·</Box>
+                    <Box component="span" sx={{ color: ASSIGNMENTS_GRID_WARNING_MARKER_COLOR }}>
+                      +
+                    </Box>
+                  </Box>
+                )}
                 aria-label="Status key: clock actual pending, exclamation expected actual missing, plus unplanned actual"
                 sx={{ height: 22, fontSize: '0.58rem' }}
               />

@@ -109,17 +109,66 @@ export const AssignmentUsageChart = ({
     : Math.max(config.capacityLimit * 1.2, peak * 1.05)
   const y = (value: number) =>
     PLOT_BOTTOM - (Math.max(0, value) / scaleMax) * (PLOT_BOTTOM - PLOT_TOP)
+  const selectedValues = config.comparisons?.map((comparison) => {
+    if (config.displayMode === 'plan') return comparison.plan
+    if (config.displayMode === 'actual' || config.displayMode === 'variance') {
+      return comparison.actual
+    }
+    return comparison.combined
+  }) ?? config.values
   const points = periods.map((_period, index) => ({
     x: index * periodWidth + periodWidth / 2,
-    y: y(config.values[index] ?? 0),
+    y: y(selectedValues[index] ?? 0),
   }))
   const usedPath = chartPath(points, PLOT_BOTTOM)
-  const line = linePath(points)
   const planPoints = config.comparisons?.map((comparison, index) => ({
     x: index * periodWidth + periodWidth / 2,
     y: y(comparison.plan),
-  })) ?? []
+  })) ?? points
   const planLine = linePath(planPoints)
+  const actualSegments = (config.comparisons ?? []).reduce<Array<Array<{
+    index: number
+    x: number
+    y: number
+  }>>>((segments, comparison, index) => {
+    if (comparison.actualDays <= 0) return segments
+    const currentSegment = segments[segments.length - 1]
+    const previousIndex = currentSegment?.[currentSegment.length - 1]?.index
+    if (previousIndex !== index - 1) segments.push([])
+    segments[segments.length - 1].push({
+      index,
+      x: index * periodWidth + periodWidth / 2,
+      y: y(comparison.actual),
+    })
+    return segments
+  }, [])
+  const actualAreaPaths = actualSegments.map((segment) => {
+    if (segment.length > 1) return chartPath(segment, PLOT_BOTTOM)
+    const [{ x, y: pointY }] = segment
+    return [
+      `M ${x - periodWidth / 2} ${PLOT_BOTTOM}`,
+      `L ${x - periodWidth / 2} ${pointY}`,
+      `L ${x + periodWidth / 2} ${pointY}`,
+      `L ${x + periodWidth / 2} ${PLOT_BOTTOM}`,
+      'Z',
+    ].join(' ')
+  })
+  const varianceAreaPaths = actualSegments.map((segment) => {
+    const planSegment = segment.map(({ index, x }) => ({
+      x,
+      y: y(config.comparisons![index].plan),
+    }))
+    if (segment.length > 1) return bandPath(segment, planSegment)
+    const [{ x, y: actualY }] = segment
+    const [{ y: planY }] = planSegment
+    return [
+      `M ${x - periodWidth / 2} ${actualY}`,
+      `L ${x + periodWidth / 2} ${actualY}`,
+      `L ${x + periodWidth / 2} ${planY}`,
+      `L ${x - periodWidth / 2} ${planY}`,
+      'Z',
+    ].join(' ')
+  })
   const limitY = config.capacityLimit === undefined ? undefined : y(config.capacityLimit)
   const availablePath = limitY === undefined || points.length === 0
     ? ''
@@ -166,11 +215,7 @@ export const AssignmentUsageChart = ({
   const valueFormatter = config.valueFormatter ?? formatAxisValue
   const deltaFormatter = config.deltaFormatter ?? ((value: number) =>
     `${value > 0 ? '+' : ''}${formatAxisValue(value)}`)
-  const showPlanLegend = Boolean(
-    config.comparisons
-    && config.displayMode !== 'plan'
-    && planLine,
-  )
+  const showPlanLegend = Boolean(config.comparisons && planLine)
   const showActualLegend = Boolean(
     config.comparisons?.some((comparison) => comparison.actualDays > 0),
   )
@@ -251,7 +296,33 @@ export const AssignmentUsageChart = ({
             alignItems: 'center',
             gap: 0.75,
           }}>
-            <Box sx={{ width: 20, borderTop: '1.5px dashed #6f7f8c' }} />
+            <Box
+              data-testid="assignment-plan-legend-swatch"
+              sx={{ position: 'relative', width: 20, height: 9 }}
+            >
+              <Box sx={{
+                position: 'absolute',
+                top: 4,
+                left: 0,
+                width: 20,
+                borderTop: `2px solid ${COLOR_ACCENT}`,
+              }} />
+              {[3, 9, 15].map((left) => (
+                <Box
+                  key={left}
+                  sx={{
+                    position: 'absolute',
+                    left,
+                    top: 1.5,
+                    width: 6,
+                    height: 6,
+                    border: `1.5px solid ${COLOR_ACCENT}`,
+                    borderRadius: '50%',
+                    backgroundColor: '#fff',
+                  }}
+                />
+              ))}
+            </Box>
             <Typography sx={{ color: 'text.secondary', fontSize: 10 }}>
               Plan
             </Typography>
@@ -270,7 +341,17 @@ export const AssignmentUsageChart = ({
             alignItems: 'center',
             gap: 0.75,
           }}>
-            <Box sx={{ position: 'relative', width: 20, height: 9 }}>
+            <Box
+              data-testid="assignment-actual-legend-swatch"
+              sx={{ position: 'relative', width: 20, height: 9 }}
+            >
+              <Box sx={{
+                position: 'absolute',
+                top: 4,
+                left: 0,
+                width: 20,
+                borderTop: '1.5px dotted #445968',
+              }} />
               {[3, 9, 15].map((left) => (
                 <Box
                   key={left}
@@ -406,36 +487,71 @@ export const AssignmentUsageChart = ({
               clipPath={`url(#${clipId}-under)`}
             />
           )}
-          {config.comparisons && usedPath
-            ? config.comparisons.map((comparison, index) => {
-                const fill = comparison.state === 'actualized'
-                  ? COLOR_SLATE_WASH
-                  : comparison.state === 'missing'
-                    ? `url(#${clipId}-missing)`
-                    : comparison.state === 'pending'
-                      ? 'rgba(117, 127, 138, 0.16)'
-                      : comparison.state === 'future'
-                        ? 'rgba(95, 125, 148, 0.16)'
-                        : comparison.state === 'unplanned'
-                          ? 'rgba(112, 74, 151, 0.24)'
-                          : 'transparent'
-                return (
-                  <rect
-                    key={`state-area-${periods[index].key}`}
-                    x={index * periodWidth}
-                    y={PLOT_TOP}
-                    width={periodWidth}
-                    height={PLOT_BOTTOM - PLOT_TOP}
-                    fill={fill}
-                    clipPath={`url(#${clipId}-selected-area)`}
-                  />
-                )
-              })
-            : stackedAreas.length
-            ? stackedAreas.map((area) => (
-                <path key={area.label} d={area.path} fill={area.fill} />
+          {config.comparisons && config.displayMode === 'variance'
+            ? varianceAreaPaths.map((path, index) => (
+                <path
+                  key={`variance-area-${index}`}
+                  data-testid="assignment-variance-area"
+                  d={path}
+                  fill={COLOR_SLATE_WASH}
+                />
               ))
-            : usedPath && <path d={usedPath} fill={COLOR_SLATE_WASH} />}
+            : config.comparisons && config.displayMode === 'actual'
+              ? actualAreaPaths.map((path, index) => (
+                  <path
+                    key={`actual-area-${index}`}
+                    data-testid="assignment-actual-area"
+                    d={path}
+                    fill={COLOR_SLATE_WASH}
+                  />
+                ))
+              : config.comparisons && config.displayMode === 'plan'
+                ? stackedAreas.length
+                  ? stackedAreas.map((area) => (
+                      <path
+                        key={area.label}
+                        data-testid="assignment-plan-area"
+                        d={area.path}
+                        fill={area.fill}
+                      />
+                    ))
+                  : usedPath && (
+                      <path
+                        data-testid="assignment-plan-area"
+                        d={usedPath}
+                        fill={COLOR_SLATE_WASH}
+                      />
+                    )
+                : config.comparisons && usedPath
+                  ? config.comparisons.map((comparison, index) => {
+                      const fill = comparison.state === 'actualized'
+                        ? COLOR_SLATE_WASH
+                        : comparison.state === 'missing'
+                          ? `url(#${clipId}-missing)`
+                          : comparison.state === 'pending'
+                            ? 'rgba(117, 127, 138, 0.16)'
+                            : comparison.state === 'future'
+                              ? 'rgba(95, 125, 148, 0.16)'
+                              : comparison.state === 'unplanned'
+                                ? 'rgba(112, 74, 151, 0.24)'
+                                : 'transparent'
+                      return (
+                        <rect
+                          key={`state-area-${periods[index].key}`}
+                          x={index * periodWidth}
+                          y={PLOT_TOP}
+                          width={periodWidth}
+                          height={PLOT_BOTTOM - PLOT_TOP}
+                          fill={fill}
+                          clipPath={`url(#${clipId}-selected-area)`}
+                        />
+                      )
+                    })
+                  : stackedAreas.length
+                    ? stackedAreas.map((area) => (
+                        <path key={area.label} d={area.path} fill={area.fill} />
+                      ))
+                    : usedPath && <path d={usedPath} fill={COLOR_SLATE_WASH} />}
           {limitY !== undefined && usedPath && (
             <path
               d={usedPath}
@@ -477,9 +593,10 @@ export const AssignmentUsageChart = ({
               </text>
             </>
           )}
-          {line && (
+          {planLine && (
             <path
-              d={line}
+              data-testid="assignment-plan-line"
+              d={planLine}
               fill="none"
               stroke={COLOR_ACCENT}
               strokeWidth="2.2"
@@ -487,16 +604,31 @@ export const AssignmentUsageChart = ({
               strokeLinecap="round"
             />
           )}
-          {config.comparisons && config.displayMode !== 'plan' && planLine && (
+          {planPoints.map((point, index) => (
+            <circle
+              key={`plan-point-${periods[index].key}`}
+              data-testid="assignment-plan-point"
+              cx={point.x}
+              cy={point.y}
+              r="2.5"
+              fill="#fff"
+              stroke={COLOR_ACCENT}
+              strokeWidth="1.4"
+            />
+          ))}
+          {actualSegments.map((segment, index) => (
             <path
-              d={planLine}
+              key={`actual-line-${index}`}
+              data-testid="assignment-actual-line"
+              d={linePath(segment)}
               fill="none"
-              stroke="#6f7f8c"
-              strokeWidth="1.2"
-              strokeDasharray="4 3"
+              stroke="#445968"
+              strokeWidth="1.6"
+              strokeDasharray="1.5 3"
+              strokeLinecap="round"
               strokeLinejoin="round"
             />
-          )}
+          ))}
           {config.comparisons?.map((comparison, index) => (
             comparison.actualDays > 0 && (
               <circle
@@ -511,7 +643,8 @@ export const AssignmentUsageChart = ({
               />
             )
           ))}
-          {config.displayMode === 'combined' && config.comparisons?.map(
+          {(config.displayMode === 'combined' || config.displayMode === 'variance')
+            && config.comparisons?.map(
             (comparison, index) => {
               if (
                 comparison.actualDays === 0
@@ -577,7 +710,7 @@ export const AssignmentUsageChart = ({
             )
           })()}
           {config.capacityLimit !== undefined && points.map((point, index) => (
-            (config.values[index] ?? 0) > config.capacityLimit! && (
+            (selectedValues[index] ?? 0) > config.capacityLimit! && (
               <circle
                 key={`over-${periods[index].key}`}
                 cx={point.x}

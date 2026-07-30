@@ -60,9 +60,17 @@ import {
   buildActualTotals,
   compareAssignmentPeriod,
   comparisonValue,
-  getActualCellSx,
+  getVarianceHeatmapCellSx,
+  getVarianceHeatmapScale,
   type AssignmentDisplayMode,
 } from './assignmentActuals'
+
+const comparisonCellKey = (
+  resourceId: string,
+  periodKey: string,
+  costTreatment: 'capital' | 'expense',
+) => `${resourceId}:${periodKey}:${costTreatment}`
+const resourceCostTreatments = ['capital', 'expense'] as const
 
 // Memoized cell wrapper to prevent unnecessary re-renders
 interface CellWrapperProps {
@@ -854,6 +862,41 @@ const ResourceAssignmentCalendar = ({
   const laborChartValues = laborComparisons.map(
     (comparison) => comparisonValue(comparison, effectiveDisplayMode) ?? 0,
   )
+  const resourceComparisons = new Map<string, ReturnType<typeof compareAssignmentPeriod>>()
+  gridData.resources.forEach((resource) => {
+    periods.forEach((period) => {
+      resourceCostTreatments.forEach((costTreatment) => {
+        const comparison = compareAssignmentPeriod(
+          period,
+          (date) => getDisplayValue(resource.resourceId, date, costTreatment),
+          (date) => {
+            const actual = actualTotals.get(actualRecordKey(
+              projectId,
+              resource.resourceId,
+              date.toISOString().slice(0, 10),
+            ))
+            return {
+              value: costTreatment === 'capital'
+                ? actual?.capitalAllocation ?? 0
+                : actual?.expenseAllocation ?? 0,
+              present: Boolean(actual?.count),
+            }
+          },
+          {
+            watermark: laborWatermark,
+            reportingDate: actualsContext?.reporting_date,
+          },
+        )
+        resourceComparisons.set(
+          comparisonCellKey(resource.resourceId, period.key, costTreatment),
+          comparison,
+        )
+      })
+    })
+  })
+  const planVarianceHeatmapScale = getVarianceHeatmapScale(
+    [...resourceComparisons.values()],
+  )
 
   return (
     <Box sx={{ width: '100%', overflow: 'hidden' }}>
@@ -1078,7 +1121,6 @@ const ResourceAssignmentCalendar = ({
                     sx={{
                       backgroundColor: period.isWeekend ? ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG : '#e8f5e9',
                       fontWeight: 'bold',
-                      ...getActualCellSx(comparison),
                       ...getAssignmentsGridPeriodSx(period),
                     }}
                     role="gridcell"
@@ -1087,6 +1129,7 @@ const ResourceAssignmentCalendar = ({
                       comparison={comparison}
                       mode={effectiveDisplayMode}
                       formatValue={(value) => value ? value.toFixed(1) : ''}
+                      emphasized
                     />
                   </TableCell>
                 )
@@ -1179,25 +1222,9 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {periods.map((period) => {
-                    const comparison = compareAssignmentPeriod(
-                      period,
-                      (date) => getDisplayValue(resource.resourceId, date, 'capital'),
-                      (date) => {
-                        const actual = actualTotals.get(actualRecordKey(
-                          projectId,
-                          resource.resourceId,
-                          date.toISOString().slice(0, 10),
-                        ))
-                        return {
-                          value: actual?.capitalAllocation ?? 0,
-                          present: Boolean(actual?.count),
-                        }
-                      },
-                      {
-                        watermark: laborWatermark,
-                        reportingDate: actualsContext?.reporting_date,
-                      },
-                    )
+                    const comparison = resourceComparisons.get(
+                      comparisonCellKey(resource.resourceId, period.key, 'capital'),
+                    )!
                     const value = comparisonValue(comparison, effectiveDisplayMode) ?? 0
                     const date = period.dates[0]
                     
@@ -1208,8 +1235,11 @@ const ResourceAssignmentCalendar = ({
                         sx={{
                           backgroundColor: period.isWeekend
                             ? ASSIGNMENTS_GRID_WEEKEND_BG
-                            : value > 0 ? 'action.hover' : 'background.paper',
-                          ...getActualCellSx(comparison),
+                            : 'background.paper',
+                          ...getVarianceHeatmapCellSx(
+                            comparison,
+                            planVarianceHeatmapScale,
+                          ),
                           ...getAssignmentsGridPeriodSx(period),
                         }}
                         role="gridcell"
@@ -1262,25 +1292,9 @@ const ResourceAssignmentCalendar = ({
                     </Typography>
                   </TableCell>
                   {periods.map((period) => {
-                    const comparison = compareAssignmentPeriod(
-                      period,
-                      (date) => getDisplayValue(resource.resourceId, date, 'expense'),
-                      (date) => {
-                        const actual = actualTotals.get(actualRecordKey(
-                          projectId,
-                          resource.resourceId,
-                          date.toISOString().slice(0, 10),
-                        ))
-                        return {
-                          value: actual?.expenseAllocation ?? 0,
-                          present: Boolean(actual?.count),
-                        }
-                      },
-                      {
-                        watermark: laborWatermark,
-                        reportingDate: actualsContext?.reporting_date,
-                      },
-                    )
+                    const comparison = resourceComparisons.get(
+                      comparisonCellKey(resource.resourceId, period.key, 'expense'),
+                    )!
                     const value = comparisonValue(comparison, effectiveDisplayMode) ?? 0
                     const date = period.dates[0]
                     
@@ -1291,8 +1305,11 @@ const ResourceAssignmentCalendar = ({
                         sx={{
                           backgroundColor: period.isWeekend
                             ? ASSIGNMENTS_GRID_WEEKEND_BG
-                            : value > 0 ? 'action.hover' : 'background.paper',
-                          ...getActualCellSx(comparison),
+                            : 'background.paper',
+                          ...getVarianceHeatmapCellSx(
+                            comparison,
+                            planVarianceHeatmapScale,
+                          ),
                           borderColor: 'divider',
                           ...getAssignmentsGridPeriodSx(period),
                         }}

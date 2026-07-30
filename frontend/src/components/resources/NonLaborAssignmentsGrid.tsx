@@ -616,7 +616,6 @@ export default function NonLaborAssignmentsGrid({
                   sx={{
                     backgroundColor: period.isWeekend ? '#dfeae3' : '#e8f5e9',
                     fontWeight: 'bold',
-                    ...getActualCellSx(comparison),
                     ...getAssignmentsGridPeriodSx(period),
                   }}
                 >
@@ -624,6 +623,7 @@ export default function NonLaborAssignmentsGrid({
                     comparison={comparison}
                     mode={effectiveDisplayMode}
                     formatValue={formatAmount}
+                    emphasized
                   />
                 </TableCell>
               )

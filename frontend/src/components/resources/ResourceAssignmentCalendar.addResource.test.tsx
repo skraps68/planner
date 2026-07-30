@@ -132,6 +132,21 @@ describe('ResourceAssignmentCalendar add-resource workflow', () => {
     expect(screen.getByRole('button', { name: 'Add Resource' })).toBeInTheDocument()
   })
 
+  it('uses the legacy green and bold treatment for the labor totals row', async () => {
+    renderCalendar()
+
+    const grid = await screen.findByRole('grid', {
+      name: 'Resource assignment calendar',
+    })
+    const totalRow = within(grid).getByText('Labor Totals').closest('tr')
+    const totalValue = within(totalRow as HTMLElement).getByText('0.2')
+
+    expect(totalValue.closest('td')).toHaveStyle({
+      backgroundColor: '#e8f5e9',
+    })
+    expect(totalValue).toHaveStyle({ fontWeight: 700 })
+  })
+
   it('pins searched labor-resource rows at the top and creates entered assignments', async () => {
     const user = userEvent.setup()
     renderCalendar()

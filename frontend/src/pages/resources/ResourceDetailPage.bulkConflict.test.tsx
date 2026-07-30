@@ -399,7 +399,12 @@ describe('ResourceDetailPage - bulk conflict handling', () => {
     const totalRow = screen.getByText('Total Allocation').closest('tr')
     expect(totalRow).not.toBeNull()
     // 80% on one day averaged across all 31 days in January.
-    expect(within(totalRow as HTMLElement).getByText('2.6')).toBeInTheDocument()
+    const totalValue = within(totalRow as HTMLElement).getByText('2.6')
+    expect(totalValue).toBeInTheDocument()
+    expect(totalValue.closest('td')).toHaveStyle({
+      backgroundColor: '#e8f5e9',
+    })
+    expect(totalValue).toHaveStyle({ fontWeight: 700 })
 
     const assignmentCard = grid.closest('.MuiPaper-root')
     const editButton = within(assignmentCard as HTMLElement).getByRole('button', { name: 'Edit' })

@@ -4,6 +4,8 @@ import type { AssignmentPeriod } from './assignmentPeriods'
 import {
   compareAssignmentPeriod,
   comparisonValue,
+  getVarianceHeatmapCellSx,
+  getVarianceHeatmapScale,
 } from './assignmentActuals'
 
 const date = (value: string) => new Date(`${value}T00:00:00.000Z`)
@@ -90,5 +92,65 @@ describe('assignment actual comparison', () => {
     expect(result.plan).toBe(200)
     expect(result.actual).toBe(160)
     expect(result.variance).toBe(-40)
+  })
+
+  it('scales plan-mode variance heat colors by absolute table variance', () => {
+    const comparisons = [-10, 20, -30, 40].map((variance) => ({
+      plan: 50,
+      actual: 50 + variance,
+      combined: 50 + variance,
+      variance,
+      state: 'actualized' as const,
+      actualDays: 1,
+      missingDays: 0,
+      pendingDays: 0,
+      totalDays: 1,
+    }))
+    const scale = getVarianceHeatmapScale(comparisons)
+
+    expect(scale).toEqual({ minMagnitude: 10, maxMagnitude: 40 })
+    expect(getVarianceHeatmapCellSx(comparisons[0], scale)).toEqual({
+      backgroundColor: '#fff4bf',
+    })
+    expect(getVarianceHeatmapCellSx(comparisons[1], scale)).toEqual({
+      backgroundColor: '#ffc766',
+    })
+    expect(getVarianceHeatmapCellSx(comparisons[2], scale)).toEqual({
+      backgroundColor: '#f59ab2',
+    })
+    expect(getVarianceHeatmapCellSx(comparisons[3], scale)).toEqual({
+      backgroundColor: '#c94f7c',
+    })
+  })
+
+  it('leaves plan cells uncolored without a loaded nonzero variance', () => {
+    const noVariance = {
+      plan: 50,
+      actual: 50,
+      combined: 50,
+      variance: 0,
+      state: 'actualized' as const,
+      actualDays: 1,
+      missingDays: 0,
+      pendingDays: 0,
+      totalDays: 1,
+    }
+    const noActual = {
+      ...noVariance,
+      actual: 0,
+      combined: 50,
+      variance: -50,
+      state: 'pending' as const,
+      actualDays: 0,
+      pendingDays: 1,
+    }
+    const scale = getVarianceHeatmapScale([noVariance, noActual])
+
+    expect(scale).toBeNull()
+    expect(getVarianceHeatmapCellSx(noVariance, scale)).toEqual({})
+    expect(getVarianceHeatmapCellSx(noActual, {
+      minMagnitude: 50,
+      maxMagnitude: 50,
+    })).toEqual({})
   })
 })

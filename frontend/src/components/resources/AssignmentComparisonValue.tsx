@@ -6,6 +6,10 @@ import {
   type AssignmentComparison,
   type AssignmentDisplayMode,
 } from './assignmentActuals'
+import {
+  ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
+  ASSIGNMENTS_GRID_WARNING_MARKER_COLOR,
+} from './assignmentGridConstants'
 
 const STATE_MARKER = {
   actualized: '',
@@ -21,6 +25,7 @@ interface AssignmentComparisonValueProps {
   mode: AssignmentDisplayMode
   formatValue: (value: number) => string
   suffix?: string
+  emphasized?: boolean
 }
 
 export function AssignmentComparisonValue({
@@ -28,6 +33,7 @@ export function AssignmentComparisonValue({
   mode,
   formatValue,
   suffix = '',
+  emphasized = false,
 }: AssignmentComparisonValueProps) {
   const value = comparisonValue(comparison, mode)
   const visibleValue = value !== null
@@ -38,17 +44,44 @@ export function AssignmentComparisonValue({
   const coverage = comparison.totalDays > 1
     ? `${comparison.actualDays}/${comparison.totalDays} days with actuals`
     : ''
-  const title = [
-    state,
-    coverage,
-    `Plan ${formatValue(comparison.plan)}${suffix}`,
-    comparison.actualDays
-      ? `Actual ${formatValue(comparison.actual)}${suffix}`
-      : 'No actual loaded',
-    comparison.actualDays
-      ? `Variance ${variance >= 0 ? '+' : ''}${formatValue(variance)}${suffix}`
-      : '',
-  ].filter(Boolean).join(' · ')
+  const planDetail = `Plan ${formatValue(comparison.plan)}${suffix}`
+  const actualDetail = comparison.actualDays
+    ? `Actual ${formatValue(comparison.actual)}${suffix}`
+    : 'No actual loaded'
+  const varianceDetail = comparison.actualDays
+    ? `Variance ${variance >= 0 ? '+' : ''}${formatValue(variance)}${suffix}`
+    : ''
+  const useConciseTitle = (
+    mode === 'plan'
+    || mode === 'actual'
+    || mode === 'variance'
+    || mode === 'combined'
+  )
+    && (
+      comparison.state === 'actualized'
+      || comparison.state === 'pending'
+    )
+  const conciseValueDetails = mode === 'variance'
+    ? comparison.actualDays
+      ? [varianceDetail, planDetail, actualDetail]
+      : ['Variance pending', planDetail]
+    : mode === 'actual'
+      ? [
+          comparison.actualDays ? actualDetail : 'Actual pending',
+          planDetail,
+          varianceDetail,
+        ]
+      : [
+          planDetail,
+          comparison.actualDays ? actualDetail : 'Actual pending',
+          varianceDetail,
+        ]
+  const valueDetails = [planDetail, actualDetail, varianceDetail]
+  const title = (
+    useConciseTitle
+      ? conciseValueDetails
+      : [state, coverage, ...valueDetails]
+  ).filter(Boolean).join(' · ')
 
   return (
     <Box
@@ -64,7 +97,14 @@ export function AssignmentComparisonValue({
         gap: 0.25,
       }}
     >
-      <Typography component="span" sx={{ fontSize: '0.75rem', lineHeight: 1 }}>
+      <Typography
+        component="span"
+        sx={{
+          fontSize: '0.75rem',
+          fontWeight: emphasized ? 700 : undefined,
+          lineHeight: 1,
+        }}
+      >
         {!visibleValue || value === null ? '' : `${formatValue(value)}${suffix}`}
       </Typography>
       {stateMarker && (
@@ -72,10 +112,8 @@ export function AssignmentComparisonValue({
           component="sup"
           sx={{
             color: comparison.state === 'missing'
-              ? '#9a6200'
-              : comparison.state === 'unplanned'
-                ? '#704a97'
-                : 'text.secondary',
+              ? ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR
+              : ASSIGNMENTS_GRID_WARNING_MARKER_COLOR,
             fontSize: '0.52rem',
             fontWeight: 800,
             lineHeight: 1,

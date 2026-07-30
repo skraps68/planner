@@ -757,7 +757,6 @@ const ResourceAllocationCalendar: React.FC<{
                     <TableCell key={period.key} align="center" sx={{
                       backgroundColor: period.isWeekend ? ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG : '#e8f5e9',
                       fontWeight: 'bold',
-                      ...getActualCellSx(comparison),
                       ...getAssignmentsGridPeriodSx(period),
                     }}>
                       <Box sx={{ color }}>
@@ -765,6 +764,7 @@ const ResourceAllocationCalendar: React.FC<{
                           comparison={comparison}
                           mode={effectiveDisplayMode}
                           formatValue={formatAssignmentAverage}
+                          emphasized
                         />
                       </Box>
                     </TableCell>

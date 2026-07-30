@@ -30,6 +30,18 @@ export interface AssignmentComparison {
 }
 
 const EPSILON = 0.000_001
+const PLAN_VARIANCE_COLORS = [
+  '#fff4bf',
+  '#ffc766',
+  '#f59ab2',
+  '#c94f7c',
+] as const
+
+export interface VarianceHeatmapScale {
+  minMagnitude: number
+  maxMagnitude: number
+}
+
 export const actualDateKey = (value: Date): string => value.toISOString().slice(0, 10)
 
 export const actualRecordKey = (
@@ -208,4 +220,43 @@ export const getActualCellSx = (
     return { backgroundColor: 'rgba(112, 74, 151, 0.14)' }
   }
   return {}
+}
+
+export const getVarianceHeatmapScale = (
+  comparisons: AssignmentComparison[],
+): VarianceHeatmapScale | null => {
+  const magnitudes = comparisons
+    .filter((comparison) => comparison.actualDays > 0)
+    .map((comparison) => Math.abs(comparison.variance))
+    .filter((magnitude) => magnitude > EPSILON)
+
+  if (magnitudes.length === 0) return null
+  return {
+    minMagnitude: Math.min(...magnitudes),
+    maxMagnitude: Math.max(...magnitudes),
+  }
+}
+
+export const getVarianceHeatmapCellSx = (
+  comparison: AssignmentComparison,
+  scale: VarianceHeatmapScale | null,
+): SxProps<Theme> => {
+  const magnitude = Math.abs(comparison.variance)
+  if (
+    comparison.actualDays === 0
+    || magnitude <= EPSILON
+    || scale === null
+  ) {
+    return {}
+  }
+
+  const range = scale.maxMagnitude - scale.minMagnitude
+  const normalized = range <= EPSILON
+    ? 1
+    : (magnitude - scale.minMagnitude) / range
+  const colorIndex = Math.min(
+    PLAN_VARIANCE_COLORS.length - 1,
+    Math.floor(normalized * PLAN_VARIANCE_COLORS.length),
+  )
+  return { backgroundColor: PLAN_VARIANCE_COLORS[colorIndex] }
 }

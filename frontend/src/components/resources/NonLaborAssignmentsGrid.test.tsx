@@ -120,6 +120,11 @@ describe('NonLaborAssignmentsGrid', () => {
     })
     const totalRow = within(grid).getByText('Total Forecast').closest('tr')
     expect(totalRow).toHaveTextContent('300')
+    const totalValue = within(totalRow as HTMLElement).getByText('300')
+    expect(totalValue.closest('td')).toHaveStyle({
+      backgroundColor: '#e8f5e9',
+    })
+    expect(totalValue).toHaveStyle({ fontWeight: 700 })
     expect(within(grid).getAllByText('Cap $')[0].closest('tr'))
       .toHaveTextContent('100')
     expect(within(grid).getAllByText('Exp $')[0].closest('tr'))
