@@ -19,6 +19,7 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material'
 import { ProjectPhase } from '../../types'
+import { parseDateOnly } from '../../utils/dateOnly'
 
 interface PhaseListProps {
   phases: Partial<ProjectPhase>[]
@@ -96,7 +97,7 @@ const PhaseList: React.FC<PhaseListProps> = ({ phases, editMode, onUpdate, onDel
   }
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
+    const date = parseDateOnly(dateString)
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',

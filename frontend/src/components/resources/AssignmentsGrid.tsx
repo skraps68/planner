@@ -44,12 +44,15 @@ import {
   ASSIGNMENTS_GRID_MAX_HEIGHT,
   ASSIGNMENTS_GRID_MONTH_WIDTH,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_PROJECT_END_COLOR,
+  ASSIGNMENTS_GRID_PROJECT_START_COLOR,
   ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
   ASSIGNMENTS_GRID_ROW_HEIGHT,
   ASSIGNMENTS_GRID_TYPE_WIDTH,
   ASSIGNMENTS_GRID_VIEW_TOGGLE_HEIGHT,
   ASSIGNMENTS_GRID_WARNING_MARKER_COLOR,
   ASSIGNMENTS_GRID_WEEK_WIDTH,
+  getAssignmentsGridBoundaryStrokeCenter,
 } from './assignmentGridConstants'
 
 export {
@@ -61,6 +64,8 @@ export {
   ASSIGNMENTS_GRID_MAX_HEIGHT,
   ASSIGNMENTS_GRID_MONTH_WIDTH,
   ASSIGNMENTS_GRID_PRIMARY_WIDTH,
+  ASSIGNMENTS_GRID_PROJECT_END_COLOR,
+  ASSIGNMENTS_GRID_PROJECT_START_COLOR,
   ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
   ASSIGNMENTS_GRID_ROW_HEIGHT,
   ASSIGNMENTS_GRID_TOTAL_WEEKEND_BG,
@@ -82,6 +87,65 @@ export const getAssignmentsGridPeriodSx = (period: AssignmentPeriod) => ({
     borderRight: `2px solid ${ASSIGNMENTS_GRID_BOUNDARY_COLOR} !important`,
   }),
 })
+
+const getAssignmentsGridTableBoundarySx = (
+  periodIndex: number,
+  edge: 'before' | 'after',
+  color: string,
+  style: 'solid' | 'dashed' = 'solid',
+) => {
+  if (periodIndex < 0) return {}
+
+  const usePreviousColumn = edge === 'after' || periodIndex > 0
+  const columnNumber = edge === 'after'
+    ? periodIndex + 3
+    : periodIndex > 0
+      ? periodIndex + 2
+      : 3
+  const continuationColumnNumber = columnNumber - 1
+  const border = usePreviousColumn ? 'borderRight' : 'borderLeft'
+  const value = `2px ${style} ${color} !important`
+
+  return {
+    [`& [data-assignment-date-row="true"] > .MuiTableCell-root:nth-of-type(${columnNumber}), & .MuiTableBody-root > .MuiTableRow-root:not([data-assignment-rowspan-continuation="true"]) > .MuiTableCell-root:nth-of-type(${columnNumber})`]: {
+      [border]: value,
+    },
+    [`& .MuiTableBody-root > .MuiTableRow-root[data-assignment-rowspan-continuation="true"] > .MuiTableCell-root:nth-of-type(${continuationColumnNumber})`]: {
+      [border]: value,
+    },
+  }
+}
+
+const ASSIGNMENTS_GRID_YEAR_BAND_HEIGHT = 16
+
+interface AssignmentYearGroup {
+  key: string
+  label: string
+  periodCount: number
+}
+
+const getAssignmentYearGroups = (
+  periods: AssignmentPeriod[],
+): AssignmentYearGroup[] => periods.reduce<AssignmentYearGroup[]>(
+  (groups, period) => {
+    const years = [...new Set(period.dates.map((date) => date.getUTCFullYear()))]
+    const label = years.length === 1
+      ? String(years[0])
+      : `${years[0]}/${String(years[years.length - 1]).slice(-2)}`
+    const previous = groups[groups.length - 1]
+    if (previous?.label === label) {
+      previous.periodCount += 1
+    } else {
+      groups.push({
+        key: `${period.key}-${label}`,
+        label,
+        periodCount: 1,
+      })
+    }
+    return groups
+  },
+  [],
+)
 
 const localDateKey = (date: Date): string => [
   date.getFullYear(),
@@ -220,9 +284,29 @@ export const AssignmentsGrid = ({
       (date) => date.toISOString().slice(0, 10) === reportingDate,
     ),
   )
-  const reportingColumnNumber = reportingPeriodIndex >= 0
-    ? reportingPeriodIndex + 3
-    : null
+  const projectStartPeriodIndex = chartConfig?.projectStartDate
+    ? periods.findIndex((period) => period.dates.some(
+      (date) => date.toISOString().slice(0, 10) === chartConfig.projectStartDate,
+    ))
+    : -1
+  const projectEndPeriodIndex = chartConfig?.projectEndDate
+    ? periods.findIndex((period) => period.dates.some(
+      (date) => date.toISOString().slice(0, 10) === chartConfig.projectEndDate,
+    ))
+    : -1
+  const showYearBand = viewMode === 'daily' || viewMode === 'weekly'
+  const yearGroups = showYearBand ? getAssignmentYearGroups(periods) : []
+  const yearBandBoundaryIndexes = showYearBand
+    ? [...new Set([
+        ...periods.flatMap((period, index) =>
+          period.endsMajorPeriod ? [index + 1] : []
+        ),
+        ...yearGroups.slice(0, -1).reduce<number[]>((indexes, group) => {
+          indexes.push((indexes[indexes.length - 1] ?? 0) + group.periodCount)
+          return indexes
+        }, []),
+      ])]
+    : []
 
   return (
     <Box>
@@ -474,6 +558,131 @@ export const AssignmentsGrid = ({
             config={{ ...chartConfig, reportingDate }}
           />
         )}
+        {showYearBand && (
+          <Box
+            data-testid="assignment-year-band"
+            aria-hidden="true"
+            sx={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 6,
+              display: 'flex',
+              width: tableWidth,
+              minWidth: tableWidth,
+              height: ASSIGNMENTS_GRID_YEAR_BAND_HEIGHT,
+              backgroundColor: '#26313e',
+            }}
+          >
+            <Box
+              sx={{
+                position: 'sticky',
+                left: 0,
+                zIndex: 7,
+                flex: `0 0 ${identityWidth}px`,
+                width: identityWidth,
+                height: ASSIGNMENTS_GRID_YEAR_BAND_HEIGHT,
+                backgroundColor: '#26313e',
+                borderRight: `1px solid ${COLOR_LINE}`,
+              }}
+            />
+            {yearGroups.map((group) => (
+              <Box
+                key={group.key}
+                data-testid={`assignment-year-${group.label}`}
+                sx={{
+                  boxSizing: 'border-box',
+                  flex: `0 0 ${group.periodCount * periodWidth}px`,
+                  width: group.periodCount * periodWidth,
+                  height: ASSIGNMENTS_GRID_YEAR_BAND_HEIGHT,
+                  overflow: 'hidden',
+                  backgroundColor: '#26313e',
+                  color: '#dbe3eb',
+                  fontSize: '0.57rem',
+                  fontWeight: 700,
+                  lineHeight: `${ASSIGNMENTS_GRID_YEAR_BAND_HEIGHT}px`,
+                  letterSpacing: '0.04em',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {group.label}
+              </Box>
+            ))}
+            {yearBandBoundaryIndexes.map((boundaryIndex) => (
+              <Box
+                key={`year-band-boundary-${boundaryIndex}`}
+                data-testid={`assignment-year-boundary-${boundaryIndex}`}
+                sx={{
+                  position: 'absolute',
+                  zIndex: 1,
+                  top: 0,
+                  bottom: 0,
+                  left: identityWidth + getAssignmentsGridBoundaryStrokeCenter(
+                    boundaryIndex * periodWidth,
+                  ),
+                  width: 2,
+                  transform: 'translateX(-50%)',
+                  backgroundColor: ASSIGNMENTS_GRID_BOUNDARY_COLOR,
+                  pointerEvents: 'none',
+                }}
+              />
+            ))}
+            {projectStartPeriodIndex >= 0 && (
+              <Box
+                data-testid="assignment-year-project-start-boundary"
+                sx={{
+                  position: 'absolute',
+                  zIndex: 2,
+                  top: 0,
+                  bottom: 0,
+                  left: identityWidth + getAssignmentsGridBoundaryStrokeCenter(
+                    projectStartPeriodIndex * periodWidth,
+                  ),
+                  width: 2,
+                  transform: 'translateX(-50%)',
+                  backgroundColor: ASSIGNMENTS_GRID_PROJECT_START_COLOR,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            {projectEndPeriodIndex >= 0 && (
+              <Box
+                data-testid="assignment-year-project-end-boundary"
+                sx={{
+                  position: 'absolute',
+                  zIndex: 2,
+                  top: 0,
+                  bottom: 0,
+                  left: identityWidth + getAssignmentsGridBoundaryStrokeCenter(
+                    (projectEndPeriodIndex + 1) * periodWidth,
+                  ),
+                  width: 2,
+                  transform: 'translateX(-50%)',
+                  backgroundColor: ASSIGNMENTS_GRID_PROJECT_END_COLOR,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            {reportingPeriodIndex >= 0 && (
+              <Box
+                data-testid="assignment-year-reporting-boundary"
+                sx={{
+                  position: 'absolute',
+                  zIndex: 3,
+                  top: 0,
+                  bottom: 0,
+                  left: identityWidth + getAssignmentsGridBoundaryStrokeCenter(
+                    reportingPeriodIndex * periodWidth,
+                  ),
+                  width: 2,
+                  transform: 'translateX(-50%)',
+                  backgroundImage: `repeating-linear-gradient(to bottom, ${ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR} 0 4px, transparent 4px 7px)`,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+          </Box>
+        )}
         <Table
         aria-label={ariaLabel}
         role="grid"
@@ -500,15 +709,38 @@ export const AssignmentsGrid = ({
             height: `${ASSIGNMENTS_GRID_HEADER_HEIGHT}px !important`,
             padding: `${ASSIGNMENTS_GRID_CELL_PADDING} !important`,
           },
-          ...(reportingColumnNumber && {
-            [`& .MuiTableCell-root:nth-of-type(${reportingColumnNumber})`]: {
-              borderLeft: `2px solid ${ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR} !important`,
+          ...(showYearBand && {
+            '& [data-assignment-date-row="true"] > .MuiTableCell-head': {
+              top: `${ASSIGNMENTS_GRID_YEAR_BAND_HEIGHT}px`,
             },
           }),
+          ...getAssignmentsGridTableBoundarySx(
+            projectStartPeriodIndex,
+            'before',
+            ASSIGNMENTS_GRID_PROJECT_START_COLOR,
+          ),
+          ...getAssignmentsGridTableBoundarySx(
+            projectEndPeriodIndex,
+            'after',
+            ASSIGNMENTS_GRID_PROJECT_END_COLOR,
+          ),
+          ...getAssignmentsGridTableBoundarySx(
+            reportingPeriodIndex,
+            'before',
+            ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
+            'dashed',
+          ),
         }}
       >
+        <colgroup>
+          <col style={{ width: ASSIGNMENTS_GRID_PRIMARY_WIDTH }} />
+          <col style={{ width: typeColumnWidth }} />
+          {periods.map((period) => (
+            <col key={period.key} style={{ width: periodWidth }} />
+          ))}
+        </colgroup>
         <TableHead>
-          <TableRow role="row">
+          <TableRow role="row" data-assignment-date-row="true">
             <AssignmentsGridCell
               aria-label={primaryHeaderAriaLabel}
               role="columnheader"

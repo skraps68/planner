@@ -39,6 +39,11 @@ import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import DetailField, { DETAIL_BUTTON_BAND_VIEW, DETAIL_BUTTON_BAND_EDIT } from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
+import {
+  getInclusiveDateRangeStatus,
+  localDateOnlyKey,
+  parseDateOnly,
+} from '../../utils/dateOnly'
 
 const ProgramDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -76,10 +81,7 @@ const ProgramDetailPage: React.FC = () => {
   const [toggle, setToggle] = useState<LaborToggle>({ laborOn: true, nonlaborOn: true })
 
   // Get today's date for forecast API
-  const today = useMemo(() => {
-    const date = new Date()
-    return date.toISOString().split('T')[0]
-  }, [])
+  const today = useMemo(() => localDateOnlyKey(), [])
 
   const { data: program, isLoading, refetch } = useQuery({
     queryKey: ['program', id],
@@ -244,17 +246,17 @@ const ProgramDetailPage: React.FC = () => {
     return <Typography>Program not found</Typography>
   }
 
-  const startDate = new Date(program.start_date)
-  const endDate = new Date(program.end_date)
-  const now = new Date()
-
+  const rangeStatus = getInclusiveDateRangeStatus(
+    program.start_date,
+    program.end_date,
+  )
   let status = 'Active'
   let statusColor: 'success' | 'warning' | 'default' = 'success'
 
-  if (now < startDate) {
+  if (rangeStatus === 'planned') {
     status = 'Planned'
     statusColor = 'warning'
-  } else if (now > endDate) {
+  } else if (rangeStatus === 'completed') {
     status = 'Completed'
     statusColor = 'default'
   }
@@ -322,12 +324,12 @@ const ProgramDetailPage: React.FC = () => {
                   onChange={(e) => setEditValues({ ...editValues, technical_lead: e.target.value })} />
               </DetailField>
               <DetailField label="Start Date" editing={isEditingInfo}
-                value={format(new Date(program.start_date), 'MMMM dd, yyyy')}>
+                value={format(parseDateOnly(program.start_date), 'MMMM dd, yyyy')}>
                 <TextField fullWidth size="small" type="date" value={editValues.start_date}
                   onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })} />
               </DetailField>
               <DetailField label="End Date" editing={isEditingInfo}
-                value={format(new Date(program.end_date), 'MMMM dd, yyyy')}>
+                value={format(parseDateOnly(program.end_date), 'MMMM dd, yyyy')}>
                 <TextField fullWidth size="small" type="date" value={editValues.end_date}
                   onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
               </DetailField>
@@ -439,8 +441,8 @@ const ProgramDetailPage: React.FC = () => {
                           }}
                         >
                           <TableCell>{project.name}</TableCell>
-                          <TableCell>{format(new Date(project.start_date), 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>{format(new Date(project.end_date), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>{format(parseDateOnly(project.start_date), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell>{format(parseDateOnly(project.end_date), 'MMM dd, yyyy')}</TableCell>
                           <TableCell align="right">
                             ${projectCapital.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                           </TableCell>

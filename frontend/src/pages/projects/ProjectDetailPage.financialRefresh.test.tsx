@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -100,6 +100,7 @@ describe('ProjectDetailPage financial refresh', () => {
         forecast_to_budget_percentage: 0,
       },
     })
+    vi.mocked(projectsApi.update).mockResolvedValue({} as never)
   })
 
   it('immediately refreshes phase and forecast queries after a phase save', async () => {
@@ -126,5 +127,67 @@ describe('ProjectDetailPage financial refresh', () => {
     })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['forecast'] })
     await waitFor(() => expect(getProjectForecast).toHaveBeenCalledTimes(2))
+  })
+
+  it('checks changed dates and enables final save only after a clean recheck', async () => {
+    const user = userEvent.setup()
+    const failedPreview = {
+      project_id: 'project-1',
+      current_start_date: '2026-01-01',
+      current_end_date: '2026-12-31',
+      proposed_start_date: '2026-01-01',
+      proposed_end_date: '2026-08-31',
+      can_proceed: false,
+      blocking_count: 1,
+      constraints: [{
+        id: 'phase_timeline',
+        label: 'Phase dates and sequence',
+        status: 'fail' as const,
+        message: 'Resolve the phase timeline first.',
+        resolution_target: 'phases' as const,
+        details: {},
+      }],
+    }
+    vi.mocked(projectsApi.previewDateChange)
+      .mockResolvedValueOnce(failedPreview)
+      .mockResolvedValueOnce({
+        ...failedPreview,
+        can_proceed: true,
+        blocking_count: 0,
+        constraints: failedPreview.constraints.map((item) => ({
+          ...item,
+          status: 'pass' as const,
+          message: 'All phases fit.',
+          resolution_target: null,
+        })),
+      })
+
+    render(<ProjectDetailPage />, {
+      queryClient: new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      }),
+      store: createTestStore(),
+    })
+
+    await screen.findByRole('heading', { name: 'Test Project' })
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    fireEvent.change(screen.getByDisplayValue('2026-12-31'), {
+      target: { value: '2026-08-31' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Resolve the phase timeline first.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Proceed with Save' })).toBeDisabled()
+    expect(projectsApi.update).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Recheck' }))
+    await screen.findByText('All phases fit.')
+    expect(screen.getByRole('button', { name: 'Proceed with Save' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Proceed with Save' }))
+    expect(projectsApi.update).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({ end_date: '2026-08-31' }),
+    )
   })
 })

@@ -54,6 +54,7 @@ import {
   Cell,
 } from 'recharts'
 import VarianceDrillDown from '../../components/actuals/VarianceDrillDown'
+import { parseDateOnly } from '../../utils/dateOnly'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -75,10 +76,10 @@ const VarianceAnalysisPage = () => {
   const [projectId, setProjectId] = useState(searchParams.get('project_id') || '')
   const [projects, setProjects] = useState<Project[]>([])
   const [startDate, setStartDate] = useState<Date | null>(
-    searchParams.get('start_date') ? new Date(searchParams.get('start_date')!) : null
+    searchParams.get('start_date') ? parseDateOnly(searchParams.get('start_date')!) : null
   )
   const [endDate, setEndDate] = useState<Date | null>(
-    searchParams.get('end_date') ? new Date(searchParams.get('end_date')!) : null
+    searchParams.get('end_date') ? parseDateOnly(searchParams.get('end_date')!) : null
   )
   const [allocationThreshold, setAllocationThreshold] = useState(20)
   const [costThreshold, setCostThreshold] = useState(10)
@@ -145,8 +146,8 @@ const VarianceAnalysisPage = () => {
     if (projectId && projects.length > 0) {
       const selectedProject = projects.find(p => p.id === projectId)
       if (selectedProject) {
-        setStartDate(new Date(selectedProject.start_date))
-        setEndDate(new Date(selectedProject.end_date))
+        setStartDate(parseDateOnly(selectedProject.start_date))
+        setEndDate(parseDateOnly(selectedProject.end_date))
       }
     }
   }, [projectId, projects])

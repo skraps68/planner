@@ -1002,6 +1002,8 @@ const ResourceAssignmentCalendar = ({
             displayMode: effectiveDisplayMode,
             actualsThroughDate: laborWatermark,
             reportingDate: actualsContext?.reporting_date,
+            projectStartDate,
+            projectEndDate,
             valueFormatter: (value) =>
               `${value.toFixed(1)} ${viewMode === 'daily' ? 'heads' : 'heads/day'}`,
             deltaFormatter: (value) =>
@@ -1271,7 +1273,10 @@ const ResourceAssignmentCalendar = ({
                 </TableRow>
 
                 {/* Expense Row */}
-                <TableRow role="row">
+                <TableRow
+                  role="row"
+                  data-assignment-rowspan-continuation="true"
+                >
                   {/* Cost Treatment Label Cell - Expense */}
                   <TableCell
                     sx={{

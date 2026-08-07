@@ -24,6 +24,7 @@ import { Actual, Project } from '../../types'
 import { format } from 'date-fns'
 import { prioritizeGridColumns } from '../../components/common/DataTable'
 import PersistentDataGrid from '../../components/common/PersistentDataGrid'
+import { parseDateOnly } from '../../utils/dateOnly'
 
 const ActualsListPage = () => {
   const navigate = useNavigate()
@@ -109,7 +110,8 @@ const ActualsListPage = () => {
       field: 'actual_date',
       headerName: 'Date',
       width: 120,
-      valueFormatter: (params: GridValueFormatterParams) => format(new Date(params.value as string), 'yyyy-MM-dd'),
+      valueFormatter: (params: GridValueFormatterParams) =>
+        format(parseDateOnly(params.value as string), 'yyyy-MM-dd'),
     },
     {
       field: 'worker_name',

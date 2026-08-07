@@ -145,6 +145,22 @@ describe('ProjectDetailPage - Calendar Integration', () => {
     expect(assignmentsApi.getByProject).toHaveBeenCalledWith('project-1')
   })
 
+  it('displays project date-only values without a timezone day shift', async () => {
+    const user = userEvent.setup()
+    vi.mocked(projectsApi.get).mockResolvedValue({
+      ...mockProject,
+      start_date: '2026-07-27',
+      end_date: '2027-07-27',
+    })
+
+    render(<ProjectDetailPage />, { store, queryClient })
+
+    await user.click(await screen.findByRole('tab', { name: 'Details' }))
+    expect(await screen.findByText('July 27, 2026')).toBeInTheDocument()
+    expect(screen.getByText('July 27, 2027')).toBeInTheDocument()
+    expect(screen.queryByText('July 26, 2026')).not.toBeInTheDocument()
+  })
+
   it('should pass correct props to calendar component', async () => {
     const user = userEvent.setup()
     render(<ProjectDetailPage />, { store, queryClient })

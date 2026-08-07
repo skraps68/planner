@@ -38,6 +38,34 @@ export interface ProjectListParams {
   sort_order?: 'asc' | 'desc'
 }
 
+export type ProjectDateConstraintTarget =
+  | 'project'
+  | 'program'
+  | 'phases'
+  | 'labor'
+  | 'non_labor'
+  | 'actuals'
+
+export interface ProjectDateConstraint {
+  id: string
+  label: string
+  status: 'pass' | 'fail'
+  message: string
+  resolution_target?: ProjectDateConstraintTarget | null
+  details: Record<string, unknown>
+}
+
+export interface ProjectDateChangePreview {
+  project_id: string
+  current_start_date: string
+  current_end_date: string
+  proposed_start_date: string
+  proposed_end_date: string
+  can_proceed: boolean
+  blocking_count: number
+  constraints: ProjectDateConstraint[]
+}
+
 export const projectsApi = {
   list: async (params?: ProjectListParams): Promise<PaginatedResponse<Project>> => {
     const response = await apiClient.get('/projects/', { params })
@@ -56,6 +84,18 @@ export const projectsApi = {
 
   update: async (id: string, data: ProjectUpdateRequest): Promise<Project> => {
     const response = await apiClient.put(`/projects/${id}`, data)
+    return response.data
+  },
+
+  previewDateChange: async (
+    id: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<ProjectDateChangePreview> => {
+    const response = await apiClient.post(`/projects/${id}/date-change-preview`, {
+      start_date: startDate,
+      end_date: endDate,
+    })
     return response.data
   },
 

@@ -885,7 +885,7 @@ const ResourceAllocationCalendar: React.FC<{
                       )
                     })}
                   </TableRow>
-                  <TableRow>
+                  <TableRow data-assignment-rowspan-continuation="true">
                     <TableCell sx={{ position: 'sticky', left: ASSIGNMENTS_GRID_PRIMARY_WIDTH, zIndex: 2, backgroundColor: 'background.paper', borderRight: '1px solid', borderColor: 'divider', textAlign: 'left !important' }}>
                       <Typography variant="caption" color="secondary">Exp %</Typography>
                     </TableCell>

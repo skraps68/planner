@@ -14,9 +14,15 @@ import {
 } from './AssignmentsGrid'
 import { AssignmentComparisonValue } from './AssignmentComparisonValue'
 import { AssignmentUsageChart } from './AssignmentUsageChart'
+import { getAssignmentsGridBoundaryStrokeCenter } from './assignmentGridConstants'
 import { buildAssignmentPeriods } from './assignmentPeriods'
 
 describe('AssignmentsGrid', () => {
+  it('centers thick overlays on table borders, including the plot origin', () => {
+    expect(getAssignmentsGridBoundaryStrokeCenter(0)).toBe(1)
+    expect(getAssignmentsGridBoundaryStrokeCenter(42)).toBe(41)
+  })
+
   it('provides shared headers, sticky sizing, colors, and scrolling', () => {
     const periods = buildAssignmentPeriods([
       new Date(Date.UTC(2026, 6, 24)),
@@ -69,6 +75,59 @@ describe('AssignmentsGrid', () => {
     })
   })
 
+  it('aligns the reporting boundary across row-spanned Capital and Expense rows', () => {
+    const periods = buildAssignmentPeriods([
+      new Date(Date.UTC(2026, 6, 29)),
+      new Date(Date.UTC(2026, 6, 30)),
+      new Date(Date.UTC(2026, 6, 31)),
+    ], 'daily')
+
+    render(
+      <AssignmentsGrid
+        ariaLabel="Row-spanned assignments"
+        periods={periods}
+        viewMode="daily"
+        onViewModeChange={vi.fn()}
+        primaryHeader="Resource"
+        primaryHeaderAriaLabel="Resource name"
+        chartVisible={false}
+        chartConfig={{
+          title: 'Usage',
+          subtitle: 'Assignments',
+          seriesLabel: 'Plan',
+          values: [0, 0, 0],
+          reportingDate: '2026-07-30',
+        }}
+      >
+        <TableRow>
+          <AssignmentsGridCell rowSpan={2}>AWS Cloud Services</AssignmentsGridCell>
+          <AssignmentsGridCell>Cap $</AssignmentsGridCell>
+          <AssignmentsGridCell>cap-29</AssignmentsGridCell>
+          <AssignmentsGridCell>cap-30</AssignmentsGridCell>
+          <AssignmentsGridCell>cap-31</AssignmentsGridCell>
+        </TableRow>
+        <TableRow data-assignment-rowspan-continuation="true">
+          <AssignmentsGridCell>Exp $</AssignmentsGridCell>
+          <AssignmentsGridCell>exp-29</AssignmentsGridCell>
+          <AssignmentsGridCell>exp-30</AssignmentsGridCell>
+          <AssignmentsGridCell>exp-31</AssignmentsGridCell>
+        </TableRow>
+      </AssignmentsGrid>,
+    )
+
+    const capitalBoundaryCell = screen.getByText('cap-29').closest('td')!
+    expect(getComputedStyle(capitalBoundaryCell).borderRight)
+      .toBe('2px dashed rgb(211, 47, 47)')
+    const expenseBoundaryCell = screen.getByText('exp-29').closest('td')!
+    expect(getComputedStyle(expenseBoundaryCell).borderRight)
+      .toBe('2px dashed rgb(211, 47, 47)')
+    const todayExpenseCell = screen.getByText('exp-30').closest('td')!
+    expect(getComputedStyle(todayExpenseCell).borderLeftColor)
+      .not.toBe('rgb(211, 47, 47)')
+    expect(getComputedStyle(todayExpenseCell).borderLeftWidth)
+      .not.toBe('2px')
+  })
+
   it('uses the consolidated period toggle to request view changes', async () => {
     const user = userEvent.setup()
     const onViewModeChange = vi.fn()
@@ -100,6 +159,52 @@ describe('AssignmentsGrid', () => {
 
     await user.click(screen.getByRole('button', { name: 'Monthly view' }))
     expect(onViewModeChange).toHaveBeenCalledWith('monthly')
+  })
+
+  it('shows compact year bands in Daily and Weekly views without adding one to Monthly', () => {
+    const sourceDates = [
+      new Date(Date.UTC(2026, 11, 20)),
+      new Date(Date.UTC(2027, 0, 9)),
+    ]
+    const grid = (viewMode: 'daily' | 'weekly' | 'monthly') => {
+      const periods = buildAssignmentPeriods(sourceDates, viewMode)
+      return (
+        <AssignmentsGrid
+          ariaLabel={`${viewMode} year bands`}
+          periods={periods}
+          viewMode={viewMode}
+          onViewModeChange={vi.fn()}
+          primaryHeader="Resource"
+          primaryHeaderAriaLabel="Resource name"
+        >
+          <TableRow>
+            <AssignmentsGridCell>Total</AssignmentsGridCell>
+            <AssignmentsGridCell>%</AssignmentsGridCell>
+            {periods.map((period) => (
+              <AssignmentsGridCell key={period.key}>0</AssignmentsGridCell>
+            ))}
+          </TableRow>
+        </AssignmentsGrid>
+      )
+    }
+    const { rerender } = render(grid('daily'))
+    const dailyPeriodCount = buildAssignmentPeriods(sourceDates, 'daily').length
+    const dailyGrid = screen.getByRole('grid', { name: 'daily year bands' })
+
+    expect(screen.getByTestId('assignment-year-2026')).toHaveTextContent('2026')
+    expect(screen.getByTestId('assignment-year-2027')).toHaveTextContent('2027')
+    expect(dailyGrid.querySelectorAll('thead tr')).toHaveLength(1)
+    expect(dailyGrid.querySelectorAll('thead th'))
+      .toHaveLength(dailyPeriodCount + 2)
+    expect(dailyGrid.querySelectorAll('colgroup col'))
+      .toHaveLength(dailyPeriodCount + 2)
+
+    rerender(grid('weekly'))
+    expect(screen.getByTestId('assignment-year-2026/27'))
+      .toHaveTextContent('2026/27')
+
+    rerender(grid('monthly'))
+    expect(screen.queryByTestId('assignment-year-band')).not.toBeInTheDocument()
   })
 
   it('provides the shared plan/actual mode selector and status key', async () => {
@@ -405,6 +510,8 @@ describe('AssignmentsGrid', () => {
           capacityLimit: 100,
           availableCapacityLabel: 'Available capacity',
           reportingDate: '2026-01-07',
+          projectStartDate: '2026-01-04',
+          projectEndDate: '2026-01-10',
         }}
         toolbarActions={<button type="button">Edit</button>}
       >
@@ -446,12 +553,51 @@ describe('AssignmentsGrid', () => {
       top: '145px',
     })
     expect(screen.getByRole('columnheader', {
-      name: 'Date: January 7, 2026',
+      name: 'Date: January 6, 2026',
     })).toHaveStyle({
-      borderLeft: '2px solid #d32f2f',
+      borderRight: '2px dashed #d32f2f',
     })
-    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute('x1', '126')
-    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute('x2', '126')
+    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute('x1', '125')
+    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute('x2', '125')
+    expect(screen.getByTestId('reporting-date-boundary')).toHaveAttribute(
+      'stroke-dasharray',
+      '4 3',
+    )
+    expect(screen.getByTestId('assignment-year-reporting-boundary')).toHaveStyle({
+      left: '357px',
+      width: '2px',
+    })
+    expect(screen.getByTestId('assignment-year-reporting-boundary')).toHaveStyle({
+      backgroundImage: 'repeating-linear-gradient(to bottom, #d32f2f 0 4px, transparent 4px 7px)',
+    })
+    expect(screen.getByTestId('project-start-boundary')).toHaveAttribute('x1', '1')
+    expect(screen.getByTestId('project-end-boundary')).toHaveAttribute('x1', '293')
+    expect(screen.getByTestId('assignment-year-project-start-boundary')).toHaveStyle({
+      left: '233px',
+      backgroundColor: '#2e7d32',
+    })
+    expect(screen.getByTestId('assignment-year-project-end-boundary')).toHaveStyle({
+      left: '525px',
+      backgroundColor: '#d32f2f',
+    })
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: January 4, 2026',
+    })).toHaveStyle({
+      borderLeft: '2px solid #2e7d32',
+    })
+    expect(screen.getByRole('columnheader', {
+      name: 'Date: January 10, 2026',
+    })).toHaveStyle({
+      borderRight: '2px solid #d32f2f',
+    })
+    expect(screen.getByTestId('assignment-chart-boundary-7')).toHaveAttribute(
+      'x1',
+      '293',
+    )
+    expect(screen.getByTestId('assignment-year-boundary-7')).toHaveStyle({
+      left: '525px',
+      width: '2px',
+    })
     const delta = screen.getByTestId('assignment-delta-label')
     const actualPoint = screen.getByTestId('assignment-actual-point')
     expect(delta).toHaveTextContent('Δ+10%')

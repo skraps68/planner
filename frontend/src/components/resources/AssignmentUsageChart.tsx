@@ -12,8 +12,11 @@ import type {
 } from './assignmentActuals'
 import {
   ASSIGNMENTS_GRID_BOUNDARY_COLOR,
+  ASSIGNMENTS_GRID_PROJECT_END_COLOR,
+  ASSIGNMENTS_GRID_PROJECT_START_COLOR,
   ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR,
   ASSIGNMENTS_GRID_WEEKEND_BG,
+  getAssignmentsGridBoundaryStrokeCenter,
 } from './assignmentGridConstants'
 
 const CHART_HEIGHT = 160
@@ -41,6 +44,8 @@ export interface AssignmentUsageChartConfig {
   displayMode?: AssignmentDisplayMode
   actualsThroughDate?: string | null
   reportingDate?: string
+  projectStartDate?: string
+  projectEndDate?: string
 }
 
 interface AssignmentUsageChartProps {
@@ -562,9 +567,18 @@ export const AssignmentUsageChart = ({
           {periods.map((period, index) => (
             <line
               key={`grid-${period.key}`}
-              x1={(index + 1) * periodWidth}
+              data-testid={
+                period.endsMajorPeriod
+                  ? `assignment-chart-boundary-${index + 1}`
+                  : undefined
+              }
+              x1={period.endsMajorPeriod
+                ? getAssignmentsGridBoundaryStrokeCenter((index + 1) * periodWidth)
+                : (index + 1) * periodWidth}
               y1="0"
-              x2={(index + 1) * periodWidth}
+              x2={period.endsMajorPeriod
+                ? getAssignmentsGridBoundaryStrokeCenter((index + 1) * periodWidth)
+                : (index + 1) * periodWidth}
               y2={CHART_HEIGHT}
               stroke={period.endsMajorPeriod ? ASSIGNMENTS_GRID_BOUNDARY_COLOR : COLOR_LINE}
               strokeWidth={period.endsMajorPeriod ? 2 : 1}
@@ -689,6 +703,52 @@ export const AssignmentUsageChart = ({
               </g>
             )
           })()}
+          {config.projectStartDate && (() => {
+            const index = periods.findIndex((period) =>
+              period.dates.some((date) =>
+                date.toISOString().slice(0, 10) === config.projectStartDate
+              )
+            )
+            if (index < 0) return null
+            const x = getAssignmentsGridBoundaryStrokeCenter(index * periodWidth)
+            return (
+              <line
+                data-testid="project-start-boundary"
+                x1={x}
+                y1={0}
+                x2={x}
+                y2={CHART_HEIGHT}
+                stroke={ASSIGNMENTS_GRID_PROJECT_START_COLOR}
+                strokeWidth="2"
+              >
+                <title>Project start</title>
+              </line>
+            )
+          })()}
+          {config.projectEndDate && (() => {
+            const index = periods.findIndex((period) =>
+              period.dates.some((date) =>
+                date.toISOString().slice(0, 10) === config.projectEndDate
+              )
+            )
+            if (index < 0) return null
+            const x = getAssignmentsGridBoundaryStrokeCenter(
+              (index + 1) * periodWidth,
+            )
+            return (
+              <line
+                data-testid="project-end-boundary"
+                x1={x}
+                y1={0}
+                x2={x}
+                y2={CHART_HEIGHT}
+                stroke={ASSIGNMENTS_GRID_PROJECT_END_COLOR}
+                strokeWidth="2"
+              >
+                <title>Project end</title>
+              </line>
+            )
+          })()}
           {config.reportingDate && (() => {
             const index = periods.findIndex((period) =>
               period.dates.some((date) =>
@@ -696,7 +756,7 @@ export const AssignmentUsageChart = ({
               )
             )
             if (index < 0) return null
-            const x = index * periodWidth
+            const x = getAssignmentsGridBoundaryStrokeCenter(index * periodWidth)
             return (
               <line
                 data-testid="reporting-date-boundary"
@@ -706,6 +766,7 @@ export const AssignmentUsageChart = ({
                 y2={CHART_HEIGHT}
                 stroke={ASSIGNMENTS_GRID_REPORTING_BOUNDARY_COLOR}
                 strokeWidth="2"
+                strokeDasharray="4 3"
               />
             )
           })()}

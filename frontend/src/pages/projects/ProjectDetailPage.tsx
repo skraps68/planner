@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -20,7 +20,11 @@ import {
   ToggleButtonGroup,
 } from '@mui/material'
 import { Edit, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material'
-import { projectsApi } from '../../api/projects'
+import {
+  ProjectDateChangePreview,
+  ProjectDateConstraintTarget,
+  projectsApi,
+} from '../../api/projects'
 import { programsApi } from '../../api/programs'
 import { phasesApi } from '../../api/phases'
 import { getProjectForecast } from '../../api/forecast'
@@ -36,8 +40,14 @@ import ResourceAssignmentCalendar from '../../components/resources/ResourceAssig
 import NonLaborAssignmentsGrid from '../../components/resources/NonLaborAssignmentsGrid'
 import ProjectActualsTab from '../../components/actuals/ProjectActualsTab'
 import ConflictDialog from '../../components/common/ConflictDialog'
+import ProjectDateConstraintDialog from '../../components/projects/ProjectDateConstraintDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
 import { useUserSettings } from '../../contexts/UserSettingsContext'
+import {
+  getInclusiveDateRangeStatus,
+  localDateOnlyKey,
+  parseDateOnly,
+} from '../../utils/dateOnly'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -83,6 +93,10 @@ const ProjectDetailPage: React.FC = () => {
     severity: 'success',
   })
   const [isEditingInfo, setIsEditingInfo] = useState(false)
+  const [dateConstraintDialogOpen, setDateConstraintDialogOpen] = useState(false)
+  const [dateConstraintPreview, setDateConstraintPreview] = useState<ProjectDateChangePreview | null>(null)
+  const [dateConstraintLoading, setDateConstraintLoading] = useState(false)
+  const [dateConstraintSaving, setDateConstraintSaving] = useState(false)
   const [editValues, setEditValues] = useState({
     name: '',
     business_sponsor: '',
@@ -105,6 +119,21 @@ const ProjectDetailPage: React.FC = () => {
     enabled: !!id,
   })
 
+  useEffect(() => {
+    if (!project || !id || isEditingInfo) return
+    const storageKey = `project-date-change-draft:${id}`
+    const storedDraft = window.sessionStorage.getItem(storageKey)
+    if (!storedDraft) return
+    try {
+      setEditValues(JSON.parse(storedDraft))
+      setIsEditingInfo(true)
+    } catch {
+      // Ignore a malformed session draft and return to the persisted project.
+    } finally {
+      window.sessionStorage.removeItem(storageKey)
+    }
+  }, [id, isEditingInfo, project])
+
   const { data: program } = useQuery({
     queryKey: ['program', project?.program_id],
     queryFn: () => programsApi.get(project!.program_id),
@@ -125,7 +154,7 @@ const ProjectDetailPage: React.FC = () => {
   const { data: rawForecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
     queryKey: ['forecast', 'project', id, selectedPhaseId],
     queryFn: async () => {
-      return await getProjectForecast(id!, new Date().toISOString().split('T')[0], selectedPhaseId || undefined)
+      return await getProjectForecast(id!, localDateOnlyKey(), selectedPhaseId || undefined)
     },
     enabled: !!id,
   })
@@ -137,7 +166,7 @@ const ProjectDetailPage: React.FC = () => {
 
   // Handle tab change: reflect the tab in the URL (replace, not push, so
   // switching tabs doesn't stack history entries)
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+  const setActiveTab = (newValue: number) => {
     const next = new URLSearchParams(searchParams)
     if (newValue === 0) {
       next.delete('tab')
@@ -145,6 +174,10 @@ const ProjectDetailPage: React.FC = () => {
       next.set('tab', String(newValue))
     }
     setSearchParams(next, { replace: true })
+  }
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue)
   }
 
   const handleSnackbarClose = () => {
@@ -201,11 +234,13 @@ const ProjectDetailPage: React.FC = () => {
         end_date: project.end_date,
         version: project.version,
       })
+      setDateConstraintPreview(null)
       setIsEditingInfo(true)
     }
   }
 
-  const handleSaveInfo = async () => {
+  const performProjectUpdate = async () => {
+    setDateConstraintSaving(true)
     try {
       await projectsApi.update(id!, editValues)
       setSnackbar({
@@ -214,6 +249,8 @@ const ProjectDetailPage: React.FC = () => {
         severity: 'success',
       })
       setIsEditingInfo(false)
+      setDateConstraintDialogOpen(false)
+      setDateConstraintPreview(null)
       void Promise.all([
         refetch(),
         // Refresh the hierarchy views (slim tree / rich list) so the new name shows.
@@ -221,7 +258,17 @@ const ProjectDetailPage: React.FC = () => {
         // Project dates and phase-boundary adjustments affect financial reporting.
         queryClient.invalidateQueries({ queryKey: ['forecast'] }),
       ])
+      return true
     } catch (error: any) {
+      const refreshedPreview = error?.response?.data?.error?.details?.preview as
+        | ProjectDateChangePreview
+        | undefined
+      if (refreshedPreview) {
+        setDateConstraintPreview(refreshedPreview)
+        setDateConstraintDialogOpen(true)
+        return false
+      }
+
       // Try to handle as conflict error
       const isConflict = handleError(error, editValues)
 
@@ -234,10 +281,84 @@ const ProjectDetailPage: React.FC = () => {
           severity: 'error',
         })
       }
+      return false
+    } finally {
+      setDateConstraintSaving(false)
     }
   }
 
+  const checkDateConstraints = async () => {
+    setDateConstraintDialogOpen(true)
+    setDateConstraintLoading(true)
+    try {
+      const preview = await projectsApi.previewDateChange(
+        id!,
+        editValues.start_date,
+        editValues.end_date,
+      )
+      setDateConstraintPreview(preview)
+    } catch (error) {
+      console.error('Failed to preview project date change:', error)
+      setDateConstraintDialogOpen(false)
+      setSnackbar({
+        open: true,
+        message: 'Unable to check project date constraints. No changes were saved.',
+        severity: 'error',
+      })
+    } finally {
+      setDateConstraintLoading(false)
+    }
+  }
+
+  const handleSaveInfo = async () => {
+    const datesChanged = Boolean(
+      project
+      && (editValues.start_date !== project.start_date
+        || editValues.end_date !== project.end_date),
+    )
+    if (datesChanged) {
+      await checkDateConstraints()
+      return
+    }
+    await performProjectUpdate()
+  }
+
+  const handleResolveDateConstraint = (target: ProjectDateConstraintTarget) => {
+    setDateConstraintDialogOpen(false)
+    if (target === 'project') return
+    if (target === 'program') {
+      window.sessionStorage.setItem(
+        `project-date-change-draft:${id}`,
+        JSON.stringify(editValues),
+      )
+      navigate(`/programs/${project?.program_id}`)
+      return
+    }
+    if (target === 'phases') {
+      setActiveTab(0)
+      window.requestAnimationFrame(() => {
+        document.getElementById('project-phase-editor')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      })
+      return
+    }
+    if (target === 'labor' || target === 'non_labor') {
+      updateSettings({
+        assignmentGrids: {
+          projectPerspective: target === 'labor' ? 'labor' : 'non_labor',
+        },
+      })
+      setActiveTab(1)
+      return
+    }
+    if (target === 'actuals') setActiveTab(2)
+  }
+
   const handleCancelEdit = () => {
+    setDateConstraintDialogOpen(false)
+    setDateConstraintPreview(null)
     setIsEditingInfo(false)
   }
 
@@ -249,17 +370,17 @@ const ProjectDetailPage: React.FC = () => {
     return <Typography>Project not found</Typography>
   }
 
-  const now = new Date()
-  const startDate = new Date(project.start_date)
-  const endDate = new Date(project.end_date)
-
+  const rangeStatus = getInclusiveDateRangeStatus(
+    project.start_date,
+    project.end_date,
+  )
   let status = 'Active'
   let statusColor: 'success' | 'warning' | 'default' = 'success'
 
-  if (now < startDate) {
+  if (rangeStatus === 'planned') {
     status = 'Planned'
     statusColor = 'warning'
-  } else if (now > endDate) {
+  } else if (rangeStatus === 'completed') {
     status = 'Completed'
     statusColor = 'default'
   }
@@ -326,12 +447,12 @@ const ProjectDetailPage: React.FC = () => {
                     onChange={(e) => setEditValues({ ...editValues, cost_center_code: e.target.value })} />
                 </DetailField>
                 <DetailField label="Start Date" editing={isEditingInfo}
-                  value={format(new Date(project.start_date), 'MMMM dd, yyyy')}>
+                  value={format(parseDateOnly(project.start_date), 'MMMM dd, yyyy')}>
                   <TextField fullWidth size="small" type="date" value={editValues.start_date}
                     onChange={(e) => setEditValues({ ...editValues, start_date: e.target.value })} />
                 </DetailField>
                 <DetailField label="End Date" editing={isEditingInfo}
-                  value={format(new Date(project.end_date), 'MMMM dd, yyyy')}>
+                  value={format(parseDateOnly(project.end_date), 'MMMM dd, yyyy')}>
                   <TextField fullWidth size="small" type="date" value={editValues.end_date}
                     onChange={(e) => setEditValues({ ...editValues, end_date: e.target.value })} />
                 </DetailField>
@@ -393,13 +514,15 @@ const ProjectDetailPage: React.FC = () => {
           </Grid>
         </Grid>
 
-        <PhaseEditor
-          projectId={id!}
-          projectStartDate={project.start_date}
-          projectEndDate={project.end_date}
-          onSaveSuccess={handlePhaseSaveSuccess}
-          onSaveError={handlePhaseSaveError}
-        />
+        <Box id="project-phase-editor" sx={{ scrollMarginTop: 16 }}>
+          <PhaseEditor
+            projectId={id!}
+            projectStartDate={project.start_date}
+            projectEndDate={project.end_date}
+            onSaveSuccess={handlePhaseSaveSuccess}
+            onSaveError={handlePhaseSaveError}
+          />
+        </Box>
       </TabPanel>
 
       <TabPanel value={tabValue} index={1}>
@@ -481,6 +604,17 @@ const ProjectDetailPage: React.FC = () => {
           clearConflict()
           setIsEditingInfo(false)
         }}
+      />
+
+      <ProjectDateConstraintDialog
+        open={dateConstraintDialogOpen}
+        preview={dateConstraintPreview}
+        loading={dateConstraintLoading}
+        saving={dateConstraintSaving}
+        onClose={() => setDateConstraintDialogOpen(false)}
+        onRecheck={checkDateConstraints}
+        onProceed={performProjectUpdate}
+        onResolve={handleResolveDateConstraint}
       />
     </Box>
   )

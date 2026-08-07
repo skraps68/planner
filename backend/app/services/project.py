@@ -8,6 +8,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ValidationError
+from app.models.nonlabor_plan import NonLaborPlanStatus
 from app.models.project import Project, ProjectPhase
 from app.repositories.project import project_repository, project_phase_repository
 from app.repositories.program import program_repository
@@ -151,6 +153,236 @@ class ProjectService:
             return self.repository.get_active_projects(db, as_of_date)
         else:
             return self.repository.get_multi(db, skip=skip, limit=limit)
+
+    def preview_date_change(
+        self,
+        db: Session,
+        project_id: UUID,
+        proposed_start: date,
+        proposed_end: date,
+    ) -> dict:
+        """Validate a proposed inclusive project range without changing data."""
+        project = self.repository.get(db, project_id)
+        if not project:
+            raise ValueError(f"Project with ID {project_id} not found")
+
+        constraints = []
+
+        def add_constraint(
+            constraint_id: str,
+            label: str,
+            passed: bool,
+            pass_message: str,
+            fail_message: str,
+            resolution_target: Optional[str] = None,
+            details: Optional[dict] = None,
+        ) -> None:
+            constraints.append({
+                "id": constraint_id,
+                "label": label,
+                "status": "pass" if passed else "fail",
+                "message": pass_message if passed else fail_message,
+                "resolution_target": None if passed else resolution_target,
+                "details": details or {},
+            })
+
+        range_valid = proposed_start < proposed_end
+        add_constraint(
+            "project_range",
+            "Project date range",
+            range_valid,
+            "The proposed start date is before the proposed end date.",
+            "The project start date must be before the project end date.",
+            "project",
+        )
+
+        program = project.program
+        program_valid = bool(
+            range_valid
+            and program
+            and program.start_date <= proposed_start
+            and proposed_end <= program.end_date
+        )
+        program_details = {
+            "program_id": str(program.id) if program else None,
+            "program_name": program.name if program else None,
+            "program_start_date": str(program.start_date) if program else None,
+            "program_end_date": str(program.end_date) if program else None,
+        }
+        program_range = (
+            f"{program.start_date} through {program.end_date}"
+            if program else "unavailable"
+        )
+        add_constraint(
+            "program_range",
+            "Parent program dates",
+            program_valid,
+            f"The project fits within {program.name}'s date range ({program_range})." if program else "",
+            f"The project must fit within its parent program date range ({program_range}).",
+            "program",
+            program_details,
+        )
+
+        phases = sorted(
+            self.phase_repository.get_by_project(db, project_id),
+            key=lambda phase: phase.start_date,
+        )
+        candidate_phases = []
+        for index, phase in enumerate(phases):
+            phase_start = proposed_start if index == 0 else phase.start_date
+            phase_end = proposed_end if index == len(phases) - 1 else phase.end_date
+            candidate_phases.append({
+                "id": phase.id,
+                "name": phase.name,
+                "start_date": phase_start,
+                "end_date": phase_end,
+            })
+
+        phase_validation = phase_service.validator.validate_phase_timeline(
+            proposed_start,
+            proposed_end,
+            candidate_phases,
+        ) if range_valid and candidate_phases else None
+        phase_valid = bool(candidate_phases and phase_validation and phase_validation.is_valid)
+        phase_errors = []
+        if not candidate_phases:
+            phase_errors.append({"message": "The project has no phases."})
+        elif phase_validation:
+            phase_errors = [
+                {
+                    "field": error.field,
+                    "message": error.message,
+                    "phase_id": str(error.phase_id) if error.phase_id else None,
+                }
+                for error in phase_validation.errors
+            ]
+        phase_failure_message = (
+            " ".join(error["message"] for error in phase_errors[:2])
+            if phase_errors
+            else "Resolve the phase timeline first."
+        )
+        add_constraint(
+            "phase_timeline",
+            "Phase dates and sequence",
+            phase_valid,
+            f"All {len(phases)} phase{'s' if len(phases) != 1 else ''} cover the proposed dates without gaps or overlaps.",
+            phase_failure_message,
+            "phases",
+            {"phase_count": len(phases), "errors": phase_errors},
+        )
+
+        outside_assignments = [
+            assignment for assignment in project.resource_assignments
+            if assignment.assignment_date < proposed_start
+            or assignment.assignment_date > proposed_end
+        ]
+        assignment_dates = sorted(
+            assignment.assignment_date for assignment in outside_assignments
+        )
+        add_constraint(
+            "labor_assignments",
+            "Labor assignments",
+            not outside_assignments,
+            "All labor assignments are within the proposed project dates.",
+            f"{len(outside_assignments)} labor assignment entr{'y is' if len(outside_assignments) == 1 else 'ies are'} outside the proposed project dates.",
+            "labor",
+            {
+                "outside_count": len(outside_assignments),
+                "first_outside_date": str(assignment_dates[0]) if assignment_dates else None,
+                "last_outside_date": str(assignment_dates[-1]) if assignment_dates else None,
+            },
+        )
+
+        active_plan_lines = [
+            line for line in project.nonlabor_plan_lines
+            if line.status == NonLaborPlanStatus.ACTIVE
+        ]
+        conflicting_plan_lines = []
+        outside_occurrence_count = 0
+        outside_amount = Decimal("0")
+        for line in active_plan_lines:
+            outside_occurrences = [
+                occurrence for occurrence in line.occurrences
+                if occurrence.occurrence_date < proposed_start
+                or occurrence.occurrence_date > proposed_end
+            ]
+            schedule_outside = bool(
+                (line.schedule_start and line.schedule_start < proposed_start)
+                or (line.schedule_end and line.schedule_end > proposed_end)
+            )
+            if outside_occurrences or schedule_outside:
+                outside_occurrence_count += len(outside_occurrences)
+                outside_amount += sum(
+                    (occurrence.effective_amount for occurrence in outside_occurrences),
+                    Decimal("0"),
+                )
+                conflicting_plan_lines.append({
+                    "id": str(line.id),
+                    "name": line.name,
+                    "schedule_start": str(line.schedule_start) if line.schedule_start else None,
+                    "schedule_end": str(line.schedule_end) if line.schedule_end else None,
+                    "outside_occurrence_count": len(outside_occurrences),
+                })
+        conflicting_plan_names = ", ".join(
+            line["name"] for line in conflicting_plan_lines[:3]
+        )
+        if len(conflicting_plan_lines) > 3:
+            conflicting_plan_names += ", and others"
+        cost_plan_failure_message = (
+            f"{len(conflicting_plan_lines)} active cost "
+            f"plan{' is' if len(conflicting_plan_lines) == 1 else 's are'} "
+            f"outside the proposed dates ({conflicting_plan_names}); "
+            f"{outside_occurrence_count} dated amount"
+            f"{' is' if outside_occurrence_count == 1 else 's are'} affected "
+            f"for {outside_amount:,.2f}."
+        )
+        add_constraint(
+            "nonlabor_cost_plans",
+            "Non-labor cost plans",
+            not conflicting_plan_lines,
+            "All active non-labor cost plans are within the proposed project dates.",
+            cost_plan_failure_message,
+            "non_labor",
+            {
+                "conflicting_line_count": len(conflicting_plan_lines),
+                "outside_occurrence_count": outside_occurrence_count,
+                "outside_amount": str(outside_amount),
+                "plan_lines": conflicting_plan_lines,
+            },
+        )
+
+        outside_actuals = [
+            actual for actual in project.actuals
+            if actual.actual_date < proposed_start or actual.actual_date > proposed_end
+        ]
+        actual_dates = sorted(actual.actual_date for actual in outside_actuals)
+        add_constraint(
+            "actuals",
+            "Actuals",
+            not outside_actuals,
+            "All loaded actuals are within the proposed project dates.",
+            f"{len(outside_actuals)} actual entr{'y is' if len(outside_actuals) == 1 else 'ies are'} outside the proposed project dates.",
+            "actuals",
+            {
+                "outside_count": len(outside_actuals),
+                "first_outside_date": str(actual_dates[0]) if actual_dates else None,
+                "last_outside_date": str(actual_dates[-1]) if actual_dates else None,
+            },
+        )
+
+        blocking_count = sum(
+            constraint["status"] == "fail" for constraint in constraints
+        )
+        return {
+            "project_id": str(project.id),
+            "current_start_date": str(project.start_date),
+            "current_end_date": str(project.end_date),
+            "proposed_start_date": str(proposed_start),
+            "proposed_end_date": str(proposed_end),
+            "can_proceed": blocking_count == 0,
+            "blocking_count": blocking_count,
+            "constraints": constraints,
+        }
     
     def update_project(
         self,
@@ -226,9 +458,25 @@ class ProjectService:
         
         phase_adjustments = []  # Track phase adjustments for user notification
         
-        if start_date is not None or end_date is not None:
+        dates_changed = (
+            new_start != project.start_date or new_end != project.end_date
+        )
+
+        if dates_changed:
             if new_start >= new_end:
                 raise ValueError("Start date must be before end date")
+            preview = self.preview_date_change(
+                db,
+                project_id,
+                proposed_start=new_start,
+                proposed_end=new_end,
+            )
+            if not preview["can_proceed"]:
+                raise ValidationError(
+                    code="PROJECT_DATE_CONSTRAINTS",
+                    message="Resolve the project date conflicts before saving.",
+                    details={"preview": preview},
+                )
             
             if start_date is not None:
                 update_data["start_date"] = start_date

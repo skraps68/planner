@@ -248,6 +248,8 @@ describe('ResourceAssignmentCalendar - Read-Only Display', () => {
       expect(screen.getByRole('img', {
         name: 'Labor usage over time: Assigned labor heads',
       })).toBeInTheDocument()
+      expect(screen.getByTestId('project-start-boundary')).toHaveAttribute('x1', '1')
+      expect(screen.getByTestId('project-end-boundary')).toHaveAttribute('x1', '209')
       expect(screen.queryByText('Available capacity')).not.toBeInTheDocument()
       expect(screen.queryByText('Capacity limit')).not.toBeInTheDocument()
     })

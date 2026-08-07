@@ -214,7 +214,10 @@ const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
 
       const rect = timelineRef.current.getBoundingClientRect()
       const relativeX = Math.max(0, Math.min(pixelX - rect.left, rect.width))
-      const dayOffset = Math.round((relativeX / rect.width) * totalDays)
+      // Both project endpoints are inclusive: the left edge is the first day
+      // and the right edge is the last day, not the day after the project.
+      const finalDayOffset = Math.max(0, totalDays - 1)
+      const dayOffset = Math.round((relativeX / rect.width) * finalDayOffset)
 
       const startDate = new Date(projectStartDate)
       const targetDate = new Date(startDate)

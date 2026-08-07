@@ -131,6 +131,8 @@ describe('NonLaborAssignmentsGrid', () => {
       .toHaveTextContent('200')
     expect(screen.getByText('Capital')).toBeInTheDocument()
     expect(screen.getByText('Expense')).toBeInTheDocument()
+    expect(screen.getByTestId('project-start-boundary')).toHaveAttribute('x1', '1')
+    expect(screen.getByTestId('project-end-boundary')).toHaveAttribute('x1', '293')
 
     await user.click(screen.getByRole('button', { name: 'Weekly view' }))
 
@@ -172,6 +174,32 @@ describe('NonLaborAssignmentsGrid', () => {
         name: /Forecast Line Name/,
       })).toHaveValue('Equipment')
     })
+  })
+
+  it('disables bulk editing when plan lines have no editable occurrences', async () => {
+    mocks.list.mockResolvedValue([
+      {
+        ...line('empty-plan', 'Empty Schedule', 'CAPITAL', 0),
+        occurrences: [],
+      },
+    ])
+
+    render(
+      <NonLaborAssignmentsGrid
+        perspective="project"
+        project={{
+          id: 'project-1',
+          name: 'ERP Replacement',
+          start_date: '2026-01-04',
+          end_date: '2026-01-10',
+          currency_code: 'USD',
+        }}
+      />,
+    )
+
+    await screen.findByText('Software Subscription')
+    expect(screen.getByRole('button', { name: /^Edit$/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add Cost Plan' })).toBeEnabled()
   })
 
   it('invalidates financial forecasts after saving occurrence overrides', async () => {

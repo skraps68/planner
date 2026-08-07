@@ -1,4 +1,5 @@
 import { ProjectPhase, PhaseValidationError, PhaseValidationResult } from '../types'
+import { parseDateOnly } from './dateOnly'
 
 /**
  * Validates phases for timeline continuity and constraints
@@ -221,8 +222,8 @@ export const validatePhases = (
  * Calculate the next day after a given date
  */
 export const getNextDay = (dateString: string): string => {
-  const date = new Date(dateString + 'T00:00:00')
-  date.setDate(date.getDate() + 1)
+  const date = new Date(`${dateString}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + 1)
   return date.toISOString().split('T')[0]
 }
 
@@ -230,8 +231,8 @@ export const getNextDay = (dateString: string): string => {
  * Calculate the previous day before a given date
  */
 export const getPreviousDay = (dateString: string): string => {
-  const date = new Date(dateString + 'T00:00:00')
-  date.setDate(date.getDate() - 1)
+  const date = new Date(`${dateString}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() - 1)
   return date.toISOString().split('T')[0]
 }
 
@@ -239,7 +240,7 @@ export const getPreviousDay = (dateString: string): string => {
  * Format date for display
  */
 export const formatDate = (dateString: string): string => {
-  const date = new Date(dateString)
+  const date = parseDateOnly(dateString)
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -248,7 +249,8 @@ export const formatDate = (dateString: string): string => {
 }
 
 /**
- * Calculate days between two dates (inclusive)
+ * Calculate the elapsed calendar-day distance between two dates.
+ * Add one when converting this distance to an inclusive duration.
  */
 export const calculateDaysBetween = (startDate: string, endDate: string): number => {
   const start = new Date(startDate)
@@ -262,8 +264,8 @@ export const calculateDaysBetween = (startDate: string, endDate: string): number
  */
 export const calculatePhaseDuration = (phase: Partial<ProjectPhase>): number => {
   if (!phase.start_date || !phase.end_date) return 0
-  const start = new Date(phase.start_date + 'T00:00:00')
-  const end = new Date(phase.end_date + 'T00:00:00')
+  const start = new Date(`${phase.start_date}T00:00:00Z`)
+  const end = new Date(`${phase.end_date}T00:00:00Z`)
   const diffTime = end.getTime() - start.getTime()
   const days = diffTime / (1000 * 60 * 60 * 24)
   return Math.round(days) + 1 // +1 for inclusive
@@ -273,8 +275,8 @@ export const calculatePhaseDuration = (phase: Partial<ProjectPhase>): number => 
  * Add days to a date string
  */
 export const addDays = (dateString: string, days: number): string => {
-  const date = new Date(dateString + 'T00:00:00')
-  date.setDate(date.getDate() + days)
+  const date = new Date(`${dateString}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
   return date.toISOString().split('T')[0]
 }
 

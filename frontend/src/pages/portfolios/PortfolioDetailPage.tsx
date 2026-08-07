@@ -39,6 +39,11 @@ import DetailPaneHeader from '../../components/common/DetailPaneHeader'
 import DetailField, { DETAIL_BUTTON_BAND_VIEW, DETAIL_BUTTON_BAND_EDIT } from '../../components/common/DetailField'
 import ConflictDialog from '../../components/common/ConflictDialog'
 import { useConflictHandler } from '../../hooks/useConflictHandler'
+import {
+  getInclusiveDateRangeStatus,
+  localDateOnlyKey,
+  parseDateOnly,
+} from '../../utils/dateOnly'
 
 const PortfolioDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -88,7 +93,7 @@ const PortfolioDetailPage: React.FC = () => {
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
   const [toggle, setToggle] = useState<LaborToggle>({ laborOn: true, nonlaborOn: true })
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const today = useMemo(() => localDateOnlyKey(), [])
 
   // Projects for the selected program (drill-down tier 2)
   const { data: projectsData } = useQuery({
@@ -278,17 +283,17 @@ const PortfolioDetailPage: React.FC = () => {
   }
 
   // Determine portfolio status based on reporting dates
-  const now = new Date()
-  const reportingStartDate = new Date(portfolio.reporting_start_date)
-  const reportingEndDate = new Date(portfolio.reporting_end_date)
-
+  const rangeStatus = getInclusiveDateRangeStatus(
+    portfolio.reporting_start_date,
+    portfolio.reporting_end_date,
+  )
   let status = 'Active'
   let statusColor: 'success' | 'warning' | 'default' = 'success'
 
-  if (now < reportingStartDate) {
+  if (rangeStatus === 'planned') {
     status = 'Planned'
     statusColor = 'warning'
-  } else if (now > reportingEndDate) {
+  } else if (rangeStatus === 'completed') {
     status = 'Completed'
     statusColor = 'default'
   }
@@ -333,14 +338,14 @@ const PortfolioDetailPage: React.FC = () => {
             <DetailField label="ID" editing={isEditing} value={portfolio.business_id} />
             <DetailField label="Start Date" editing={isEditing}
               info="Financials captured within these dates regardless of program/project dates."
-              value={format(new Date(portfolio.reporting_start_date), 'MMMM dd, yyyy')}>
+              value={format(parseDateOnly(portfolio.reporting_start_date), 'MMMM dd, yyyy')}>
               <TextField fullWidth size="small" type="date" value={editValues.reporting_start_date}
                 onChange={(e) => setEditValues({ ...editValues, reporting_start_date: e.target.value })}
                 error={!!validationErrors.reporting_start_date} helperText={validationErrors.reporting_start_date} />
             </DetailField>
             <DetailField label="End Date" editing={isEditing}
               info="Financials captured within these dates regardless of program/project dates."
-              value={format(new Date(portfolio.reporting_end_date), 'MMMM dd, yyyy')}>
+              value={format(parseDateOnly(portfolio.reporting_end_date), 'MMMM dd, yyyy')}>
               <TextField fullWidth size="small" type="date" value={editValues.reporting_end_date}
                 onChange={(e) => setEditValues({ ...editValues, reporting_end_date: e.target.value })}
                 error={!!validationErrors.reporting_end_date} helperText={validationErrors.reporting_end_date} />
@@ -461,8 +466,8 @@ const PortfolioDetailPage: React.FC = () => {
                     <TableCell>{program.name}</TableCell>
                     <TableCell>{program.business_sponsor}</TableCell>
                     <TableCell>{program.program_manager}</TableCell>
-                    <TableCell>{format(new Date(program.start_date), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>{format(new Date(program.end_date), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell>{format(parseDateOnly(program.start_date), 'MMM dd, yyyy')}</TableCell>
+                    <TableCell>{format(parseDateOnly(program.end_date), 'MMM dd, yyyy')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

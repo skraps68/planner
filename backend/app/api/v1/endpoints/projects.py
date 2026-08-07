@@ -14,6 +14,8 @@ from app.api.deps import get_db, get_current_user
 from app.models.user import User
 from app.schemas.project import (
     ProjectCreate,
+    ProjectDateChangePreview,
+    ProjectDateChangePreviewRequest,
     ProjectUpdate,
     ProjectResponse,
     ProjectListResponse,
@@ -25,7 +27,7 @@ from app.schemas.project import (
 from app.schemas.base import SuccessResponse, PaginationParams
 from app.services.project import project_service, phase_service
 from app.services.reporting import reporting_service
-from app.core.exceptions import ConflictError
+from app.core.exceptions import AppException, ConflictError
 
 router = APIRouter()
 
@@ -226,6 +228,34 @@ async def get_project(
     return response
 
 
+@router.post(
+    "/{project_id}/date-change-preview",
+    response_model=ProjectDateChangePreview,
+    summary="Preview a project date change",
+    description="Check all date-bound project constraints without changing data",
+)
+async def preview_project_date_change(
+    project_id: UUID,
+    proposed: ProjectDateChangePreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return an actionable checklist for proposed inclusive project dates."""
+    try:
+        preview = project_service.preview_date_change(
+            db,
+            project_id,
+            proposed_start=proposed.start_date,
+            proposed_end=proposed.end_date,
+        )
+        return ProjectDateChangePreview.model_validate(preview)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+
 @router.get(
     "/cost-center/{cost_center_code}",
     response_model=ProjectResponse,
@@ -317,7 +347,9 @@ async def update_project(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Project with ID {project_id} not found"
             )
-        
+
+    except AppException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

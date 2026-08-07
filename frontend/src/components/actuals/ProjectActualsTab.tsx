@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { actualsApi } from '../../api/actuals'
 import { prioritizeGridColumns } from '../common/DataTable'
 import PersistentDataGrid from '../common/PersistentDataGrid'
+import { parseDateOnly } from '../../utils/dateOnly'
 
 interface ProjectActualsTabProps {
   projectId: string
@@ -17,7 +18,7 @@ const columns: GridColDef[] = prioritizeGridColumns([
     headerName: 'Date',
     width: 120,
     valueFormatter: (params: GridValueFormatterParams) =>
-      format(new Date(params.value as string), 'yyyy-MM-dd'),
+      format(parseDateOnly(params.value as string), 'yyyy-MM-dd'),
   },
   { field: 'worker_name', headerName: 'Worker', width: 180 },
   { field: 'external_worker_id', headerName: 'Worker ID', width: 120 },

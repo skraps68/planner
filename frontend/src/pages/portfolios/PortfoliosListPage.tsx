@@ -32,17 +32,21 @@ import HighlightedLabel from '../../components/portfolio/HighlightedLabel'
 import { usePermissions, useScopeFilter } from '../../hooks/usePermissions'
 import { LIST_SCROLL_KEY, usePortfolioListState } from '../../hooks/usePortfolioListState'
 import { getLastHierarchyDetail } from '../../utils/hierarchySession'
+import {
+  getInclusiveDateRangeStatus,
+  parseDateOnly,
+} from '../../utils/dateOnly'
 
-const formatDate = (value: string) => format(new Date(value), 'MMM dd, yyyy')
+const formatDate = (value: string) => format(parseDateOnly(value), 'MMM dd, yyyy')
 
 const StatusChip: React.FC<{ startDate: string; endDate: string }> = ({ startDate, endDate }) => {
-  const now = new Date()
+  const rangeStatus = getInclusiveDateRangeStatus(startDate, endDate)
   let status = 'Active'
   let color: 'success' | 'warning' | 'default' = 'success'
-  if (now < new Date(startDate)) {
+  if (rangeStatus === 'planned') {
     status = 'Planned'
     color = 'warning'
-  } else if (now > new Date(endDate)) {
+  } else if (rangeStatus === 'completed') {
     status = 'Completed'
     color = 'default'
   }

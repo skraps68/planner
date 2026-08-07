@@ -52,7 +52,7 @@ export const AssignmentDraftRows = ({
         <TableCell key={period.key} sx={getAssignmentsGridPeriodSx(period)} />
       ))}
     </TableRow>
-    <TableRow role="row">
+    <TableRow role="row" data-assignment-rowspan-continuation="true">
       <TableCell
         sx={{
           position: 'sticky',
@@ -72,4 +72,3 @@ export const AssignmentDraftRows = ({
     </TableRow>
   </>
 )
-

@@ -3,7 +3,7 @@ Project-related Pydantic schemas.
 """
 from datetime import date
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import Field, field_validator
@@ -61,6 +61,37 @@ class ProjectUpdate(VersionedSchema):
             if v <= info.data['start_date']:
                 raise ValueError('End date must be after start date')
         return v
+
+
+class ProjectDateChangePreviewRequest(BaseSchema):
+    """Proposed inclusive project dates to validate before an update."""
+
+    start_date: date
+    end_date: date
+
+
+class ProjectDateConstraint(BaseSchema):
+    """One user-actionable constraint in a project date-change preview."""
+
+    id: str
+    label: str
+    status: Literal["pass", "fail"]
+    message: str
+    resolution_target: Optional[Literal["project", "program", "phases", "labor", "non_labor", "actuals"]] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ProjectDateChangePreview(BaseSchema):
+    """Complete preflight result for an inclusive project date change."""
+
+    project_id: UUID
+    current_start_date: date
+    current_end_date: date
+    proposed_start_date: date
+    proposed_end_date: date
+    can_proceed: bool
+    blocking_count: int
+    constraints: List[ProjectDateConstraint]
 
 
 class ProjectPhaseBase(BaseSchema):

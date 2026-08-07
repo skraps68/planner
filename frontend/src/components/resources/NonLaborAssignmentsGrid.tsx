@@ -215,6 +215,9 @@ export default function NonLaborAssignmentsGrid({
     queryFn: () => nonlaborPlansApi.list(queryParams),
     enabled: Boolean(project?.id ?? resource?.id),
   })
+  const hasEditableOccurrences = lines.some(
+    (line) => line.occurrences.length > 0,
+  )
 
   const groups = useMemo<Group[]>(() => {
     const map = new Map<string, Group>()
@@ -414,6 +417,7 @@ export default function NonLaborAssignmentsGrid({
   }
 
   const handleEdit = () => {
+    if (!hasEditableOccurrences) return
     setViewMode('daily')
     setDisplayMode('plan')
     setChanges(new Map())
@@ -518,6 +522,8 @@ export default function NonLaborAssignmentsGrid({
             displayMode: effectiveDisplayMode,
             actualsThroughDate: nonLaborWatermark,
             reportingDate: actualsContext?.reporting_date,
+            projectStartDate: perspective === 'project' ? project?.start_date : undefined,
+            projectEndDate: perspective === 'project' ? project?.end_date : undefined,
             stackedSeries: effectiveDisplayMode === 'plan' ? [
               {
                 label: 'Capital',
@@ -555,7 +561,7 @@ export default function NonLaborAssignmentsGrid({
                   size="small"
                   startIcon={<EditIcon />}
                   onClick={handleEdit}
-                  disabled={lines.length === 0}
+                  disabled={saving || !hasEditableOccurrences}
                 >
                   Edit
                 </Button>
@@ -635,7 +641,12 @@ export default function NonLaborAssignmentsGrid({
             return (
               <React.Fragment key={group.id}>
                 {(['CAPITAL', 'EXPENSE'] as NonLaborCostTreatment[]).map((treatmentValue, treatmentIndex) => (
-                  <TableRow key={`${group.id}-${treatmentValue}`}>
+                  <TableRow
+                    key={`${group.id}-${treatmentValue}`}
+                    data-assignment-rowspan-continuation={
+                      treatmentIndex === 1 ? 'true' : undefined
+                    }
+                  >
                     {treatmentIndex === 0 && (
                       <TableCell
                         rowSpan={2}

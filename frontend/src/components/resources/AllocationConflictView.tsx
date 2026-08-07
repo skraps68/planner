@@ -19,6 +19,7 @@ import {
 } from '@mui/material'
 import { Warning as WarningIcon } from '@mui/icons-material'
 import { assignmentsApi, AssignmentConflict } from '../../api/assignments'
+import { localDateOnlyKey, parseDateOnly } from '../../utils/dateOnly'
 
 interface AllocationConflictViewProps {
   resourceId: string
@@ -29,10 +30,10 @@ const AllocationConflictView = ({ resourceId }: AllocationConflictViewProps) => 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [startDate, setStartDate] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+    localDateOnlyKey(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   )
   const [endDate, setEndDate] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+    localDateOnlyKey(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
   )
 
   const checkConflicts = async () => {
@@ -115,7 +116,7 @@ const AllocationConflictView = ({ resourceId }: AllocationConflictViewProps) => 
                   {conflicts.map((conflict, index) => (
                     <TableRow key={index}>
                       <TableCell>
-                        {new Date(conflict.assignment_date).toLocaleDateString()}
+                        {parseDateOnly(conflict.assignment_date).toLocaleDateString()}
                       </TableCell>
                       <TableCell>{conflict.resource_name}</TableCell>
                       <TableCell align="right">
